@@ -6,7 +6,10 @@ describe('health route', () => {
   test('returns ok status', async () => {
     const response = await request(createApp()).get('/api/health').expect(200)
 
-    expect(response.body.success).toBe(true)
-    expect(response.body.data.status).toBe('ok')
+    expect(response.body).toEqual({
+      success: true,
+      data: { status: 'ok' },
+      error: null,
+    })
   })
 })

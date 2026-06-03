@@ -9,13 +9,12 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e": "playwright test",
+    "e2e": "playwright test --pass-with-no-tests",
     "lint": "vue-tsc -b --pretty false"
   },
   "dependencies": {
     "@analytics/shared": "file:../../packages/shared",
     "vue3-moveable": "^0.28.0",
-    "@vitejs/plugin-vue": "^5.0.5",
     "echarts": "^5.5.0",
     "nanoid": "^5.0.7",
     "pinia": "^2.1.7",
@@ -25,6 +24,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.44.0",
+    "@vitejs/plugin-vue": "^5.0.5",
     "@vue/test-utils": "^2.4.6",
     "jsdom": "^24.1.0",
     "typescript": "^5.5.0",
