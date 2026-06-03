@@ -20,4 +20,15 @@ describe('ComponentPalette', () => {
     expect(store.schema.components).toHaveLength(1)
     expect(store.selectedComponent).toMatchObject({ type: 'text', name: 'Text' })
   })
+
+  test('disables component creation while saving', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const wrapper = mount(ComponentPalette, { global: { plugins: [pinia] } })
+    const store = useDashboardDesignerStore()
+    store.isSaving = true
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.get('[data-testid="add-text"]').attributes('disabled')).toBeDefined()
+  })
 })

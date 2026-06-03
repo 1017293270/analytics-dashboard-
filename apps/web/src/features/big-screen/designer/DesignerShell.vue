@@ -45,13 +45,8 @@ function isAbortError(error: unknown) {
 function createLocalDraft() {
   loadController?.abort()
   loadError.value = null
-  designer.dashboardId = null
-  designer.dashboardName = LOCAL_DRAFT_NAME
-  designer.dashboardStatus = null
-  designer.schema = createDefaultDashboardSchema()
-  designer.selectedComponentId = null
+  designer.replaceLocalDraft(createDefaultDashboardSchema(), LOCAL_DRAFT_NAME)
   designer.zoom = clampZoom(0.5)
-  designer.error = null
   designer.isLoading = false
   designer.isSaving = false
   resetHistory()
@@ -100,6 +95,7 @@ function retryLoad() {
 watch(routeDashboardId, (id) => void loadDashboardForRoute(id), { immediate: true })
 
 onBeforeUnmount(() => {
+  loadSequence += 1
   loadController?.abort()
 })
 </script>

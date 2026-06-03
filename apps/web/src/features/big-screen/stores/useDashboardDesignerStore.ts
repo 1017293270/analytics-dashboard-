@@ -11,8 +11,10 @@ type ComponentPatch = Partial<Omit<DashboardComponent, 'layout' | 'props' | 'sty
 type DesignerState = {
   dashboardId: string | null
   dashboardName: string
+  savedDashboardName: string
   dashboardStatus: DashboardRecord['status'] | null
   schema: DashboardSchema
+  savedSchemaSignature: string
   selectedComponentId: string | null
   zoom: number
   isLoading: boolean
@@ -70,8 +72,10 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
   state: (): DesignerState => ({
     dashboardId: null,
     dashboardName: DEFAULT_DASHBOARD_NAME,
+    savedDashboardName: DEFAULT_DASHBOARD_NAME,
     dashboardStatus: null,
     schema: createDefaultDashboardSchema(),
+    savedSchemaSignature: stableStringify(createDefaultDashboardSchema()),
     selectedComponentId: null,
     zoom: 1,
     isLoading: false,
@@ -85,14 +89,35 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
     selectedComponentLocked(state): boolean {
       return isComponentLocked(state.schema, state.selectedComponentId)
     },
+    isDashboardNameDirty(state): boolean {
+      return state.dashboardName.trim() !== state.savedDashboardName
+    },
+    isSchemaDirty(state): boolean {
+      return stableStringify(state.schema) !== state.savedSchemaSignature
+    },
+    hasUnsavedChanges(): boolean {
+      return this.isDashboardNameDirty || this.isSchemaDirty
+    },
   },
   actions: {
+    replaceLocalDraft(schema: DashboardSchema = createDefaultDashboardSchema(), name = DEFAULT_DASHBOARD_NAME) {
+      this.dashboardId = null
+      this.dashboardName = name
+      this.savedDashboardName = name
+      this.dashboardStatus = null
+      this.schema = cloneSchema(schema)
+      this.savedSchemaSignature = stableStringify(this.schema)
+      this.selectedComponentId = null
+      this.error = null
+    },
     replaceDashboardForLoad(record: DashboardRecord) {
       const history = useDashboardHistoryStore()
       this.dashboardId = record.id
       this.dashboardName = record.name
+      this.savedDashboardName = record.name
       this.dashboardStatus = record.status
       this.schema = cloneSchema(record.draftSchema)
+      this.savedSchemaSignature = stableStringify(this.schema)
       this.selectedComponentId = null
       this.error = null
       history.past = []
@@ -102,10 +127,24 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       const selectedComponentId = this.selectedComponentId
       this.dashboardId = record.id
       this.dashboardName = record.name
+      this.savedDashboardName = record.name
       this.dashboardStatus = record.status
       this.schema = cloneSchema(record.draftSchema)
+      this.savedSchemaSignature = stableStringify(this.schema)
       this.selectedComponentId = hasComponent(this.schema, selectedComponentId) ? selectedComponentId : null
       this.error = null
+    },
+    applyCreatedDashboardIdentity(record: DashboardRecord) {
+      this.dashboardId = record.id
+      this.dashboardName = record.name
+      this.savedDashboardName = record.name
+      this.dashboardStatus = record.status
+      this.error = null
+    },
+    setDashboardName(name: string) {
+      if (this.isSaving) return
+
+      this.dashboardName = name
     },
     async createDashboard(input: { name: string; description?: string } = { name: DEFAULT_DASHBOARD_NAME }) {
       this.isLoading = true
@@ -134,6 +173,8 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       }
     },
     patchSchema(mutator: (draft: DashboardSchema) => void) {
+      if (this.isSaving) return
+
       const history = useDashboardHistoryStore()
       const previous = cloneSchema(this.schema)
       const next = cloneSchema(this.schema)
@@ -151,12 +192,15 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       }
     },
     addComponent(component: DashboardComponent) {
+      if (this.isSaving) return
+
       this.patchSchema((draft) => {
         draft.components = [...draft.components, JSON.parse(JSON.stringify(component)) as DashboardComponent]
       })
       this.selectedComponentId = component.id
     },
     updateComponent(componentId: string, patch: ComponentPatch) {
+      if (this.isSaving) return
       if (isComponentLocked(this.schema, componentId) && !isLockOnlyPatch(patch)) {
         return
       }
@@ -173,6 +217,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       })
     },
     patchComponentProps(componentId: string, propsPatch: Record<string, unknown>) {
+      if (this.isSaving) return
       if (isComponentLocked(this.schema, componentId)) {
         return
       }
@@ -184,6 +229,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       })
     },
     replaceComponentProps(componentId: string, props: Record<string, unknown>) {
+      if (this.isSaving) return
       if (isComponentLocked(this.schema, componentId)) {
         return
       }
@@ -195,6 +241,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       })
     },
     patchComponentStyle(componentId: string, stylePatch: Record<string, unknown>) {
+      if (this.isSaving) return
       if (isComponentLocked(this.schema, componentId)) {
         return
       }
@@ -206,6 +253,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       })
     },
     replaceComponentStyle(componentId: string, style: Record<string, unknown>) {
+      if (this.isSaving) return
       if (isComponentLocked(this.schema, componentId)) {
         return
       }
@@ -217,6 +265,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       })
     },
     unsetComponentProp(componentId: string, key: string) {
+      if (this.isSaving) return
       if (isComponentLocked(this.schema, componentId)) {
         return
       }
@@ -230,6 +279,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       })
     },
     unsetComponentStyle(componentId: string, key: string) {
+      if (this.isSaving) return
       if (isComponentLocked(this.schema, componentId)) {
         return
       }
@@ -243,6 +293,8 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       })
     },
     removeSelectedComponent() {
+      if (this.isSaving) return
+
       const componentId = this.selectedComponentId
       if (!componentId) return
       if (isComponentLocked(this.schema, componentId)) return
@@ -253,6 +305,8 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       this.selectedComponentId = null
     },
     async saveDraft() {
+      if (this.isSaving) return
+
       this.isSaving = true
       this.error = null
 
@@ -263,6 +317,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
 
         if (!dashboardId) {
           const created = await bigScreenApi.createDashboard({ name })
+          this.applyCreatedDashboardIdentity(created)
           const saved = await bigScreenApi.saveDraft(created.id, schema)
           this.applySavedDashboard(saved)
           return
@@ -278,6 +333,8 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       }
     },
     undo() {
+      if (this.isSaving) return
+
       const history = useDashboardHistoryStore()
       const previous = history.undo(this.schema)
       if (!previous) return
@@ -287,6 +344,8 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       }
     },
     redo() {
+      if (this.isSaving) return
+
       const history = useDashboardHistoryStore()
       const next = history.redo(this.schema)
       if (!next) return

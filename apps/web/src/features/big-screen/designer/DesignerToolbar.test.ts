@@ -43,4 +43,20 @@ describe('DesignerToolbar', () => {
     expect(wrapper.text()).toContain('PUBLISHED')
     expect(wrapper.get('[data-testid="save-dashboard-button"]').attributes('disabled')).toBeDefined()
   })
+
+  test('shows name-only dirty state and freezes name edits while saving', async () => {
+    const { store, wrapper } = mountToolbar()
+    store.dashboardId = 'dashboard-1'
+    store.dashboardName = 'Saved Name'
+    store.savedDashboardName = 'Saved Name'
+    await wrapper.get('[data-testid="dashboard-name-input"]').setValue('Changed Name')
+
+    expect(wrapper.text()).toContain('Unsaved changes')
+
+    store.isSaving = true
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.get('[data-testid="dashboard-name-input"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-testid="save-dashboard-button"]').attributes('disabled')).toBeDefined()
+  })
 })

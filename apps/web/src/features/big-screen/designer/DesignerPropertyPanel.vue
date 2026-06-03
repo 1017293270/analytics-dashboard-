@@ -28,6 +28,7 @@ const showFontSize = computed(() => {
   return Boolean(component && (component.type === 'text' || typeof component.style.fontSize === 'number'))
 })
 const isEditingLocked = computed(() => selectedComponent.value?.layout.locked === true)
+const isEditingDisabled = computed(() => isEditingLocked.value || designer.isSaving)
 
 function getInputValue(event: Event): string {
   return (event.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).value
@@ -36,7 +37,7 @@ function getInputValue(event: Event): string {
 function updateComponentName(event: Event) {
   const component = selectedComponent.value
   if (!component) return
-  if (isEditingLocked.value) return
+  if (isEditingDisabled.value) return
 
   const fallback = selectedDefinition.value?.title ?? 'Component'
   designer.updateComponent(component.id, { name: getInputValue(event).trim() || fallback })
@@ -45,7 +46,7 @@ function updateComponentName(event: Event) {
 function updateComponentProp(key: string, event: Event) {
   const component = selectedComponent.value
   if (!component) return
-  if (isEditingLocked.value) return
+  if (isEditingDisabled.value) return
 
   designer.patchComponentProps(component.id, { [key]: getInputValue(event) })
 }
@@ -72,7 +73,7 @@ function getLayoutBounds(component: DashboardComponent, field: NumericLayoutFiel
 function updateLayoutField(field: NumericLayoutField, event: Event) {
   const component = selectedComponent.value
   if (!component) return
-  if (isEditingLocked.value) return
+  if (isEditingDisabled.value) return
 
   const bounds = getLayoutBounds(component, field)
   const value = parseBoundedNumber(getInputValue(event), component.layout[field], bounds)
@@ -83,7 +84,7 @@ function updateLayoutField(field: NumericLayoutField, event: Event) {
 function updateVisible(event: Event) {
   const component = selectedComponent.value
   if (!component) return
-  if (isEditingLocked.value) return
+  if (isEditingDisabled.value) return
 
   const checked = (event.target as HTMLInputElement).checked
   designer.updateComponent(component.id, { layout: { visible: checked } })
@@ -92,6 +93,7 @@ function updateVisible(event: Event) {
 function updateLocked(event: Event) {
   const component = selectedComponent.value
   if (!component) return
+  if (designer.isSaving) return
 
   const checked = (event.target as HTMLInputElement).checked
   designer.updateComponent(component.id, { layout: { locked: checked } })
@@ -100,7 +102,7 @@ function updateLocked(event: Event) {
 function updateDataBindingId(event: Event) {
   const component = selectedComponent.value
   if (!component) return
-  if (isEditingLocked.value) return
+  if (isEditingDisabled.value) return
 
   const value = getInputValue(event)
   designer.patchSchema((draft) => {
@@ -123,7 +125,7 @@ function styleValue(component: DashboardComponent, key: string): string {
 function updateStyleString(key: string, event: Event) {
   const component = selectedComponent.value
   if (!component) return
-  if (isEditingLocked.value) return
+  if (isEditingDisabled.value) return
 
   const value = getInputValue(event).trim()
   if (value) {
@@ -137,7 +139,7 @@ function updateStyleString(key: string, event: Event) {
 function updateFontSize(event: Event) {
   const component = selectedComponent.value
   if (!component) return
-  if (isEditingLocked.value) return
+  if (isEditingDisabled.value) return
 
   const rawValue = getInputValue(event)
   if (!rawValue.trim()) {
@@ -166,7 +168,7 @@ function updateFontSize(event: Event) {
       <span>The canvas stays editable from the palette and toolbar.</span>
     </div>
 
-    <form v-else class="property-panel__form" :class="{ 'is-locked': isEditingLocked }" @submit.prevent>
+    <form v-else class="property-panel__form" :class="{ 'is-locked': isEditingLocked, 'is-saving': designer.isSaving }" @submit.prevent>
       <section class="property-panel__section">
         <h3>Basic</h3>
         <label class="property-panel__field">
@@ -175,7 +177,7 @@ function updateFontSize(event: Event) {
             data-testid="component-name-input"
             type="text"
             :value="selectedComponent.name"
-            :disabled="isEditingLocked"
+            :disabled="isEditingDisabled"
             maxlength="120"
             @change="updateComponentName"
           />
@@ -185,7 +187,7 @@ function updateFontSize(event: Event) {
           <input
             type="text"
             :value="propString(selectedComponent, 'title')"
-            :disabled="isEditingLocked"
+            :disabled="isEditingDisabled"
             maxlength="160"
             @change="updateComponentProp('title', $event)"
           />
@@ -195,7 +197,7 @@ function updateFontSize(event: Event) {
           <textarea
             rows="3"
             :value="propString(selectedComponent, 'text')"
-            :disabled="isEditingLocked"
+            :disabled="isEditingDisabled"
             maxlength="500"
             @change="updateComponentProp('text', $event)"
           />
@@ -205,7 +207,7 @@ function updateFontSize(event: Event) {
           <input
             type="text"
             :value="propString(selectedComponent, 'src')"
-            :disabled="isEditingLocked"
+            :disabled="isEditingDisabled"
             maxlength="1000"
             @change="updateComponentProp('src', $event)"
           />
@@ -217,7 +219,13 @@ function updateFontSize(event: Event) {
           <strong>{{ selectedComponent.id }}</strong>
         </div>
         <label class="property-panel__check property-panel__check--standalone">
-          <input data-testid="component-locked-input" type="checkbox" :checked="isEditingLocked" @change="updateLocked" />
+          <input
+            data-testid="component-locked-input"
+            type="checkbox"
+            :checked="isEditingLocked"
+            :disabled="designer.isSaving"
+            @change="updateLocked"
+          />
           <span>Locked</span>
         </label>
       </section>
@@ -231,36 +239,36 @@ function updateFontSize(event: Event) {
               data-testid="layout-x-input"
               type="number"
               :value="selectedComponent.layout.x"
-              :disabled="isEditingLocked"
+              :disabled="isEditingDisabled"
               min="0"
               @change="updateLayoutField('x', $event)"
             />
           </label>
           <label class="property-panel__field">
             <span>Y</span>
-            <input type="number" :value="selectedComponent.layout.y" :disabled="isEditingLocked" min="0" @change="updateLayoutField('y', $event)" />
+            <input type="number" :value="selectedComponent.layout.y" :disabled="isEditingDisabled" min="0" @change="updateLayoutField('y', $event)" />
           </label>
           <label class="property-panel__field">
             <span>W</span>
-            <input type="number" :value="selectedComponent.layout.width" :disabled="isEditingLocked" min="24" @change="updateLayoutField('width', $event)" />
+            <input type="number" :value="selectedComponent.layout.width" :disabled="isEditingDisabled" min="24" @change="updateLayoutField('width', $event)" />
           </label>
           <label class="property-panel__field">
             <span>H</span>
-            <input type="number" :value="selectedComponent.layout.height" :disabled="isEditingLocked" min="24" @change="updateLayoutField('height', $event)" />
+            <input type="number" :value="selectedComponent.layout.height" :disabled="isEditingDisabled" min="24" @change="updateLayoutField('height', $event)" />
           </label>
           <label class="property-panel__field">
             <span>Z</span>
             <input
               type="number"
               :value="selectedComponent.layout.zIndex"
-              :disabled="isEditingLocked"
+              :disabled="isEditingDisabled"
               min="0"
               max="10000"
               @change="updateLayoutField('zIndex', $event)"
             />
           </label>
           <label class="property-panel__check">
-            <input type="checkbox" :checked="selectedComponent.layout.visible !== false" :disabled="isEditingLocked" @change="updateVisible" />
+            <input type="checkbox" :checked="selectedComponent.layout.visible !== false" :disabled="isEditingDisabled" @change="updateVisible" />
             <span>Visible</span>
           </label>
         </div>
@@ -270,7 +278,7 @@ function updateFontSize(event: Event) {
         <h3>Data</h3>
         <label class="property-panel__field">
           <span>Binding</span>
-          <select :value="selectedComponent.dataBindingId ?? ''" :disabled="isEditingLocked" @change="updateDataBindingId">
+          <select :value="selectedComponent.dataBindingId ?? ''" :disabled="isEditingDisabled" @change="updateDataBindingId">
             <option value="">No binding</option>
             <option
               v-if="selectedComponent.dataBindingId && hasMissingBinding"
@@ -294,31 +302,31 @@ function updateFontSize(event: Event) {
           <input
             type="text"
             :value="styleValue(selectedComponent, 'backgroundColor')"
-            :disabled="isEditingLocked"
+            :disabled="isEditingDisabled"
             @change="updateStyleString('backgroundColor', $event)"
           />
         </label>
         <label class="property-panel__field property-panel__field--color">
           <span>Text Color</span>
           <i :style="{ background: styleValue(selectedComponent, 'fontColor') || 'transparent' }" aria-hidden="true" />
-          <input type="text" :value="styleValue(selectedComponent, 'fontColor')" :disabled="isEditingLocked" @change="updateStyleString('fontColor', $event)" />
+          <input type="text" :value="styleValue(selectedComponent, 'fontColor')" :disabled="isEditingDisabled" @change="updateStyleString('fontColor', $event)" />
         </label>
         <label class="property-panel__field property-panel__field--color">
           <span>Accent</span>
           <i :style="{ background: styleValue(selectedComponent, 'accentColor') || 'transparent' }" aria-hidden="true" />
-          <input type="text" :value="styleValue(selectedComponent, 'accentColor')" :disabled="isEditingLocked" @change="updateStyleString('accentColor', $event)" />
+          <input type="text" :value="styleValue(selectedComponent, 'accentColor')" :disabled="isEditingDisabled" @change="updateStyleString('accentColor', $event)" />
         </label>
         <label class="property-panel__field property-panel__field--color">
           <span>Border</span>
           <i :style="{ background: styleValue(selectedComponent, 'borderColor') || 'transparent' }" aria-hidden="true" />
-          <input type="text" :value="styleValue(selectedComponent, 'borderColor')" :disabled="isEditingLocked" @change="updateStyleString('borderColor', $event)" />
+          <input type="text" :value="styleValue(selectedComponent, 'borderColor')" :disabled="isEditingDisabled" @change="updateStyleString('borderColor', $event)" />
         </label>
         <label v-if="showFontSize" class="property-panel__field">
           <span>Font Size</span>
           <input
             type="number"
             :value="selectedComponent.style.fontSize ?? ''"
-            :disabled="isEditingLocked"
+            :disabled="isEditingDisabled"
             min="8"
             max="120"
             @change="updateFontSize"
@@ -326,7 +334,7 @@ function updateFontSize(event: Event) {
         </label>
       </section>
 
-      <button class="property-panel__danger" type="button" :disabled="isEditingLocked" @click="designer.removeSelectedComponent">
+      <button class="property-panel__danger" type="button" :disabled="isEditingDisabled" @click="designer.removeSelectedComponent">
         Remove component
       </button>
     </form>

@@ -58,4 +58,16 @@ describe('DesignerPropertyPanel', () => {
     await nextTick()
     expect(wrapper.get('[data-testid="layout-x-input"]').attributes('disabled')).toBeUndefined()
   })
+
+  test('disables selected component edits while saving', async () => {
+    const wrapper = mountWithPinia()
+    const store = useDashboardDesignerStore()
+    store.addComponent(createComponent('text', 20, 30, 1))
+    store.isSaving = true
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="component-name-input"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-testid="layout-x-input"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-testid="component-locked-input"]').attributes('disabled')).toBeDefined()
+  })
 })

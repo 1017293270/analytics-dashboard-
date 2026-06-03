@@ -34,4 +34,20 @@ describe('DesignerCanvas', () => {
     expect(store.selectedComponent?.layout).toMatchObject({ x: 20, locked: true })
     expect(wrapper.find('.designer-canvas__resize-handle').exists()).toBe(false)
   })
+
+  test('does not move or delete components from keyboard controls while saving', async () => {
+    const { store, wrapper } = mountCanvas()
+    const component = createComponent('text', 20, 30, 1)
+    store.addComponent(component)
+    store.isSaving = true
+    await wrapper.vm.$nextTick()
+
+    const frame = wrapper.get('.designer-canvas__component-frame')
+    await frame.trigger('keydown', { key: 'ArrowRight' })
+    await frame.trigger('keydown', { key: 'Delete' })
+
+    expect(store.schema.components).toHaveLength(1)
+    expect(store.selectedComponent?.layout.x).toBe(20)
+    expect(wrapper.find('.designer-canvas__resize-handle').exists()).toBe(false)
+  })
 })

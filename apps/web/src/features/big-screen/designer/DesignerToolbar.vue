@@ -9,14 +9,14 @@ const history = useDashboardHistoryStore()
 
 const zoomOptions = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2]
 
-const canUndo = computed(() => history.past.length > 0 && !designer.isLoading)
-const canRedo = computed(() => history.future.length > 0 && !designer.isLoading)
+const canUndo = computed(() => history.past.length > 0 && !designer.isLoading && !designer.isSaving)
+const canRedo = computed(() => history.future.length > 0 && !designer.isLoading && !designer.isSaving)
 const hasValidName = computed(() => designer.dashboardName.trim().length > 0)
 const canSave = computed(() => hasValidName.value && !designer.isLoading && !designer.isSaving)
 const recordStatus = computed(() => (designer.dashboardStatus ?? 'local').toUpperCase())
 const saveState = computed(() => {
   if (designer.isSaving) return 'Saving draft'
-  if (history.past.length > 0) return 'Unsaved changes'
+  if (designer.hasUnsavedChanges) return 'Unsaved changes'
   if (!designer.dashboardId) return 'Ready to create'
 
   return 'Draft ready'
@@ -24,7 +24,7 @@ const saveState = computed(() => {
 
 function updateName(event: Event) {
   const input = event.target as HTMLInputElement
-  designer.dashboardName = input.value
+  designer.setDashboardName(input.value)
 }
 
 function updateZoom(value: number) {
@@ -47,7 +47,7 @@ function updateZoomFromSelect(event: Event) {
           data-testid="dashboard-name-input"
           type="text"
           :value="designer.dashboardName"
-          :disabled="designer.isLoading"
+          :disabled="designer.isLoading || designer.isSaving"
           maxlength="120"
           @input="updateName"
         />

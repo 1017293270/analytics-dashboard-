@@ -72,6 +72,11 @@ function beginInteraction(event: PointerEvent, component: DashboardComponent, mo
   if (event.button !== 0) return
 
   selectComponent(component.id)
+  if (designer.isSaving) {
+    event.preventDefault()
+    return
+  }
+
   if (isLocked(component)) {
     event.preventDefault()
     return
@@ -140,6 +145,13 @@ function cancelInteraction() {
 function handleComponentKeydown(event: KeyboardEvent, component: DashboardComponent) {
   selectComponent(component.id)
 
+  if (designer.isSaving) {
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Delete', 'Backspace'].includes(event.key)) {
+      event.preventDefault()
+    }
+    return
+  }
+
   if (isLocked(component)) {
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Delete', 'Backspace'].includes(event.key)) {
       event.preventDefault()
@@ -203,6 +215,7 @@ onBeforeUnmount(() => {
               'is-dragging': interaction?.componentId === component.id,
               'is-hidden': component.layout.visible === false,
               'is-locked': component.layout.locked === true,
+              'is-saving': designer.isSaving,
             }"
             :style="componentStyle(component)"
             role="button"
@@ -227,7 +240,7 @@ onBeforeUnmount(() => {
               <span class="designer-canvas__corner designer-canvas__corner--ne" aria-hidden="true" />
               <span class="designer-canvas__corner designer-canvas__corner--sw" aria-hidden="true" />
               <button
-                v-if="component.layout.locked !== true"
+                v-if="component.layout.locked !== true && !designer.isSaving"
                 class="designer-canvas__resize-handle"
                 type="button"
                 tabindex="-1"
@@ -362,6 +375,10 @@ onBeforeUnmount(() => {
 }
 
 .designer-canvas__component-frame.is-locked {
+  cursor: default;
+}
+
+.designer-canvas__component-frame.is-saving {
   cursor: default;
 }
 

@@ -27,7 +27,7 @@ function addComponent(type: ComponentType) {
         :key="definition.type"
         class="component-palette__item"
         type="button"
-        :disabled="designer.isLoading"
+        :disabled="designer.isLoading || designer.isSaving"
         :data-testid="`add-${definition.type}`"
         @click="addComponent(definition.type)"
       >

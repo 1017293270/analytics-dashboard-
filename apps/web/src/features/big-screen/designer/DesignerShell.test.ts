@@ -86,4 +86,19 @@ describe('DesignerShell', () => {
     expect(store.dashboardId).toBe('second')
     expect(store.dashboardName).toBe('Dashboard second')
   })
+
+  test('does not let an unmounted load clear a newer loading state', async () => {
+    const load = createDeferred<DashboardRecord>()
+    vi.spyOn(bigScreenApi, 'getDashboard').mockReturnValue(load.promise)
+    const { store, wrapper } = await mountShellAt('/big-screens/first')
+    expect(store.isLoading).toBe(true)
+
+    wrapper.unmount()
+    store.isLoading = true
+    load.resolve(createRecord('first'))
+    await flushPromises()
+
+    expect(store.isLoading).toBe(true)
+    expect(store.dashboardId).toBeNull()
+  })
 })

@@ -68,6 +68,38 @@ describe('dashboard routes', () => {
 
     const fetched = await request(app).get(`/api/big-screens/${created.body.data.id}`).expect(200)
     expect(fetched.body.data.name).toBe('Renamed Dashboard')
+
+    const audit = await prisma.auditLog.findFirst({
+      where: { action: 'dashboard.metadata.updated', resourceId: created.body.data.id },
+    })
+    expect(audit).toBeTruthy()
+  })
+
+  test('rejects invalid dashboard metadata updates', async () => {
+    const app = createApp()
+
+    const created = await request(app).post('/api/big-screens').send({ name: 'Metadata Invalid' }).expect(201)
+    const response = await request(app).patch(`/api/big-screens/${created.body.data.id}`).send({ name: '' }).expect(400)
+
+    expect(response.body).toEqual({
+      success: false,
+      data: null,
+      error: { code: 'REQUEST_INVALID', message: 'Dashboard name is required' },
+    })
+  })
+
+  test('rejects dashboard metadata updates without edit permission', async () => {
+    const app = createApp()
+
+    const created = await request(app).post('/api/big-screens').send({ name: 'Metadata Forbidden' }).expect(201)
+    await prisma.dashboardPermission.deleteMany({ where: { dashboardId: created.body.data.id } })
+
+    const response = await request(app)
+      .patch(`/api/big-screens/${created.body.data.id}`)
+      .send({ name: 'Forbidden Rename' })
+      .expect(403)
+
+    expect(response.body.error.code).toBe('FORBIDDEN')
   })
 
   test('runtime before publish returns not published fail shape', async () => {
