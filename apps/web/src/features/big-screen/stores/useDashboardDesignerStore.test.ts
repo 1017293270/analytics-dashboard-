@@ -206,10 +206,13 @@ describe('useDashboardDesignerStore', () => {
     const activeSavePromise = store.saveDraft()
 
     expect(createSpy).toHaveBeenNthCalledWith(1, { name: 'First local draft', clientReservationId: reservationId })
-    expect(createSpy).toHaveBeenNthCalledWith(2, { name: 'Second local draft', clientReservationId: reservationId })
+    expect(createSpy).toHaveBeenCalledTimes(1)
 
     staleCreate.resolve(createRecord(createDefaultDashboardSchema(), { id: reservationId, name: 'First local draft' }))
     await staleSavePromise
+    await flushAsyncWork()
+
+    expect(createSpy).toHaveBeenNthCalledWith(2, { name: 'Second local draft', clientReservationId: reservationId })
 
     activeCreate.resolve(createRecord(createDefaultDashboardSchema(), { id: reservationId, name: 'Second local draft' }))
     await activeSavePromise
@@ -262,6 +265,154 @@ describe('useDashboardDesignerStore', () => {
     expect(updateSpy).toHaveBeenCalledWith(reservationId, { name: 'Second local draft' })
     expect(saveSpy).toHaveBeenCalledWith(reservationId, expect.objectContaining({ components: [activeComponent] }))
     expect(store.dashboardId).toBe(reservationId)
+  })
+
+  test('serializes stale reservation draft writes before a newer local save starts backend mutations', async () => {
+    const store = useDashboardDesignerStore()
+    const staleDraftSave = createDeferred<DashboardRecord>()
+    const reservationId = store.localDraftReservationId
+    const oldComponent = { ...component, id: 'component-old', name: 'Old metric' }
+    const activeComponent = { ...component, id: 'component-current', name: 'Current metric' }
+
+    store.dashboardName = 'First local draft'
+    store.addComponent(oldComponent)
+
+    const createSpy = vi
+      .spyOn(bigScreenApi, 'createDashboard')
+      .mockResolvedValueOnce(createRecord(createDefaultDashboardSchema(), { id: reservationId, name: 'First local draft' }))
+      .mockResolvedValueOnce(createRecord(createDefaultDashboardSchema(), { id: reservationId, name: 'First local draft' }))
+    const updateSpy = vi
+      .spyOn(bigScreenApi, 'updateDashboard')
+      .mockResolvedValue(createRecord(createDefaultDashboardSchema(), { id: reservationId, name: 'Second local draft' }))
+    const saveSpy = vi
+      .spyOn(bigScreenApi, 'saveDraft')
+      .mockReturnValueOnce(staleDraftSave.promise)
+      .mockImplementationOnce(async (id, schema) => createRecord(schema, { id, name: 'Second local draft' }))
+
+    const staleSavePromise = store.saveDraft()
+    await flushAsyncWork()
+    expect(saveSpy).toHaveBeenCalledWith(
+      reservationId,
+      expect.objectContaining({ components: [oldComponent] }),
+    )
+
+    store.replaceLocalDraft(createDefaultDashboardSchema(), 'Second local draft')
+    store.addComponent(activeComponent)
+
+    const activeSavePromise = store.saveDraft()
+    await flushAsyncWork()
+
+    expect(createSpy).toHaveBeenCalledTimes(1)
+    expect(updateSpy).not.toHaveBeenCalled()
+    expect(saveSpy).toHaveBeenCalledTimes(1)
+
+    staleDraftSave.resolve(createRecord(createDefaultDashboardSchema(), { id: reservationId, name: 'First local draft' }))
+    await staleSavePromise
+    await activeSavePromise
+
+    expect(createSpy).toHaveBeenCalledTimes(2)
+    expect(createSpy).toHaveBeenLastCalledWith({ name: 'Second local draft', clientReservationId: reservationId })
+    expect(updateSpy).toHaveBeenCalledWith(reservationId, { name: 'Second local draft' })
+    expect(saveSpy).toHaveBeenCalledTimes(2)
+    expect(saveSpy).toHaveBeenLastCalledWith(
+      reservationId,
+      expect.objectContaining({ components: [activeComponent] }),
+    )
+    expect(store.dashboardId).toBe(reservationId)
+    expect(store.schema.components).toEqual([activeComponent])
+  })
+
+  test('does not start queued reservation backend mutations after the queued save becomes stale', async () => {
+    const store = useDashboardDesignerStore()
+    const staleDraftSave = createDeferred<DashboardRecord>()
+    const reservationId = store.localDraftReservationId
+    const oldComponent = { ...component, id: 'component-old', name: 'Old metric' }
+    const thirdComponent = { ...component, id: 'component-third', name: 'Third metric' }
+
+    store.dashboardName = 'First local draft'
+    store.addComponent(oldComponent)
+
+    const createSpy = vi
+      .spyOn(bigScreenApi, 'createDashboard')
+      .mockResolvedValue(createRecord(createDefaultDashboardSchema(), { id: reservationId, name: 'First local draft' }))
+    const updateSpy = vi
+      .spyOn(bigScreenApi, 'updateDashboard')
+      .mockResolvedValue(createRecord(createDefaultDashboardSchema(), { id: reservationId, name: 'Ignored draft' }))
+    const saveSpy = vi.spyOn(bigScreenApi, 'saveDraft').mockReturnValue(staleDraftSave.promise)
+
+    const staleSavePromise = store.saveDraft()
+    await flushAsyncWork()
+    expect(saveSpy).toHaveBeenCalledTimes(1)
+
+    store.replaceLocalDraft(createDefaultDashboardSchema(), 'Second local draft')
+    const queuedSavePromise = store.saveDraft()
+    store.replaceLocalDraft(createDefaultDashboardSchema(), 'Third local draft')
+    store.addComponent(thirdComponent)
+    await flushAsyncWork()
+
+    expect(createSpy).toHaveBeenCalledTimes(1)
+    expect(updateSpy).not.toHaveBeenCalled()
+    expect(saveSpy).toHaveBeenCalledTimes(1)
+
+    staleDraftSave.resolve(createRecord(createDefaultDashboardSchema(), { id: reservationId, name: 'First local draft' }))
+    await staleSavePromise
+    await queuedSavePromise
+
+    expect(createSpy).toHaveBeenCalledTimes(1)
+    expect(updateSpy).not.toHaveBeenCalled()
+    expect(saveSpy).toHaveBeenCalledTimes(1)
+    expect(store.dashboardId).toBeNull()
+    expect(store.dashboardName).toBe('Third local draft')
+    expect(store.schema.components).toEqual([thirdComponent])
+  })
+
+  test('serializes existing dashboard draft writes for the same dashboard id', async () => {
+    const store = useDashboardDesignerStore()
+    const staleDraftSave = createDeferred<DashboardRecord>()
+    const oldComponent = { ...component, id: 'component-old', name: 'Old metric' }
+    const activeComponent = { ...component, id: 'component-current', name: 'Current metric' }
+
+    store.replaceDashboardForLoad(createRecord(createDefaultDashboardSchema(), { id: 'dashboard-a', name: 'Dashboard A' }))
+    store.addComponent(oldComponent)
+
+    const updateSpy = vi
+      .spyOn(bigScreenApi, 'updateDashboard')
+      .mockResolvedValue(createRecord(createDefaultDashboardSchema(), { id: 'dashboard-a', name: 'Dashboard A' }))
+    const saveSpy = vi
+      .spyOn(bigScreenApi, 'saveDraft')
+      .mockReturnValueOnce(staleDraftSave.promise)
+      .mockImplementationOnce(async (id, schema) => createRecord(schema, { id, name: 'Dashboard A current' }))
+
+    const staleSavePromise = store.saveDraft()
+    await flushAsyncWork()
+
+    expect(updateSpy).toHaveBeenCalledTimes(1)
+    expect(saveSpy).toHaveBeenCalledWith(
+      'dashboard-a',
+      expect.objectContaining({ components: [oldComponent] }),
+    )
+
+    store.replaceDashboardForLoad(createRecord(createDefaultDashboardSchema(), { id: 'dashboard-a', name: 'Dashboard A' }))
+    store.addComponent(activeComponent)
+
+    const activeSavePromise = store.saveDraft()
+    await flushAsyncWork()
+
+    expect(updateSpy).toHaveBeenCalledTimes(1)
+    expect(saveSpy).toHaveBeenCalledTimes(1)
+
+    staleDraftSave.resolve(createRecord(createDefaultDashboardSchema(), { id: 'dashboard-a', name: 'Dashboard A stale' }))
+    await staleSavePromise
+    await activeSavePromise
+
+    expect(updateSpy).toHaveBeenCalledTimes(2)
+    expect(saveSpy).toHaveBeenCalledTimes(2)
+    expect(saveSpy).toHaveBeenLastCalledWith(
+      'dashboard-a',
+      expect.objectContaining({ components: [activeComponent] }),
+    )
+    expect(store.dashboardId).toBe('dashboard-a')
+    expect(store.schema.components).toEqual([activeComponent])
   })
 
   test('does not let stale save completion clear a newer active save', async () => {

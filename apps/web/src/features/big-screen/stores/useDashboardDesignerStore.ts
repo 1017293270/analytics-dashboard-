@@ -28,9 +28,31 @@ type DesignerState = {
 }
 
 const DEFAULT_DASHBOARD_NAME = 'Untitled Dashboard'
+const pendingDraftWritesByTarget = new Map<string, Promise<void>>()
 
 function createLocalDraftReservationId() {
   return `local-draft-${nanoid()}`
+}
+
+function createDraftWriteBarrier(targetId: string) {
+  const previousWrite = pendingDraftWritesByTarget.get(targetId) ?? null
+  let releaseCurrentWrite!: () => void
+  const currentWrite = new Promise<void>((resolve) => {
+    releaseCurrentWrite = resolve
+  })
+  const queuedWrite = (previousWrite ?? Promise.resolve()).catch(() => undefined).then(() => currentWrite)
+
+  pendingDraftWritesByTarget.set(targetId, queuedWrite)
+
+  return {
+    previousWrite,
+    release() {
+      releaseCurrentWrite()
+      if (pendingDraftWritesByTarget.get(targetId) === queuedWrite) {
+        pendingDraftWritesByTarget.delete(targetId)
+      }
+    },
+  }
 }
 
 function getErrorMessage(error: unknown) {
@@ -334,6 +356,8 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
 
       const saveOperationVersion = this.saveOperationVersion + 1
       const editorContextVersion = this.editorContextVersion
+      const targetDashboardId = this.dashboardId ?? this.localDraftReservationId
+      const draftWriteBarrier = createDraftWriteBarrier(targetDashboardId)
       const isCurrentSaveOperation = () =>
         this.activeSaveOperationVersion === saveOperationVersion && this.editorContextVersion === editorContextVersion
 
@@ -347,8 +371,13 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
         const name = this.dashboardName.trim() || DEFAULT_DASHBOARD_NAME
         const dashboardId = this.dashboardId
 
+        if (draftWriteBarrier.previousWrite) {
+          await draftWriteBarrier.previousWrite
+          if (!isCurrentSaveOperation()) return
+        }
+
         if (!dashboardId) {
-          const created = await bigScreenApi.createDashboard({ name, clientReservationId: this.localDraftReservationId })
+          const created = await bigScreenApi.createDashboard({ name, clientReservationId: targetDashboardId })
           if (!isCurrentSaveOperation()) return
 
           const dashboard = created.name === name ? created : await bigScreenApi.updateDashboard(created.id, { name })
@@ -379,6 +408,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
           this.error = getErrorMessage(error)
         }
       } finally {
+        draftWriteBarrier.release()
         if (isCurrentSaveOperation()) {
           this.activeSaveOperationVersion = null
           this.isSaving = false
