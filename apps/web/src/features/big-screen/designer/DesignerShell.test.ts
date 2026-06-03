@@ -87,6 +87,44 @@ describe('DesignerShell', () => {
     expect(store.dashboardName).toBe('Dashboard second')
   })
 
+  test('ignores stale save responses after routing to a different dashboard', async () => {
+    const firstLoad = createDeferred<DashboardRecord>()
+    const secondLoad = createDeferred<DashboardRecord>()
+    const staleSave = createDeferred<DashboardRecord>()
+
+    vi.spyOn(bigScreenApi, 'getDashboard').mockImplementation((id) => {
+      if (id === 'first') return firstLoad.promise
+      if (id === 'second') return secondLoad.promise
+
+      throw new Error(`Unexpected id ${id}`)
+    })
+    vi.spyOn(bigScreenApi, 'updateDashboard').mockResolvedValue(createRecord('first'))
+    vi.spyOn(bigScreenApi, 'saveDraft').mockReturnValue(staleSave.promise)
+
+    const { router, store } = await mountShellAt('/big-screens/first')
+
+    firstLoad.resolve(createRecord('first'))
+    await flushPromises()
+    expect(store.dashboardId).toBe('first')
+
+    const savePromise = store.saveDraft()
+    await flushPromises()
+    expect(store.isSaving).toBe(true)
+
+    await router.push('/big-screens/second')
+    secondLoad.resolve(createRecord('second'))
+    await flushPromises()
+    expect(store.dashboardId).toBe('second')
+
+    staleSave.resolve(createRecord('first'))
+    await savePromise
+    await flushPromises()
+
+    expect(store.dashboardId).toBe('second')
+    expect(store.dashboardName).toBe('Dashboard second')
+    expect(store.isSaving).toBe(false)
+  })
+
   test('does not let an unmounted load clear a newer loading state', async () => {
     const load = createDeferred<DashboardRecord>()
     vi.spyOn(bigScreenApi, 'getDashboard').mockReturnValue(load.promise)

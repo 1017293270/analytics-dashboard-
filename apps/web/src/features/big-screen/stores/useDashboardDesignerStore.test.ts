@@ -26,6 +26,11 @@ function createDeferred<T>() {
   return { promise, resolve, reject }
 }
 
+async function flushAsyncWork() {
+  await Promise.resolve()
+  await Promise.resolve()
+}
+
 function createRecord(schema: DashboardSchema, overrides: Partial<DashboardRecord> = {}): DashboardRecord {
   return {
     id: 'dashboard-1',
@@ -98,6 +103,111 @@ describe('useDashboardDesignerStore', () => {
 
     createDeferredRecord.resolve(createRecord(createDefaultDashboardSchema(), { id: 'dashboard-created' }))
     await Promise.all([firstSave, secondSave])
+  })
+
+  test('ignores stale existing dashboard save responses after the editor context changes', async () => {
+    const store = useDashboardDesignerStore()
+    const staleSave = createDeferred<DashboardRecord>()
+    const activeComponent = { ...component, id: 'component-current', name: 'Current metric' }
+
+    store.replaceDashboardForLoad(createRecord(createDefaultDashboardSchema(), { id: 'dashboard-a', name: 'Dashboard A' }))
+    store.dashboardName = 'Dashboard A edited'
+    store.addComponent(component)
+
+    vi.spyOn(bigScreenApi, 'updateDashboard').mockResolvedValue(
+      createRecord(store.schema, { id: 'dashboard-a', name: 'Dashboard A edited' }),
+    )
+    vi.spyOn(bigScreenApi, 'saveDraft').mockReturnValue(staleSave.promise)
+
+    const savePromise = store.saveDraft()
+    await flushAsyncWork()
+    expect(store.isSaving).toBe(true)
+
+    store.replaceLocalDraft(createDefaultDashboardSchema(), 'Fresh local draft')
+    store.setDashboardName('Fresh local draft edited')
+    store.addComponent(activeComponent)
+
+    staleSave.resolve(createRecord(createDefaultDashboardSchema(), { id: 'dashboard-a', name: 'Dashboard A edited' }))
+    await savePromise
+
+    expect(store.dashboardId).toBeNull()
+    expect(store.dashboardName).toBe('Fresh local draft edited')
+    expect(store.schema.components).toEqual([activeComponent])
+    expect(store.selectedComponentId).toBe(activeComponent.id)
+    expect(store.isSaving).toBe(false)
+  })
+
+  test('ignores stale local create results after a new local draft replaces the editor context', async () => {
+    const store = useDashboardDesignerStore()
+    const staleCreate = createDeferred<DashboardRecord>()
+    const saveSpy = vi.spyOn(bigScreenApi, 'saveDraft').mockResolvedValue(
+      createRecord(createDefaultDashboardSchema(), { id: 'dashboard-created', name: 'First local draft' }),
+    )
+
+    store.dashboardName = 'First local draft'
+    store.addComponent(component)
+
+    vi.spyOn(bigScreenApi, 'createDashboard').mockReturnValue(staleCreate.promise)
+
+    const savePromise = store.saveDraft()
+    expect(store.isSaving).toBe(true)
+
+    store.replaceLocalDraft(createDefaultDashboardSchema(), 'Second local draft')
+    const activeComponent = { ...component, id: 'component-current', name: 'Current metric' }
+    store.addComponent(activeComponent)
+
+    staleCreate.resolve(createRecord(createDefaultDashboardSchema(), { id: 'dashboard-created', name: 'First local draft' }))
+    await savePromise
+
+    expect(saveSpy).not.toHaveBeenCalled()
+    expect(store.dashboardId).toBeNull()
+    expect(store.dashboardName).toBe('Second local draft')
+    expect(store.schema.components).toEqual([activeComponent])
+    expect(store.isSaving).toBe(false)
+  })
+
+  test('does not let stale save completion clear a newer active save', async () => {
+    const store = useDashboardDesignerStore()
+    const staleSave = createDeferred<DashboardRecord>()
+    const currentCreate = createDeferred<DashboardRecord>()
+    const currentSave = createDeferred<DashboardRecord>()
+    const createSpy = vi.spyOn(bigScreenApi, 'createDashboard').mockReturnValue(currentCreate.promise)
+
+    vi.spyOn(bigScreenApi, 'updateDashboard').mockResolvedValue(
+      createRecord(createDefaultDashboardSchema(), { id: 'dashboard-a', name: 'Dashboard A' }),
+    )
+    vi.spyOn(bigScreenApi, 'saveDraft').mockImplementation((id, schema) => {
+      if (id === 'dashboard-a') return staleSave.promise
+      if (id === 'dashboard-created') return currentSave.promise
+
+      return Promise.resolve(createRecord(schema, { id }))
+    })
+
+    store.replaceDashboardForLoad(createRecord(createDefaultDashboardSchema(), { id: 'dashboard-a', name: 'Dashboard A' }))
+    const staleSavePromise = store.saveDraft()
+    await flushAsyncWork()
+
+    store.replaceLocalDraft(createDefaultDashboardSchema(), 'Current local draft')
+    expect(store.isSaving).toBe(false)
+
+    const currentSavePromise = store.saveDraft()
+    expect(createSpy).toHaveBeenCalledWith({ name: 'Current local draft' })
+    expect(store.isSaving).toBe(true)
+
+    staleSave.resolve(createRecord(createDefaultDashboardSchema(), { id: 'dashboard-a', name: 'Dashboard A stale' }))
+    await staleSavePromise
+
+    expect(store.dashboardId).toBeNull()
+    expect(store.dashboardName).toBe('Current local draft')
+    expect(store.isSaving).toBe(true)
+
+    currentCreate.resolve(createRecord(createDefaultDashboardSchema(), { id: 'dashboard-created', name: 'Current local draft' }))
+    await flushAsyncWork()
+    currentSave.resolve(createRecord(store.schema, { id: 'dashboard-created', name: 'Current local draft' }))
+    await currentSavePromise
+
+    expect(store.dashboardId).toBe('dashboard-created')
+    expect(store.isSaving).toBe(false)
   })
 
   test('saveDraft creates a backend dashboard for local drafts before saving schema', async () => {

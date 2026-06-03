@@ -19,6 +19,9 @@ type DesignerState = {
   zoom: number
   isLoading: boolean
   isSaving: boolean
+  editorContextVersion: number
+  saveOperationVersion: number
+  activeSaveOperationVersion: number | null
   error: string | null
 }
 
@@ -80,6 +83,9 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
     zoom: 1,
     isLoading: false,
     isSaving: false,
+    editorContextVersion: 0,
+    saveOperationVersion: 0,
+    activeSaveOperationVersion: null,
     error: null,
   }),
   getters: {
@@ -100,7 +106,13 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
     },
   },
   actions: {
+    invalidateInFlightSave() {
+      this.editorContextVersion += 1
+      this.activeSaveOperationVersion = null
+      this.isSaving = false
+    },
     replaceLocalDraft(schema: DashboardSchema = createDefaultDashboardSchema(), name = DEFAULT_DASHBOARD_NAME) {
+      this.invalidateInFlightSave()
       this.dashboardId = null
       this.dashboardName = name
       this.savedDashboardName = name
@@ -112,6 +124,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
     },
     replaceDashboardForLoad(record: DashboardRecord) {
       const history = useDashboardHistoryStore()
+      this.invalidateInFlightSave()
       this.dashboardId = record.id
       this.dashboardName = record.name
       this.savedDashboardName = record.name
@@ -147,6 +160,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       this.dashboardName = name
     },
     async createDashboard(input: { name: string; description?: string } = { name: DEFAULT_DASHBOARD_NAME }) {
+      this.invalidateInFlightSave()
       this.isLoading = true
       this.error = null
 
@@ -160,6 +174,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       }
     },
     async loadDashboard(id: string) {
+      this.invalidateInFlightSave()
       this.isLoading = true
       this.error = null
 
@@ -307,6 +322,13 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
     async saveDraft() {
       if (this.isSaving) return
 
+      const saveOperationVersion = this.saveOperationVersion + 1
+      const editorContextVersion = this.editorContextVersion
+      const isCurrentSaveOperation = () =>
+        this.activeSaveOperationVersion === saveOperationVersion && this.editorContextVersion === editorContextVersion
+
+      this.saveOperationVersion = saveOperationVersion
+      this.activeSaveOperationVersion = saveOperationVersion
       this.isSaving = true
       this.error = null
 
@@ -317,19 +339,32 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
 
         if (!dashboardId) {
           const created = await bigScreenApi.createDashboard({ name })
+          if (!isCurrentSaveOperation()) return
+
           this.applyCreatedDashboardIdentity(created)
           const saved = await bigScreenApi.saveDraft(created.id, schema)
+          if (!isCurrentSaveOperation()) return
+
           this.applySavedDashboard(saved)
           return
         }
 
         await bigScreenApi.updateDashboard(dashboardId, { name })
+        if (!isCurrentSaveOperation()) return
+
         const record = await bigScreenApi.saveDraft(dashboardId, schema)
+        if (!isCurrentSaveOperation()) return
+
         this.applySavedDashboard(record)
       } catch (error) {
-        this.error = getErrorMessage(error)
+        if (isCurrentSaveOperation()) {
+          this.error = getErrorMessage(error)
+        }
       } finally {
-        this.isSaving = false
+        if (isCurrentSaveOperation()) {
+          this.activeSaveOperationVersion = null
+          this.isSaving = false
+        }
       }
     },
     undo() {

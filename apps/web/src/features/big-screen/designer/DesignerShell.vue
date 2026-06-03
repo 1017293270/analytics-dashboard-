@@ -62,6 +62,7 @@ async function loadDashboardForRoute(id: string) {
     return
   }
 
+  designer.invalidateInFlightSave()
   const controller = new AbortController()
   loadController = controller
   designer.isLoading = true
