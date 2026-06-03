@@ -1,0 +1,17 @@
+:root {
+  --color-page: #eef2f7;
+  --color-panel: #ffffff;
+  --color-panel-muted: #f8fafc;
+  --color-border: #d8e2f3;
+  --color-text: #0f172a;
+  --color-text-muted: #64748b;
+  --color-accent: #2563eb;
+  --color-accent-soft: #dbeafe;
+  --color-danger: #dc2626;
+  --color-success: #16a34a;
+  --shadow-panel: 0 18px 45px rgba(15, 23, 42, 0.12);
+  --radius-panel: 8px;
+  --motion-fast: 120ms;
+  --motion-medium: 250ms;
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+}

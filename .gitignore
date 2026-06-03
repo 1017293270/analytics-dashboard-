@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+.env.local
+apps/api/prisma/dev.db
+apps/api/prisma/dev.db-journal
+apps/api/.prisma/
+coverage/
+playwright-report/
+test-results/
+.superpowers/
+*.tsbuildinfo
