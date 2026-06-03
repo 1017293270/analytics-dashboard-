@@ -39,6 +39,8 @@ describe('designerLayout', () => {
   test('normalizes bounded numeric input and zoom values', () => {
     expect(parseBoundedNumber('41.8', 0, { min: 0, max: 50 })).toBe(42)
     expect(parseBoundedNumber('bad', 12, { min: 0, max: 50 })).toBe(12)
+    expect(parseBoundedNumber('', 12, { min: 0, max: 50 })).toBe(12)
+    expect(parseBoundedNumber('   ', 12, { min: 0, max: 50 })).toBe(12)
     expect(clampZoom(9)).toBe(2)
     expect(clampZoom(0.05)).toBe(0.25)
   })

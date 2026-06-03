@@ -68,30 +68,41 @@ export async function requestJson<T>(url: string, init?: RequestInit): Promise<T
 }
 
 export const bigScreenApi = {
-  createDashboard(input: { name: string; description?: string }) {
+  createDashboard(input: { name: string; description?: string }, init?: RequestInit) {
     return requestJson<DashboardRecord>('/api/big-screens', {
+      ...init,
       method: 'POST',
       body: JSON.stringify(input),
     })
   },
-  getDashboard(id: string) {
-    return requestJson<DashboardRecord>(`/api/big-screens/${id}`)
+  getDashboard(id: string, init?: RequestInit) {
+    return requestJson<DashboardRecord>(`/api/big-screens/${id}`, init)
   },
-  saveDraft(id: string, draftSchema: DashboardSchema) {
+  updateDashboard(id: string, input: { name: string }, init?: RequestInit) {
+    return requestJson<DashboardRecord>(`/api/big-screens/${id}`, {
+      ...init,
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    })
+  },
+  saveDraft(id: string, draftSchema: DashboardSchema, init?: RequestInit) {
     return requestJson<DashboardRecord>(`/api/big-screens/${id}/draft`, {
+      ...init,
       method: 'PATCH',
       body: JSON.stringify({ draftSchema }),
     })
   },
-  publish(id: string) {
+  publish(id: string, init?: RequestInit) {
     return requestJson<DashboardRecord>(`/api/big-screens/${id}/publish`, {
+      ...init,
       method: 'POST',
       body: JSON.stringify({ publishNote: 'Published from designer' }),
     })
   },
-  getRuntime(id: string) {
+  getRuntime(id: string, init?: RequestInit) {
     return requestJson<{ id: string; name: string; schema: DashboardSchema; publishedAt?: string | null }>(
       `/api/big-screens/${id}/runtime`,
+      init,
     )
   },
 }

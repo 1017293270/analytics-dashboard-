@@ -41,4 +41,21 @@ describe('DesignerPropertyPanel', () => {
     expect(store.selectedComponent?.name).toBe('Command Title')
     expect(store.selectedComponent?.layout.x).toBe(0)
   })
+
+  test('disables edits for locked components and allows unlocking', async () => {
+    const wrapper = mountWithPinia()
+    const store = useDashboardDesignerStore()
+    const component = createComponent('text', 20, 30, 1)
+    store.addComponent({ ...component, layout: { ...component.layout, locked: true } })
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="component-name-input"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-testid="layout-x-input"]').attributes('disabled')).toBeDefined()
+
+    await wrapper.get('[data-testid="component-locked-input"]').setValue(false)
+
+    expect(store.selectedComponent?.layout.locked).toBe(false)
+    await nextTick()
+    expect(wrapper.get('[data-testid="layout-x-input"]').attributes('disabled')).toBeUndefined()
+  })
 })

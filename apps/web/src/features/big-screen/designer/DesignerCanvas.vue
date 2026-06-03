@@ -58,6 +58,10 @@ function selectComponent(componentId: string) {
   designer.selectedComponentId = componentId
 }
 
+function isLocked(component: DashboardComponent) {
+  return component.layout.locked === true
+}
+
 function clearSelection(event: PointerEvent) {
   if (event.target === event.currentTarget) {
     designer.selectedComponentId = null
@@ -68,6 +72,11 @@ function beginInteraction(event: PointerEvent, component: DashboardComponent, mo
   if (event.button !== 0) return
 
   selectComponent(component.id)
+  if (isLocked(component)) {
+    event.preventDefault()
+    return
+  }
+
   const layout = getRenderedLayout(component)
   interaction.value = {
     mode,
@@ -131,6 +140,13 @@ function cancelInteraction() {
 function handleComponentKeydown(event: KeyboardEvent, component: DashboardComponent) {
   selectComponent(component.id)
 
+  if (isLocked(component)) {
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Delete', 'Backspace'].includes(event.key)) {
+      event.preventDefault()
+    }
+    return
+  }
+
   if (event.key === 'Enter' || event.key === ' ') {
     event.preventDefault()
     return
@@ -186,6 +202,7 @@ onBeforeUnmount(() => {
               'is-selected': designer.selectedComponentId === component.id,
               'is-dragging': interaction?.componentId === component.id,
               'is-hidden': component.layout.visible === false,
+              'is-locked': component.layout.locked === true,
             }"
             :style="componentStyle(component)"
             role="button"
@@ -210,8 +227,10 @@ onBeforeUnmount(() => {
               <span class="designer-canvas__corner designer-canvas__corner--ne" aria-hidden="true" />
               <span class="designer-canvas__corner designer-canvas__corner--sw" aria-hidden="true" />
               <button
+                v-if="component.layout.locked !== true"
                 class="designer-canvas__resize-handle"
                 type="button"
+                tabindex="-1"
                 aria-label="Resize component"
                 @click.stop
                 @pointerdown.stop="beginInteraction($event, component, 'resize')"
@@ -340,6 +359,14 @@ onBeforeUnmount(() => {
 
 .designer-canvas__component-frame.is-hidden {
   opacity: 0.38;
+}
+
+.designer-canvas__component-frame.is-locked {
+  cursor: default;
+}
+
+.designer-canvas__component-frame.is-locked.is-selected {
+  border-style: dashed;
 }
 
 .designer-canvas__renderer {

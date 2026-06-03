@@ -11,6 +11,7 @@ type ComponentPatch = Partial<Omit<DashboardComponent, 'layout' | 'props' | 'sty
 type DesignerState = {
   dashboardId: string | null
   dashboardName: string
+  dashboardStatus: DashboardRecord['status'] | null
   schema: DashboardSchema
   selectedComponentId: string | null
   zoom: number
@@ -48,10 +49,28 @@ function hasComponent(schema: DashboardSchema, componentId: string | null) {
   return componentId !== null && schema.components.some((component) => component.id === componentId)
 }
 
+function getComponent(schema: DashboardSchema, componentId: string | null) {
+  if (!componentId) return null
+
+  return schema.components.find((component) => component.id === componentId) ?? null
+}
+
+function isComponentLocked(schema: DashboardSchema, componentId: string | null) {
+  return getComponent(schema, componentId)?.layout.locked === true
+}
+
+function isLockOnlyPatch(patch: ComponentPatch) {
+  const patchKeys = Object.keys(patch)
+  const layoutKeys = patch.layout ? Object.keys(patch.layout) : []
+
+  return patchKeys.length === 1 && patchKeys[0] === 'layout' && layoutKeys.length === 1 && layoutKeys[0] === 'locked'
+}
+
 export const useDashboardDesignerStore = defineStore('dashboard-designer', {
   state: (): DesignerState => ({
     dashboardId: null,
     dashboardName: DEFAULT_DASHBOARD_NAME,
+    dashboardStatus: null,
     schema: createDefaultDashboardSchema(),
     selectedComponentId: null,
     zoom: 1,
@@ -63,12 +82,16 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
     selectedComponent(state): DashboardComponent | null {
       return state.schema.components.find((component) => component.id === state.selectedComponentId) ?? null
     },
+    selectedComponentLocked(state): boolean {
+      return isComponentLocked(state.schema, state.selectedComponentId)
+    },
   },
   actions: {
     replaceDashboardForLoad(record: DashboardRecord) {
       const history = useDashboardHistoryStore()
       this.dashboardId = record.id
       this.dashboardName = record.name
+      this.dashboardStatus = record.status
       this.schema = cloneSchema(record.draftSchema)
       this.selectedComponentId = null
       this.error = null
@@ -79,6 +102,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       const selectedComponentId = this.selectedComponentId
       this.dashboardId = record.id
       this.dashboardName = record.name
+      this.dashboardStatus = record.status
       this.schema = cloneSchema(record.draftSchema)
       this.selectedComponentId = hasComponent(this.schema, selectedComponentId) ? selectedComponentId : null
       this.error = null
@@ -133,6 +157,10 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       this.selectedComponentId = component.id
     },
     updateComponent(componentId: string, patch: ComponentPatch) {
+      if (isComponentLocked(this.schema, componentId) && !isLockOnlyPatch(patch)) {
+        return
+      }
+
       this.patchSchema((draft) => {
         draft.components = draft.components.map((component) => {
           if (component.id !== componentId) return component
@@ -145,6 +173,10 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       })
     },
     patchComponentProps(componentId: string, propsPatch: Record<string, unknown>) {
+      if (isComponentLocked(this.schema, componentId)) {
+        return
+      }
+
       this.patchSchema((draft) => {
         draft.components = draft.components.map((component) =>
           component.id === componentId ? { ...component, props: { ...component.props, ...propsPatch } } : component,
@@ -152,6 +184,10 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       })
     },
     replaceComponentProps(componentId: string, props: Record<string, unknown>) {
+      if (isComponentLocked(this.schema, componentId)) {
+        return
+      }
+
       this.patchSchema((draft) => {
         draft.components = draft.components.map((component) =>
           component.id === componentId ? { ...component, props: { ...props } } : component,
@@ -159,6 +195,10 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       })
     },
     patchComponentStyle(componentId: string, stylePatch: Record<string, unknown>) {
+      if (isComponentLocked(this.schema, componentId)) {
+        return
+      }
+
       this.patchSchema((draft) => {
         draft.components = draft.components.map((component) =>
           component.id === componentId ? { ...component, style: { ...component.style, ...stylePatch } } : component,
@@ -166,6 +206,10 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       })
     },
     replaceComponentStyle(componentId: string, style: Record<string, unknown>) {
+      if (isComponentLocked(this.schema, componentId)) {
+        return
+      }
+
       this.patchSchema((draft) => {
         draft.components = draft.components.map((component) =>
           component.id === componentId ? { ...component, style: { ...style } } : component,
@@ -173,6 +217,10 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       })
     },
     unsetComponentProp(componentId: string, key: string) {
+      if (isComponentLocked(this.schema, componentId)) {
+        return
+      }
+
       this.patchSchema((draft) => {
         draft.components = draft.components.map((component) => {
           if (component.id !== componentId) return component
@@ -182,6 +230,10 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       })
     },
     unsetComponentStyle(componentId: string, key: string) {
+      if (isComponentLocked(this.schema, componentId)) {
+        return
+      }
+
       this.patchSchema((draft) => {
         draft.components = draft.components.map((component) => {
           if (component.id !== componentId) return component
@@ -193,6 +245,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
     removeSelectedComponent() {
       const componentId = this.selectedComponentId
       if (!componentId) return
+      if (isComponentLocked(this.schema, componentId)) return
 
       this.patchSchema((draft) => {
         draft.components = draft.components.filter((component) => component.id !== componentId)
@@ -200,16 +253,23 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       this.selectedComponentId = null
     },
     async saveDraft() {
-      if (!this.dashboardId) {
-        this.error = 'Create or load a dashboard before saving'
-        return
-      }
-
       this.isSaving = true
       this.error = null
 
       try {
-        const record = await bigScreenApi.saveDraft(this.dashboardId, this.schema)
+        const schema = cloneSchema(this.schema)
+        const name = this.dashboardName.trim() || DEFAULT_DASHBOARD_NAME
+        const dashboardId = this.dashboardId
+
+        if (!dashboardId) {
+          const created = await bigScreenApi.createDashboard({ name })
+          const saved = await bigScreenApi.saveDraft(created.id, schema)
+          this.applySavedDashboard(saved)
+          return
+        }
+
+        await bigScreenApi.updateDashboard(dashboardId, { name })
+        const record = await bigScreenApi.saveDraft(dashboardId, schema)
         this.applySavedDashboard(record)
       } catch (error) {
         this.error = getErrorMessage(error)

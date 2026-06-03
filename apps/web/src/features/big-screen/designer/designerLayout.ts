@@ -28,6 +28,10 @@ export function parseBoundedNumber(
   fallback: number,
   options: { min: number; max: number; integer?: boolean },
 ): number {
+  if (!rawValue.trim()) {
+    return fallback
+  }
+
   const parsed = Number(rawValue)
   const finite = Number.isFinite(parsed) ? parsed : fallback
   const rounded = options.integer === false ? finite : Math.round(finite)

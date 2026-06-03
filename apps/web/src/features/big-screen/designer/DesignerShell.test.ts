@@ -1,0 +1,89 @@
+import type { DashboardSchema } from '@analytics/shared'
+import { flushPromises, mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
+import { createMemoryHistory, createRouter } from 'vue-router'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { bigScreenApi, type DashboardRecord } from '../api/bigScreenApi'
+import { createDefaultDashboardSchema } from '../schema/defaults'
+import { useDashboardDesignerStore } from '../stores/useDashboardDesignerStore'
+import DesignerShell from './DesignerShell.vue'
+
+type Deferred<T> = {
+  promise: Promise<T>
+  resolve: (value: T) => void
+}
+
+function createDeferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve
+  })
+
+  return { promise, resolve }
+}
+
+function createRecord(id: string, schema: DashboardSchema = createDefaultDashboardSchema()): DashboardRecord {
+  return {
+    id,
+    name: `Dashboard ${id}`,
+    status: 'draft',
+    draftSchema: schema,
+    publishedSchema: null,
+  }
+}
+
+async function mountShellAt(path: string) {
+  const pinia = createPinia()
+  setActivePinia(pinia)
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: '/big-screens/:id', component: DesignerShell }],
+  })
+
+  await router.push(path)
+  await router.isReady()
+
+  const wrapper = mount(DesignerShell, {
+    global: {
+      plugins: [pinia, router],
+      stubs: {
+        ComponentPalette: true,
+        DesignerCanvas: true,
+        DesignerPropertyPanel: true,
+        DesignerToolbar: true,
+      },
+    },
+  })
+
+  return { router, store: useDashboardDesignerStore(), wrapper }
+}
+
+describe('DesignerShell', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.restoreAllMocks()
+  })
+
+  test('ignores stale dashboard loads after the route changes', async () => {
+    const firstLoad = createDeferred<DashboardRecord>()
+    const secondLoad = createDeferred<DashboardRecord>()
+    vi.spyOn(bigScreenApi, 'getDashboard').mockImplementation((id) => {
+      if (id === 'first') return firstLoad.promise
+      if (id === 'second') return secondLoad.promise
+
+      throw new Error(`Unexpected id ${id}`)
+    })
+    const { router, store } = await mountShellAt('/big-screens/first')
+
+    await router.push('/big-screens/second')
+    secondLoad.resolve(createRecord('second'))
+    await flushPromises()
+    expect(store.dashboardId).toBe('second')
+
+    firstLoad.resolve(createRecord('first'))
+    await flushPromises()
+
+    expect(store.dashboardId).toBe('second')
+    expect(store.dashboardName).toBe('Dashboard second')
+  })
+})

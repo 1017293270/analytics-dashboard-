@@ -21,6 +21,10 @@ const updateDraftBody = z.object({
   draftSchema: z.unknown(),
 })
 
+const updateMetadataBody = z.object({
+  name: z.string().trim().min(1).max(120),
+})
+
 const publishBody = z.object({
   publishNote: z.string().trim().max(500).optional(),
 })
@@ -69,6 +73,34 @@ dashboardRoutes.get('/big-screens/:id', asyncHandler(async (req, res) => {
   if (!permission) return sendForbidden(res)
 
   res.json(ok(dashboard))
+}))
+
+dashboardRoutes.patch('/big-screens/:id', asyncHandler(async (req, res) => {
+  const body = updateMetadataBody.safeParse(req.body)
+  if (!body.success) return sendBadRequest(res, 'REQUEST_INVALID', 'Dashboard name is required')
+
+  const dashboard = await prisma.dashboard.findUnique({ where: { id: req.params.id } })
+  if (!dashboard) return sendNotFound(res)
+
+  const permission = await getPermission(dashboard.id)
+  if (!permission || !canEdit(permission)) return sendForbidden(res)
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const updatedDashboard = await tx.dashboard.update({
+      where: { id: dashboard.id },
+      data: { name: body.data.name },
+    })
+    await recordAudit('dashboard.metadata.updated', dashboard.id, DEFAULT_ACTOR_ID, { name: body.data.name }, tx)
+    return updatedDashboard
+  })
+
+  res.json(
+    ok({
+      ...updated,
+      draftSchema: parseSchema(updated.draftSchema),
+      publishedSchema: updated.publishedSchema ? parseSchema(updated.publishedSchema) : null,
+    }),
+  )
 }))
 
 dashboardRoutes.patch('/big-screens/:id/draft', asyncHandler(async (req, res) => {

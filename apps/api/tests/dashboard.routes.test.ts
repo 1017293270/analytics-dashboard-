@@ -52,6 +52,24 @@ describe('dashboard routes', () => {
     })
   })
 
+  test('updates dashboard metadata with edit permission', async () => {
+    const app = createApp()
+
+    const created = await request(app).post('/api/big-screens').send({ name: 'Old Name' }).expect(201)
+
+    const updated = await request(app)
+      .patch(`/api/big-screens/${created.body.data.id}`)
+      .send({ name: 'Renamed Dashboard' })
+      .expect(200)
+
+    expect(updated.body.success).toBe(true)
+    expect(updated.body.data.name).toBe('Renamed Dashboard')
+    expect(updated.body.data.draftSchema.version).toBe('1.0')
+
+    const fetched = await request(app).get(`/api/big-screens/${created.body.data.id}`).expect(200)
+    expect(fetched.body.data.name).toBe('Renamed Dashboard')
+  })
+
   test('runtime before publish returns not published fail shape', async () => {
     const app = createApp()
 

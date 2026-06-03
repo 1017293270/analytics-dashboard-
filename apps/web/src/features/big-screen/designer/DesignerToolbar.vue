@@ -11,18 +11,20 @@ const zoomOptions = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2]
 
 const canUndo = computed(() => history.past.length > 0 && !designer.isLoading)
 const canRedo = computed(() => history.future.length > 0 && !designer.isLoading)
-const canSave = computed(() => Boolean(designer.dashboardId) && !designer.isLoading && !designer.isSaving)
+const hasValidName = computed(() => designer.dashboardName.trim().length > 0)
+const canSave = computed(() => hasValidName.value && !designer.isLoading && !designer.isSaving)
+const recordStatus = computed(() => (designer.dashboardStatus ?? 'local').toUpperCase())
 const saveState = computed(() => {
   if (designer.isSaving) return 'Saving draft'
-  if (!designer.dashboardId) return 'Local draft'
   if (history.past.length > 0) return 'Unsaved changes'
+  if (!designer.dashboardId) return 'Ready to create'
 
   return 'Draft ready'
 })
 
 function updateName(event: Event) {
   const input = event.target as HTMLInputElement
-  designer.dashboardName = input.value.trim() || 'Untitled Dashboard'
+  designer.dashboardName = input.value
 }
 
 function updateZoom(value: number) {
@@ -42,14 +44,18 @@ function updateZoomFromSelect(event: Event) {
         <span class="designer-toolbar__sr-only">Dashboard name</span>
         <input
           class="designer-toolbar__name-input"
+          data-testid="dashboard-name-input"
           type="text"
           :value="designer.dashboardName"
           :disabled="designer.isLoading"
           maxlength="120"
-          @change="updateName"
+          @input="updateName"
         />
       </label>
-      <span class="designer-toolbar__status" :class="{ 'is-saving': designer.isSaving }">{{ saveState }}</span>
+      <span class="designer-toolbar__status-group">
+        <span class="designer-toolbar__record-status">{{ recordStatus }}</span>
+        <span class="designer-toolbar__status" :class="{ 'is-saving': designer.isSaving }">{{ saveState }}</span>
+      </span>
     </div>
 
     <div class="designer-toolbar__cluster" aria-label="History controls">
@@ -93,9 +99,10 @@ function updateZoomFromSelect(event: Event) {
       <button class="designer-toolbar__button" type="button" disabled title="Preview is not wired yet">Preview</button>
       <button
         class="designer-toolbar__button designer-toolbar__button--primary"
+        data-testid="save-dashboard-button"
         type="button"
         :disabled="!canSave"
-        :title="designer.dashboardId ? 'Save draft' : 'Save requires a backend dashboard id'"
+        :title="designer.dashboardId ? 'Save draft' : 'Create dashboard and save draft'"
         @click="designer.saveDraft"
       >
         {{ designer.isSaving ? 'Saving' : 'Save' }}
@@ -166,16 +173,36 @@ function updateZoomFromSelect(event: Event) {
   font-weight: 800;
 }
 
-.designer-toolbar__status {
+.designer-toolbar__status-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   width: max-content;
-  max-width: 160px;
+  max-width: 250px;
+  min-width: 0;
+}
+
+.designer-toolbar__record-status,
+.designer-toolbar__status {
   overflow: hidden;
-  color: var(--color-text-muted);
   font-size: 12px;
   font-weight: 800;
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+.designer-toolbar__record-status {
+  flex: 0 0 auto;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--color-accent) 12%, white);
+  color: var(--color-accent);
+}
+
+.designer-toolbar__status {
+  min-width: 0;
+  color: var(--color-text-muted);
 }
 
 .designer-toolbar__status.is-saving {

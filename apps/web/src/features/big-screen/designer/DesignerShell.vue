@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { bigScreenApi } from '../api/bigScreenApi'
 import { createDefaultDashboardSchema } from '../schema/defaults'
 import { useDashboardDesignerStore } from '../stores/useDashboardDesignerStore'
 import { useDashboardHistoryStore } from '../stores/useDashboardHistoryStore'
@@ -17,6 +18,7 @@ const designer = useDashboardDesignerStore()
 const history = useDashboardHistoryStore()
 const loadError = ref<string | null>(null)
 let loadSequence = 0
+let loadController: AbortController | null = null
 
 const routeDashboardId = computed(() => normalizeRouteParam(route.params.id))
 const showInlineError = computed(() => Boolean(designer.error && !loadError.value && !designer.isLoading))
@@ -32,10 +34,20 @@ function resetHistory() {
   history.future = []
 }
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : 'Something went wrong'
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === 'AbortError'
+}
+
 function createLocalDraft() {
+  loadController?.abort()
   loadError.value = null
   designer.dashboardId = null
   designer.dashboardName = LOCAL_DRAFT_NAME
+  designer.dashboardStatus = null
   designer.schema = createDefaultDashboardSchema()
   designer.selectedComponentId = null
   designer.zoom = clampZoom(0.5)
@@ -47,6 +59,7 @@ function createLocalDraft() {
 
 async function loadDashboardForRoute(id: string) {
   const sequence = ++loadSequence
+  loadController?.abort()
   loadError.value = null
 
   if (id === 'new') {
@@ -54,10 +67,30 @@ async function loadDashboardForRoute(id: string) {
     return
   }
 
-  await designer.loadDashboard(id)
-  if (sequence !== loadSequence) return
+  const controller = new AbortController()
+  loadController = controller
+  designer.isLoading = true
+  designer.error = null
 
-  loadError.value = designer.error
+  try {
+    const record = await bigScreenApi.getDashboard(id, { signal: controller.signal })
+    if (sequence !== loadSequence || controller.signal.aborted) return
+
+    designer.replaceDashboardForLoad(record)
+  } catch (error) {
+    if (sequence !== loadSequence || isAbortError(error)) return
+
+    const message = getErrorMessage(error)
+    designer.error = message
+    loadError.value = message
+  } finally {
+    if (sequence === loadSequence) {
+      designer.isLoading = false
+      if (loadController === controller) {
+        loadController = null
+      }
+    }
+  }
 }
 
 function retryLoad() {
@@ -65,6 +98,10 @@ function retryLoad() {
 }
 
 watch(routeDashboardId, (id) => void loadDashboardForRoute(id), { immediate: true })
+
+onBeforeUnmount(() => {
+  loadController?.abort()
+})
 </script>
 
 <template>
