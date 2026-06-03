@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Dashboard {
+  id              String   @id
+  name            String
+  description     String?
+  ownerId         String
+  workspaceId     String
+  status          String
+  draftSchema     String
+  publishedSchema String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  publishedAt     DateTime?
+
+  versions    DashboardVersion[]
+  permissions DashboardPermission[]
+  shareLinks  DashboardShareLink[]
+}
+
+model DashboardVersion {
+  id          String   @id
+  dashboardId String
+  version     Int
+  schema      String
+  publishNote String?
+  createdBy   String
+  createdAt   DateTime @default(now())
+
+  dashboard Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+
+  @@unique([dashboardId, version])
+}
+
+model DashboardPermission {
+  id          String @id
+  dashboardId String
+  subjectType String
+  subjectId   String
+  permission  String
+
+  dashboard Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+
+  @@index([dashboardId, subjectType, subjectId])
+}
+
+model DashboardShareLink {
+  id          String   @id
+  dashboardId String
+  token       String   @unique
+  accessScope String
+  expiresAt   DateTime?
+  isEnabled   Boolean  @default(true)
+
+  dashboard Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id         String   @id
+  actorId    String
+  action     String
+  resourceId String
+  metadata   String
+  createdAt  DateTime @default(now())
+}
