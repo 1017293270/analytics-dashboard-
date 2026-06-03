@@ -4,6 +4,8 @@ dist/
 .env.local
 apps/api/prisma/dev.db
 apps/api/prisma/dev.db-journal
+apps/api/prisma/test.db
+apps/api/prisma/test.db-journal
 apps/api/.prisma/
 coverage/
 playwright-report/

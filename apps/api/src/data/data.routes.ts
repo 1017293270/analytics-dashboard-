@@ -4,9 +4,14 @@ import { z } from 'zod'
 import { sendBadRequest } from '../errors.js'
 import { getMockData } from './mock-data.js'
 
+const queryField = z.string().min(1).max(80)
+
 const dataQueryBody = z.object({
   sourceType: z.literal('mock'),
-  query: z.object({ dimensions: z.array(z.string()).optional(), metrics: z.array(z.string()).optional() }),
+  query: z.object({
+    dimensions: z.array(queryField).max(20).optional(),
+    metrics: z.array(queryField).max(20).optional(),
+  }),
 })
 
 export const dataRoutes = Router()

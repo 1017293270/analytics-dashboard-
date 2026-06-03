@@ -3,7 +3,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { recordAudit } from '../audit/audit.js'
 import { prisma } from '../db.js'
-import { sendBadRequest, sendForbidden, sendNotFound } from '../errors.js'
+import { asyncHandler, sendBadRequest, sendForbidden, sendNotFound } from '../errors.js'
 import {
   createDashboard,
   DEFAULT_ACTOR_ID,
@@ -36,7 +36,7 @@ async function getPermission(dashboardId: string, actorId = DEFAULT_ACTOR_ID) {
   return dashboardPermissionValidator.parse(permission.permission)
 }
 
-dashboardRoutes.get('/big-screens', async (_req, res) => {
+dashboardRoutes.get('/big-screens', asyncHandler(async (_req, res) => {
   const dashboards = await prisma.dashboard.findMany({
     where: { workspaceId: DEFAULT_WORKSPACE_ID },
     orderBy: { updatedAt: 'desc' },
@@ -51,17 +51,17 @@ dashboardRoutes.get('/big-screens', async (_req, res) => {
       })),
     ),
   )
-})
+}))
 
-dashboardRoutes.post('/big-screens', async (req, res) => {
+dashboardRoutes.post('/big-screens', asyncHandler(async (req, res) => {
   const body = createDashboardBody.safeParse(req.body)
-  if (!body.success) return sendBadRequest(res, 'DASHBOARD_INVALID', 'Dashboard name is required')
+  if (!body.success) return sendBadRequest(res, 'REQUEST_INVALID', 'Dashboard name is required')
 
   const dashboard = await createDashboard(body.data)
   res.status(201).json(ok(dashboard))
-})
+}))
 
-dashboardRoutes.get('/big-screens/:id', async (req, res) => {
+dashboardRoutes.get('/big-screens/:id', asyncHandler(async (req, res) => {
   const dashboard = await getDashboard(req.params.id)
   if (!dashboard) return sendNotFound(res)
 
@@ -69,9 +69,9 @@ dashboardRoutes.get('/big-screens/:id', async (req, res) => {
   if (!permission) return sendForbidden(res)
 
   res.json(ok(dashboard))
-})
+}))
 
-dashboardRoutes.patch('/big-screens/:id/draft', async (req, res) => {
+dashboardRoutes.patch('/big-screens/:id/draft', asyncHandler(async (req, res) => {
   const body = updateDraftBody.safeParse(req.body)
   if (!body.success) return sendBadRequest(res, 'SCHEMA_INVALID', 'Draft schema is invalid')
 
@@ -84,11 +84,14 @@ dashboardRoutes.patch('/big-screens/:id/draft', async (req, res) => {
   const draftSchema = dashboardSchemaValidator.safeParse(body.data.draftSchema)
   if (!draftSchema.success) return sendBadRequest(res, 'SCHEMA_INVALID', 'Draft schema is invalid')
 
-  const updated = await prisma.dashboard.update({
-    where: { id: dashboard.id },
-    data: { draftSchema: JSON.stringify(draftSchema.data), status: 'draft' },
+  const updated = await prisma.$transaction(async (tx) => {
+    const updatedDashboard = await tx.dashboard.update({
+      where: { id: dashboard.id },
+      data: { draftSchema: JSON.stringify(draftSchema.data), status: 'draft' },
+    })
+    await recordAudit('dashboard.draft.updated', dashboard.id, DEFAULT_ACTOR_ID, { name: dashboard.name }, tx)
+    return updatedDashboard
   })
-  await recordAudit('dashboard.draft.updated', dashboard.id, DEFAULT_ACTOR_ID, { name: dashboard.name })
 
   res.json(
     ok({
@@ -97,9 +100,9 @@ dashboardRoutes.patch('/big-screens/:id/draft', async (req, res) => {
       publishedSchema: updated.publishedSchema ? parseSchema(updated.publishedSchema) : null,
     }),
   )
-})
+}))
 
-dashboardRoutes.post('/big-screens/:id/publish', async (req, res) => {
+dashboardRoutes.post('/big-screens/:id/publish', asyncHandler(async (req, res) => {
   const body = publishBody.safeParse(req.body)
   if (!body.success) return sendBadRequest(res, 'PUBLISH_INVALID', 'Publish request is invalid')
 
@@ -116,24 +119,27 @@ dashboardRoutes.post('/big-screens/:id/publish', async (req, res) => {
   const nextVersion = (dashboard.versions[0]?.version ?? 0) + 1
   const publishedAt = new Date()
 
-  const updated = await prisma.dashboard.update({
-    where: { id: dashboard.id },
-    data: {
-      status: 'published',
-      publishedSchema: JSON.stringify(draftSchema),
-      publishedAt,
-      versions: {
-        create: {
-          id: nanoIdForVersion(dashboard.id, nextVersion),
-          version: nextVersion,
-          schema: JSON.stringify(draftSchema),
-          publishNote: body.data.publishNote ?? null,
-          createdBy: DEFAULT_ACTOR_ID,
+  const updated = await prisma.$transaction(async (tx) => {
+    const updatedDashboard = await tx.dashboard.update({
+      where: { id: dashboard.id },
+      data: {
+        status: 'published',
+        publishedSchema: JSON.stringify(draftSchema),
+        publishedAt,
+        versions: {
+          create: {
+            id: nanoIdForVersion(dashboard.id, nextVersion),
+            version: nextVersion,
+            schema: JSON.stringify(draftSchema),
+            publishNote: body.data.publishNote ?? null,
+            createdBy: DEFAULT_ACTOR_ID,
+          },
         },
       },
-    },
+    })
+    await recordAudit('dashboard.published', dashboard.id, DEFAULT_ACTOR_ID, { version: nextVersion }, tx)
+    return updatedDashboard
   })
-  await recordAudit('dashboard.published', dashboard.id, DEFAULT_ACTOR_ID, { version: nextVersion })
 
   res.json(
     ok({
@@ -142,9 +148,9 @@ dashboardRoutes.post('/big-screens/:id/publish', async (req, res) => {
       publishedSchema: draftSchema,
     }),
   )
-})
+}))
 
-dashboardRoutes.get('/big-screens/:id/runtime', async (req, res) => {
+dashboardRoutes.get('/big-screens/:id/runtime', asyncHandler(async (req, res) => {
   const dashboard = await prisma.dashboard.findUnique({ where: { id: req.params.id } })
   if (!dashboard) return sendNotFound(res)
 
@@ -160,7 +166,7 @@ dashboardRoutes.get('/big-screens/:id/runtime', async (req, res) => {
       publishedAt: dashboard.publishedAt,
     }),
   )
-})
+}))
 
 function nanoIdForVersion(dashboardId: string, version: number) {
   return `${dashboardId}-${version}`

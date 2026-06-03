@@ -4,6 +4,7 @@ import { ok } from '@analytics/shared'
 import { dashboardRoutes } from './dashboards/dashboard.routes.js'
 import { dataRoutes } from './data/data.routes.js'
 import { env } from './env.js'
+import { errorMiddleware } from './errors.js'
 
 export function createApp() {
   const app = express()
@@ -15,6 +16,7 @@ export function createApp() {
   })
   app.use('/api', dashboardRoutes)
   app.use('/api', dataRoutes)
+  app.use(errorMiddleware)
 
   return app
 }

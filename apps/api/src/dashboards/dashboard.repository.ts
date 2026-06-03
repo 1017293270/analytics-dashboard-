@@ -25,8 +25,23 @@ export function createDefaultSchema(): DashboardSchema {
   }
 }
 
+export class StoredSchemaError extends Error {
+  constructor() {
+    super('Stored dashboard schema is invalid')
+    this.name = 'StoredSchemaError'
+  }
+}
+
 export function parseSchema(value: string): DashboardSchema {
-  return dashboardSchemaValidator.parse(JSON.parse(value))
+  try {
+    const parsedJson: unknown = JSON.parse(value)
+    const schema = dashboardSchemaValidator.safeParse(parsedJson)
+    if (!schema.success) throw new StoredSchemaError()
+    return schema.data
+  } catch (error) {
+    if (error instanceof StoredSchemaError) throw error
+    throw new StoredSchemaError()
+  }
 }
 
 export async function createDashboard(input: { name: string; description?: string }) {
