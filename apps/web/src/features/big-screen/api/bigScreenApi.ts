@@ -12,13 +12,31 @@ export type DashboardRecord = {
   publishedAt?: string | null
 }
 
-function isApiResponse<T>(value: unknown): value is ApiResponse<T> {
-  return typeof value === 'object' && value !== null && 'success' in value
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
 }
 
-async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
+function isApiResponse<T>(value: unknown): value is ApiResponse<T> {
+  if (!isRecord(value)) return false
+
+  if (value.success === true) {
+    return Object.prototype.hasOwnProperty.call(value, 'data')
+  }
+
+  if (value.success === false) {
+    const error = value.error
+    return isRecord(error) && typeof error.code === 'string' && typeof error.message === 'string'
+  }
+
+  return false
+}
+
+export async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers)
-  if (!headers.has('Content-Type')) {
+  if (!headers.has('Accept')) {
+    headers.set('Accept', 'application/json')
+  }
+  if (init?.body !== undefined && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
   }
 
@@ -34,12 +52,12 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
     try {
       body = JSON.parse(text)
     } catch {
-      throw new Error(response.ok ? 'Response was not valid JSON' : `Request failed with status ${response.status}`)
+      throw new Error('Invalid API response')
     }
   }
 
   if (!isApiResponse<T>(body)) {
-    throw new Error(response.ok ? 'Response envelope was invalid' : `Request failed with status ${response.status}`)
+    throw new Error('Invalid API response')
   }
 
   if (!body.success) {
@@ -72,6 +90,8 @@ export const bigScreenApi = {
     })
   },
   getRuntime(id: string) {
-    return requestJson<{ id: string; name: string; schema: DashboardSchema }>(`/api/big-screens/${id}/runtime`)
+    return requestJson<{ id: string; name: string; schema: DashboardSchema; publishedAt?: string | null }>(
+      `/api/big-screens/${id}/runtime`,
+    )
   },
 }

@@ -6,8 +6,6 @@ import { useDashboardHistoryStore } from './useDashboardHistoryStore'
 
 type ComponentPatch = Partial<Omit<DashboardComponent, 'layout' | 'props' | 'style'>> & {
   layout?: Partial<DashboardComponent['layout']>
-  props?: Record<string, unknown>
-  style?: Record<string, unknown>
 }
 
 type DesignerState = {
@@ -25,6 +23,25 @@ const DEFAULT_DASHBOARD_NAME = 'Untitled Dashboard'
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Something went wrong'
+}
+
+function cloneSchema(schema: DashboardSchema): DashboardSchema {
+  return JSON.parse(JSON.stringify(schema)) as DashboardSchema
+}
+
+function stableStringify(value: unknown): string {
+  return JSON.stringify(value, (_key, nestedValue: unknown) => {
+    if (nestedValue === null || Array.isArray(nestedValue) || typeof nestedValue !== 'object') {
+      return nestedValue
+    }
+
+    return Object.keys(nestedValue)
+      .sort()
+      .reduce<Record<string, unknown>>((sorted, key) => {
+        sorted[key] = (nestedValue as Record<string, unknown>)[key]
+        return sorted
+      }, {})
+  })
 }
 
 function hasComponent(schema: DashboardSchema, componentId: string | null) {
@@ -48,15 +65,23 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
     },
   },
   actions: {
-    applyDashboard(record: DashboardRecord) {
+    replaceDashboardForLoad(record: DashboardRecord) {
       const history = useDashboardHistoryStore()
       this.dashboardId = record.id
       this.dashboardName = record.name
-      this.schema = structuredClone(record.draftSchema)
+      this.schema = cloneSchema(record.draftSchema)
       this.selectedComponentId = null
       this.error = null
       history.past = []
       history.future = []
+    },
+    applySavedDashboard(record: DashboardRecord) {
+      const selectedComponentId = this.selectedComponentId
+      this.dashboardId = record.id
+      this.dashboardName = record.name
+      this.schema = cloneSchema(record.draftSchema)
+      this.selectedComponentId = hasComponent(this.schema, selectedComponentId) ? selectedComponentId : null
+      this.error = null
     },
     async createDashboard(input: { name: string; description?: string } = { name: DEFAULT_DASHBOARD_NAME }) {
       this.isLoading = true
@@ -64,7 +89,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
 
       try {
         const record = await bigScreenApi.createDashboard(input)
-        this.applyDashboard(record)
+        this.replaceDashboardForLoad(record)
       } catch (error) {
         this.error = getErrorMessage(error)
       } finally {
@@ -77,7 +102,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
 
       try {
         const record = await bigScreenApi.getDashboard(id)
-        this.applyDashboard(record)
+        this.replaceDashboardForLoad(record)
       } catch (error) {
         this.error = getErrorMessage(error)
       } finally {
@@ -86,10 +111,14 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
     },
     patchSchema(mutator: (draft: DashboardSchema) => void) {
       const history = useDashboardHistoryStore()
-      const previous = structuredClone(this.schema)
-      const next = structuredClone(this.schema)
+      const previous = cloneSchema(this.schema)
+      const next = cloneSchema(this.schema)
 
       mutator(next)
+
+      if (stableStringify(previous) === stableStringify(next)) {
+        return
+      }
 
       history.push(previous)
       this.schema = next
@@ -99,7 +128,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
     },
     addComponent(component: DashboardComponent) {
       this.patchSchema((draft) => {
-        draft.components = [...draft.components, structuredClone(component)]
+        draft.components = [...draft.components, JSON.parse(JSON.stringify(component)) as DashboardComponent]
       })
       this.selectedComponentId = component.id
     },
@@ -111,9 +140,53 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
             ...component,
             ...patch,
             layout: patch.layout ? { ...component.layout, ...patch.layout } : component.layout,
-            props: patch.props ? { ...component.props, ...patch.props } : component.props,
-            style: patch.style ? { ...component.style, ...patch.style } : component.style,
           }
+        })
+      })
+    },
+    patchComponentProps(componentId: string, propsPatch: Record<string, unknown>) {
+      this.patchSchema((draft) => {
+        draft.components = draft.components.map((component) =>
+          component.id === componentId ? { ...component, props: { ...component.props, ...propsPatch } } : component,
+        )
+      })
+    },
+    replaceComponentProps(componentId: string, props: Record<string, unknown>) {
+      this.patchSchema((draft) => {
+        draft.components = draft.components.map((component) =>
+          component.id === componentId ? { ...component, props: { ...props } } : component,
+        )
+      })
+    },
+    patchComponentStyle(componentId: string, stylePatch: Record<string, unknown>) {
+      this.patchSchema((draft) => {
+        draft.components = draft.components.map((component) =>
+          component.id === componentId ? { ...component, style: { ...component.style, ...stylePatch } } : component,
+        )
+      })
+    },
+    replaceComponentStyle(componentId: string, style: Record<string, unknown>) {
+      this.patchSchema((draft) => {
+        draft.components = draft.components.map((component) =>
+          component.id === componentId ? { ...component, style: { ...style } } : component,
+        )
+      })
+    },
+    unsetComponentProp(componentId: string, key: string) {
+      this.patchSchema((draft) => {
+        draft.components = draft.components.map((component) => {
+          if (component.id !== componentId) return component
+          const { [key]: _removed, ...props } = component.props
+          return { ...component, props }
+        })
+      })
+    },
+    unsetComponentStyle(componentId: string, key: string) {
+      this.patchSchema((draft) => {
+        draft.components = draft.components.map((component) => {
+          if (component.id !== componentId) return component
+          const { [key]: _removed, ...style } = component.style
+          return { ...component, style }
         })
       })
     },
@@ -137,7 +210,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
 
       try {
         const record = await bigScreenApi.saveDraft(this.dashboardId, this.schema)
-        this.applyDashboard(record)
+        this.applySavedDashboard(record)
       } catch (error) {
         this.error = getErrorMessage(error)
       } finally {
