@@ -12,6 +12,12 @@ export type DashboardRecord = {
   publishedAt?: string | null
 }
 
+export type CreateDashboardInput = {
+  name: string
+  description?: string
+  clientReservationId?: string
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
@@ -68,7 +74,7 @@ export async function requestJson<T>(url: string, init?: RequestInit): Promise<T
 }
 
 export const bigScreenApi = {
-  createDashboard(input: { name: string; description?: string }, init?: RequestInit) {
+  createDashboard(input: CreateDashboardInput, init?: RequestInit) {
     return requestJson<DashboardRecord>('/api/big-screens', {
       ...init,
       method: 'POST',

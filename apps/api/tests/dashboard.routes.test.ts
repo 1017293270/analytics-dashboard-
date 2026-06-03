@@ -52,6 +52,57 @@ describe('dashboard routes', () => {
     })
   })
 
+  test('reuses a client reservation id for repeated local draft creates', async () => {
+    const app = createApp()
+    const clientReservationId = 'local-draft-repeatable-create'
+
+    const first = await request(app)
+      .post('/api/big-screens')
+      .send({ name: 'First Draft', clientReservationId })
+      .expect(201)
+    const second = await request(app)
+      .post('/api/big-screens')
+      .send({ name: 'Second Draft', clientReservationId })
+      .expect(200)
+
+    expect(first.body.data.id).toBe(clientReservationId)
+    expect(second.body.data.id).toBe(clientReservationId)
+
+    const dashboards = await prisma.dashboard.findMany({ where: { id: clientReservationId } })
+    expect(dashboards).toHaveLength(1)
+    expect(dashboards[0]?.name).toBe('First Draft')
+  })
+
+  test('rejects invalid local create reservation ids', async () => {
+    const app = createApp()
+
+    const response = await request(app)
+      .post('/api/big-screens')
+      .send({ name: 'Invalid Reservation', clientReservationId: 'dashboard-1' })
+      .expect(400)
+
+    expect(response.body).toEqual({
+      success: false,
+      data: null,
+      error: { code: 'REQUEST_INVALID', message: 'Dashboard name is required' },
+    })
+  })
+
+  test('rejects local create reservation reuse without edit permission', async () => {
+    const app = createApp()
+    const clientReservationId = 'local-draft-forbidden-reuse'
+
+    await request(app).post('/api/big-screens').send({ name: 'Reserved Draft', clientReservationId }).expect(201)
+    await prisma.dashboardPermission.deleteMany({ where: { dashboardId: clientReservationId } })
+
+    const response = await request(app)
+      .post('/api/big-screens')
+      .send({ name: 'Forbidden Draft', clientReservationId })
+      .expect(403)
+
+    expect(response.body.error.code).toBe('FORBIDDEN')
+  })
+
   test('updates dashboard metadata with edit permission', async () => {
     const app = createApp()
 

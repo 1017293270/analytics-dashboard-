@@ -44,11 +44,11 @@ export function parseSchema(value: string): DashboardSchema {
   }
 }
 
-export async function createDashboard(input: { name: string; description?: string }) {
+export async function createDashboard(input: { name: string; description?: string; id?: string }) {
   const schema = createDefaultSchema()
   const dashboard = await prisma.dashboard.create({
     data: {
-      id: nanoid(),
+      id: input.id ?? nanoid(),
       name: input.name,
       description: input.description ?? null,
       ownerId: DEFAULT_ACTOR_ID,

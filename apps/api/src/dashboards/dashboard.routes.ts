@@ -1,5 +1,6 @@
 import { canEdit, canPublish, dashboardPermissionValidator, dashboardSchemaValidator, ok } from '@analytics/shared'
-import { Router } from 'express'
+import { Prisma } from '@prisma/client'
+import { Router, type Response } from 'express'
 import { z } from 'zod'
 import { recordAudit } from '../audit/audit.js'
 import { prisma } from '../db.js'
@@ -15,6 +16,7 @@ import {
 const createDashboardBody = z.object({
   name: z.string().trim().min(1).max(120),
   description: z.string().trim().min(1).max(500).optional(),
+  clientReservationId: z.string().regex(/^local-draft-[A-Za-z0-9_-]{12,64}$/).optional(),
 })
 
 const updateDraftBody = z.object({
@@ -40,6 +42,24 @@ async function getPermission(dashboardId: string, actorId = DEFAULT_ACTOR_ID) {
   return dashboardPermissionValidator.parse(permission.permission)
 }
 
+function isUniqueConstraintError(error: unknown) {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002'
+}
+
+async function sendExistingReservation(res: Response, dashboardId: string) {
+  const dashboard = await getDashboard(dashboardId)
+  if (!dashboard) return null
+
+  const permission = await getPermission(dashboard.id)
+  if (!permission || !canEdit(permission)) {
+    sendForbidden(res)
+    return true
+  }
+
+  res.json(ok(dashboard))
+  return true
+}
+
 dashboardRoutes.get('/big-screens', asyncHandler(async (_req, res) => {
   const dashboards = await prisma.dashboard.findMany({
     where: { workspaceId: DEFAULT_WORKSPACE_ID },
@@ -61,8 +81,23 @@ dashboardRoutes.post('/big-screens', asyncHandler(async (req, res) => {
   const body = createDashboardBody.safeParse(req.body)
   if (!body.success) return sendBadRequest(res, 'REQUEST_INVALID', 'Dashboard name is required')
 
-  const dashboard = await createDashboard(body.data)
-  res.status(201).json(ok(dashboard))
+  const reservationId = body.data.clientReservationId
+  if (reservationId) {
+    const handled = await sendExistingReservation(res, reservationId)
+    if (handled) return
+  }
+
+  try {
+    const dashboard = await createDashboard({ ...body.data, id: reservationId })
+    res.status(201).json(ok(dashboard))
+  } catch (error) {
+    if (reservationId && isUniqueConstraintError(error)) {
+      const handled = await sendExistingReservation(res, reservationId)
+      if (handled) return
+    }
+
+    throw error
+  }
 }))
 
 dashboardRoutes.get('/big-screens/:id', asyncHandler(async (req, res) => {

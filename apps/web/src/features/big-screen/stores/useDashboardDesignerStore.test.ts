@@ -137,26 +137,34 @@ describe('useDashboardDesignerStore', () => {
     expect(store.isSaving).toBe(false)
   })
 
-  test('ignores stale local create results after a new local draft replaces the editor context', async () => {
+  test('reuses a stale local create reservation for the next local save without overwriting the active draft', async () => {
     const store = useDashboardDesignerStore()
     const staleCreate = createDeferred<DashboardRecord>()
-    const saveSpy = vi.spyOn(bigScreenApi, 'saveDraft').mockResolvedValue(
-      createRecord(createDefaultDashboardSchema(), { id: 'dashboard-created', name: 'First local draft' }),
-    )
+    const reservationId = store.localDraftReservationId
+    const activeComponent = { ...component, id: 'component-current', name: 'Current metric' }
 
     store.dashboardName = 'First local draft'
     store.addComponent(component)
 
-    vi.spyOn(bigScreenApi, 'createDashboard').mockReturnValue(staleCreate.promise)
+    const createSpy = vi
+      .spyOn(bigScreenApi, 'createDashboard')
+      .mockReturnValueOnce(staleCreate.promise)
+      .mockResolvedValueOnce(createRecord(createDefaultDashboardSchema(), { id: reservationId, name: 'First local draft' }))
+    const updateSpy = vi
+      .spyOn(bigScreenApi, 'updateDashboard')
+      .mockResolvedValue(createRecord(createDefaultDashboardSchema(), { id: reservationId, name: 'Second local draft' }))
+    const saveSpy = vi
+      .spyOn(bigScreenApi, 'saveDraft')
+      .mockImplementation(async (id, schema) => createRecord(schema, { id, name: 'Second local draft' }))
 
     const savePromise = store.saveDraft()
     expect(store.isSaving).toBe(true)
+    expect(createSpy).toHaveBeenCalledWith({ name: 'First local draft', clientReservationId: reservationId })
 
     store.replaceLocalDraft(createDefaultDashboardSchema(), 'Second local draft')
-    const activeComponent = { ...component, id: 'component-current', name: 'Current metric' }
     store.addComponent(activeComponent)
 
-    staleCreate.resolve(createRecord(createDefaultDashboardSchema(), { id: 'dashboard-created', name: 'First local draft' }))
+    staleCreate.resolve(createRecord(createDefaultDashboardSchema(), { id: reservationId, name: 'First local draft' }))
     await savePromise
 
     expect(saveSpy).not.toHaveBeenCalled()
@@ -164,6 +172,50 @@ describe('useDashboardDesignerStore', () => {
     expect(store.dashboardName).toBe('Second local draft')
     expect(store.schema.components).toEqual([activeComponent])
     expect(store.isSaving).toBe(false)
+
+    await store.saveDraft()
+
+    expect(createSpy).toHaveBeenCalledTimes(2)
+    expect(createSpy).toHaveBeenLastCalledWith({ name: 'Second local draft', clientReservationId: reservationId })
+    expect(updateSpy).toHaveBeenCalledWith(reservationId, { name: 'Second local draft' })
+    expect(saveSpy).toHaveBeenCalledWith(reservationId, expect.objectContaining({ components: [activeComponent] }))
+    expect(store.dashboardId).toBe(reservationId)
+    expect(store.dashboardName).toBe('Second local draft')
+  })
+
+  test('uses the same local create reservation when a new local save starts before a stale create resolves', async () => {
+    const store = useDashboardDesignerStore()
+    const staleCreate = createDeferred<DashboardRecord>()
+    const activeCreate = createDeferred<DashboardRecord>()
+    const reservationId = store.localDraftReservationId
+    const activeComponent = { ...component, id: 'component-current', name: 'Current metric' }
+
+    store.dashboardName = 'First local draft'
+    const createSpy = vi
+      .spyOn(bigScreenApi, 'createDashboard')
+      .mockReturnValueOnce(staleCreate.promise)
+      .mockReturnValueOnce(activeCreate.promise)
+    vi.spyOn(bigScreenApi, 'saveDraft').mockImplementation(async (id, schema) =>
+      createRecord(schema, { id, name: 'Second local draft' }),
+    )
+
+    const staleSavePromise = store.saveDraft()
+    store.replaceLocalDraft(createDefaultDashboardSchema(), 'Second local draft')
+    store.addComponent(activeComponent)
+
+    const activeSavePromise = store.saveDraft()
+
+    expect(createSpy).toHaveBeenNthCalledWith(1, { name: 'First local draft', clientReservationId: reservationId })
+    expect(createSpy).toHaveBeenNthCalledWith(2, { name: 'Second local draft', clientReservationId: reservationId })
+
+    staleCreate.resolve(createRecord(createDefaultDashboardSchema(), { id: reservationId, name: 'First local draft' }))
+    await staleSavePromise
+
+    activeCreate.resolve(createRecord(createDefaultDashboardSchema(), { id: reservationId, name: 'Second local draft' }))
+    await activeSavePromise
+
+    expect(store.dashboardId).toBe(reservationId)
+    expect(store.schema.components).toEqual([activeComponent])
   })
 
   test('does not let stale save completion clear a newer active save', async () => {
@@ -171,6 +223,7 @@ describe('useDashboardDesignerStore', () => {
     const staleSave = createDeferred<DashboardRecord>()
     const currentCreate = createDeferred<DashboardRecord>()
     const currentSave = createDeferred<DashboardRecord>()
+    const reservationId = store.localDraftReservationId
     const createSpy = vi.spyOn(bigScreenApi, 'createDashboard').mockReturnValue(currentCreate.promise)
 
     vi.spyOn(bigScreenApi, 'updateDashboard').mockResolvedValue(
@@ -191,7 +244,7 @@ describe('useDashboardDesignerStore', () => {
     expect(store.isSaving).toBe(false)
 
     const currentSavePromise = store.saveDraft()
-    expect(createSpy).toHaveBeenCalledWith({ name: 'Current local draft' })
+    expect(createSpy).toHaveBeenCalledWith({ name: 'Current local draft', clientReservationId: reservationId })
     expect(store.isSaving).toBe(true)
 
     staleSave.resolve(createRecord(createDefaultDashboardSchema(), { id: 'dashboard-a', name: 'Dashboard A stale' }))
@@ -224,7 +277,10 @@ describe('useDashboardDesignerStore', () => {
 
     await store.saveDraft()
 
-    expect(createSpy).toHaveBeenCalledWith({ name: 'Local Command' })
+    expect(createSpy).toHaveBeenCalledWith({
+      name: 'Local Command',
+      clientReservationId: expect.stringMatching(/^local-draft-/),
+    })
     expect(saveSpy).toHaveBeenCalledWith('dashboard-created', expect.objectContaining({ components: [component] }))
     expect(store.dashboardId).toBe('dashboard-created')
     expect(store.dashboardName).toBe('Local Command')

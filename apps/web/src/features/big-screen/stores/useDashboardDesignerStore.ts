@@ -1,4 +1,5 @@
 import type { DashboardComponent, DashboardSchema } from '@analytics/shared'
+import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
 import { bigScreenApi, type DashboardRecord } from '../api/bigScreenApi'
 import { createDefaultDashboardSchema } from '../schema/defaults'
@@ -22,10 +23,15 @@ type DesignerState = {
   editorContextVersion: number
   saveOperationVersion: number
   activeSaveOperationVersion: number | null
+  localDraftReservationId: string
   error: string | null
 }
 
 const DEFAULT_DASHBOARD_NAME = 'Untitled Dashboard'
+
+function createLocalDraftReservationId() {
+  return `local-draft-${nanoid()}`
+}
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Something went wrong'
@@ -86,6 +92,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
     editorContextVersion: 0,
     saveOperationVersion: 0,
     activeSaveOperationVersion: null,
+    localDraftReservationId: createLocalDraftReservationId(),
     error: null,
   }),
   getters: {
@@ -152,6 +159,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       this.dashboardName = record.name
       this.savedDashboardName = record.name
       this.dashboardStatus = record.status
+      this.localDraftReservationId = createLocalDraftReservationId()
       this.error = null
     },
     setDashboardName(name: string) {
@@ -338,11 +346,14 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
         const dashboardId = this.dashboardId
 
         if (!dashboardId) {
-          const created = await bigScreenApi.createDashboard({ name })
+          const created = await bigScreenApi.createDashboard({ name, clientReservationId: this.localDraftReservationId })
           if (!isCurrentSaveOperation()) return
 
-          this.applyCreatedDashboardIdentity(created)
-          const saved = await bigScreenApi.saveDraft(created.id, schema)
+          const dashboard = created.name === name ? created : await bigScreenApi.updateDashboard(created.id, { name })
+          if (!isCurrentSaveOperation()) return
+
+          this.applyCreatedDashboardIdentity(dashboard)
+          const saved = await bigScreenApi.saveDraft(dashboard.id, schema)
           if (!isCurrentSaveOperation()) return
 
           this.applySavedDashboard(saved)
