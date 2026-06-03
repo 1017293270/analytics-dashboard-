@@ -159,8 +159,10 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       this.dashboardName = record.name
       this.savedDashboardName = record.name
       this.dashboardStatus = record.status
-      this.localDraftReservationId = createLocalDraftReservationId()
       this.error = null
+    },
+    rotateLocalDraftReservation() {
+      this.localDraftReservationId = createLocalDraftReservationId()
     },
     setDashboardName(name: string) {
       if (this.isSaving) return
@@ -357,9 +359,11 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
           if (!isCurrentSaveOperation()) return
 
           this.applySavedDashboard(saved)
+          this.rotateLocalDraftReservation()
           return
         }
 
+        const shouldRotateReservationAfterSave = dashboardId === this.localDraftReservationId
         await bigScreenApi.updateDashboard(dashboardId, { name })
         if (!isCurrentSaveOperation()) return
 
@@ -367,6 +371,9 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
         if (!isCurrentSaveOperation()) return
 
         this.applySavedDashboard(record)
+        if (shouldRotateReservationAfterSave) {
+          this.rotateLocalDraftReservation()
+        }
       } catch (error) {
         if (isCurrentSaveOperation()) {
           this.error = getErrorMessage(error)
