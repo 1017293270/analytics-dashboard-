@@ -86,7 +86,10 @@ export const dashboardSchemaValidator = z
       }
       componentIds.add(component.id)
 
-      if (component.dataBindingId && !schema.dataBindings[component.dataBindingId]) {
+      if (
+        component.dataBindingId &&
+        !Object.prototype.hasOwnProperty.call(schema.dataBindings, component.dataBindingId)
+      ) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['components', component.id, 'dataBindingId'],
