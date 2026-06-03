@@ -1,20 +1,11 @@
 <script setup lang="ts">
 import type { DashboardComponent } from '@analytics/shared'
 import { computed, type PropType } from 'vue'
+import { buildTextStyle } from './textRenderer.helpers'
 
 const props = defineProps({
   component: { type: Object as PropType<DashboardComponent>, required: true },
 })
-
-function styleString(key: string, fallback: string): string {
-  const value = props.component.style[key]
-  return typeof value === 'string' ? value : fallback
-}
-
-function styleNumber(key: string, fallback: number): number {
-  const value = props.component.style[key]
-  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
-}
 
 function propString(key: string, fallback: string): string {
   const value = props.component.props[key]
@@ -22,12 +13,7 @@ function propString(key: string, fallback: string): string {
 }
 
 const text = computed(() => propString('text', ''))
-const textStyle = computed(() => ({
-  backgroundColor: styleString('backgroundColor', 'transparent'),
-  color: styleString('fontColor', '#f8fafc'),
-  fontSize: `${styleNumber('fontSize', 28)}px`,
-  fontWeight: styleNumber('fontWeight', 700),
-}))
+const textStyle = computed(() => buildTextStyle(props.component.style))
 </script>
 
 <template>

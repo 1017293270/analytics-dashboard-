@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { DashboardComponent } from '@analytics/shared'
 import { computed, type CSSProperties, type PropType } from 'vue'
+import { isAllowedImageSource } from './imageRenderer.helpers'
 
 const props = defineProps({
   component: { type: Object as PropType<DashboardComponent>, required: true },
@@ -17,6 +18,8 @@ function propString(key: string, fallback: string): string {
 }
 
 const src = computed(() => propString('src', ''))
+const isRejectedSource = computed(() => src.value !== '' && !isAllowedImageSource(src.value))
+const safeSrc = computed(() => (isRejectedSource.value ? '' : src.value))
 const objectFit = computed(() => propString('objectFit', 'cover'))
 const imageStyle = computed<CSSProperties>(() => ({ objectFit: objectFit.value as CSSProperties['objectFit'] }))
 const frameStyle = computed(() => ({
@@ -27,8 +30,10 @@ const frameStyle = computed(() => ({
 
 <template>
   <figure class="image-renderer" :style="frameStyle">
-    <img v-if="src" :src="src" alt="" :style="imageStyle" />
-    <figcaption v-else class="image-renderer__empty">Image not selected</figcaption>
+    <img v-if="safeSrc" :src="safeSrc" alt="" :style="imageStyle" />
+    <figcaption v-else class="image-renderer__empty">
+      {{ isRejectedSource ? 'Unsupported image source' : 'Image not selected' }}
+    </figcaption>
   </figure>
 </template>
 

@@ -6,7 +6,8 @@ import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { computed, type PropType } from 'vue'
 import VChart from 'vue-echarts'
-import type { CategoryData, ComponentData, TimeSeriesData } from '../../data-adapters/dataAdapter.types'
+import type { ComponentData } from '../../data-adapters/dataAdapter.types'
+import { buildChartOption, getChartDataIssue } from './chartRenderer.helpers'
 
 use([CanvasRenderer, LineChart, BarChart, PieChart, GridComponent, LegendComponent, TitleComponent, TooltipComponent])
 
@@ -28,7 +29,6 @@ function propString(key: string, fallback: string): string {
 }
 
 const title = computed(() => propString('title', props.component.name))
-const chartType = computed(() => propString('chartType', props.component.type === 'pie-chart' ? 'pie' : props.component.type === 'bar-chart' ? 'bar' : 'line'))
 const accentColor = computed(() => styleString('accentColor', '#38bdf8'))
 const fontColor = computed(() => styleString('fontColor', '#dbeafe'))
 const panelStyle = computed(() => ({
@@ -36,84 +36,17 @@ const panelStyle = computed(() => ({
   color: fontColor.value,
   '--chart-accent': accentColor.value,
 }))
-const timeSeries = computed<TimeSeriesData | null>(() => (props.data?.kind === 'time-series' ? props.data : null))
-const categorySeries = computed<CategoryData | null>(() => (props.data?.kind === 'category' ? props.data : null))
-const hasRows = computed(() => Boolean(timeSeries.value?.rows.length || categorySeries.value?.rows.length))
+const chartIssue = computed(() => getChartDataIssue(props.component, props.data))
 
-const chartOption = computed(() => {
-  const textStyle = { color: fontColor.value }
-  if (timeSeries.value) {
-    const seriesType = chartType.value === 'bar' ? 'bar' : 'line'
-    return {
-      color: [accentColor.value],
-      textStyle,
-      tooltip: { trigger: 'axis' },
-      grid: { left: 44, right: 20, top: 32, bottom: 32 },
-      xAxis: {
-        type: 'category',
-        data: timeSeries.value.rows.map((row) => row.date),
-        axisLabel: { color: fontColor.value },
-        axisLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.42)' } },
-      },
-      yAxis: {
-        type: 'value',
-        axisLabel: { color: fontColor.value },
-        splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.16)' } },
-      },
-      series: [
-        {
-          type: seriesType,
-          name: title.value,
-          data: timeSeries.value.rows.map((row) => row.count),
-          smooth: seriesType === 'line',
-          areaStyle: seriesType === 'line' ? { opacity: 0.16 } : undefined,
-        },
-      ],
-    }
-  }
-
-  if (categorySeries.value && chartType.value === 'pie') {
-    return {
-      color: [accentColor.value, '#22c55e', '#f59e0b', '#f87171', '#a78bfa'],
-      textStyle,
-      tooltip: { trigger: 'item' },
-      legend: { bottom: 0, textStyle },
-      series: [
-        {
-          type: 'pie',
-          name: title.value,
-          radius: ['42%', '68%'],
-          center: ['50%', '44%'],
-          data: categorySeries.value.rows.map((row) => ({ name: row.category, value: row.value })),
-          label: { color: fontColor.value },
-        },
-      ],
-    }
-  }
-
-  if (categorySeries.value) {
-    return {
-      color: [accentColor.value],
-      textStyle,
-      tooltip: { trigger: 'axis' },
-      grid: { left: 44, right: 20, top: 32, bottom: 42 },
-      xAxis: {
-        type: 'category',
-        data: categorySeries.value.rows.map((row) => row.category),
-        axisLabel: { color: fontColor.value },
-        axisLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.42)' } },
-      },
-      yAxis: {
-        type: 'value',
-        axisLabel: { color: fontColor.value },
-        splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.16)' } },
-      },
-      series: [{ type: 'bar', name: title.value, data: categorySeries.value.rows.map((row) => row.value) }],
-    }
-  }
-
-  return {}
-})
+const chartOption = computed(() =>
+  props.data && !chartIssue.value
+    ? buildChartOption(props.component, props.data, {
+        title: title.value,
+        fontColor: fontColor.value,
+        accentColor: accentColor.value,
+      })
+    : {},
+)
 </script>
 
 <template>
@@ -125,7 +58,7 @@ const chartOption = computed(() => {
         <span class="echart-renderer__skeleton echart-renderer__skeleton--short" />
       </div>
       <p v-else-if="error" class="echart-renderer__state">Chart unavailable: {{ error }}</p>
-      <p v-else-if="!hasRows" class="echart-renderer__state">No chart data</p>
+      <p v-else-if="chartIssue" class="echart-renderer__state">{{ chartIssue }}</p>
       <VChart v-else class="echart-renderer__chart" :option="chartOption" autoresize />
     </div>
   </section>

@@ -1,14 +1,20 @@
 import { requestJson } from '../api/bigScreenApi'
-import type { ComponentData, DataAdapter } from './dataAdapter.types'
+import { isComponentData, type DataAdapter } from './dataAdapter.types'
 
 export const mockDataAdapter: DataAdapter = {
-  query(binding) {
-    return requestJson<ComponentData>('/api/big-screens/data/query', {
+  async query(binding) {
+    const data = await requestJson<unknown>('/api/big-screens/data/query', {
       method: 'POST',
       body: JSON.stringify({
         sourceType: 'mock',
         query: binding.query,
       }),
     })
+
+    if (!isComponentData(data)) {
+      throw new Error('Invalid component data')
+    }
+
+    return data
   },
 }
