@@ -132,4 +132,36 @@ describe('dashboard workflow routes', () => {
       error: { code: 'NOT_PUBLISHED', message: 'Dashboard is not published' },
     })
   })
+
+  test('archived dashboards cannot be fetched, edited, published, or loaded at runtime', async () => {
+    const app = createApp()
+    const dashboard = await createPublishedDashboard(app, 'Archived Boundary')
+    await request(app).delete(`/api/big-screens/${dashboard.id}`).expect(200)
+
+    await request(app).get(`/api/big-screens/${dashboard.id}`).expect(404)
+    await request(app).patch(`/api/big-screens/${dashboard.id}`).send({ name: 'Archived Rename' }).expect(404)
+    await request(app).patch(`/api/big-screens/${dashboard.id}/draft`).send({ draftSchema: dashboard.draftSchema }).expect(404)
+    await request(app).post(`/api/big-screens/${dashboard.id}/publish`).send({}).expect(404)
+    await request(app).get(`/api/big-screens/${dashboard.id}/runtime`).expect(404)
+    await request(app).post(`/api/big-screens/${dashboard.id}/copy`).send({}).expect(404)
+    await request(app).post(`/api/big-screens/${dashboard.id}/unpublish`).send({}).expect(404)
+    await request(app).get(`/api/big-screens/${dashboard.id}/versions`).expect(404)
+    await request(app).post(`/api/big-screens/${dashboard.id}/versions/1/rollback`).send({}).expect(404)
+    await request(app).post(`/api/big-screens/${dashboard.id}/share-links`).send({}).expect(404)
+  })
+
+  test('cross-workspace dashboards cannot be fetched, updated, published, or loaded at runtime even with permission', async () => {
+    const app = createApp()
+    const dashboard = await createPublishedDashboard(app, 'Cross Workspace Boundary')
+    await prisma.dashboard.update({
+      where: { id: dashboard.id },
+      data: { workspaceId: 'other-workspace' },
+    })
+
+    await request(app).get(`/api/big-screens/${dashboard.id}`).expect(404)
+    await request(app).patch(`/api/big-screens/${dashboard.id}`).send({ name: 'Cross Workspace Rename' }).expect(404)
+    await request(app).patch(`/api/big-screens/${dashboard.id}/draft`).send({ draftSchema: dashboard.draftSchema }).expect(404)
+    await request(app).post(`/api/big-screens/${dashboard.id}/publish`).send({}).expect(404)
+    await request(app).get(`/api/big-screens/${dashboard.id}/runtime`).expect(404)
+  })
 })
