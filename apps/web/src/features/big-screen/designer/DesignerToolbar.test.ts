@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { aiOperationsPreset } from '../presets/presets'
 import { useDashboardDesignerStore } from '../stores/useDashboardDesignerStore'
 import DesignerToolbar from './DesignerToolbar.vue'
 
@@ -17,6 +18,7 @@ function mountToolbar() {
 describe('DesignerToolbar', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    vi.restoreAllMocks()
   })
 
   test('allows valid local drafts to save through create-on-save flow', async () => {
@@ -58,5 +60,56 @@ describe('DesignerToolbar', () => {
 
     expect(wrapper.get('[data-testid="dashboard-name-input"]').attributes('disabled')).toBeDefined()
     expect(wrapper.get('[data-testid="save-dashboard-button"]').attributes('disabled')).toBeDefined()
+  })
+
+  test('applies the AI operations preset from the toolbar', async () => {
+    const { store, wrapper } = mountToolbar()
+    const applyPreset = vi.fn()
+    store.applyPreset = applyPreset
+
+    await wrapper.get('[data-testid="apply-preset-button"]').trigger('click')
+
+    expect(applyPreset).toHaveBeenCalledWith(aiOperationsPreset)
+  })
+
+  test('keeps preview inert until a dashboard id exists', async () => {
+    const { store, wrapper } = mountToolbar()
+    const previewLink = wrapper.get('[data-testid="preview-runtime-link"]')
+
+    expect(previewLink.attributes('href')).toBeUndefined()
+    expect(previewLink.attributes('aria-disabled')).toBe('true')
+    expect(previewLink.attributes('tabindex')).toBe('-1')
+
+    store.dashboardId = 'dashboard-1'
+    await wrapper.vm.$nextTick()
+
+    const enabledPreviewLink = wrapper.get('[data-testid="preview-runtime-link"]')
+    expect(enabledPreviewLink.attributes('href')).toBe('/runtime/dashboard-1')
+    expect(enabledPreviewLink.attributes('target')).toBe('_blank')
+    expect(enabledPreviewLink.attributes('aria-disabled')).toBe('false')
+    expect(enabledPreviewLink.attributes('tabindex')).toBe('0')
+  })
+
+  test('publishes persisted dashboards and surfaces publishing state', async () => {
+    const { store, wrapper } = mountToolbar()
+    const publish = vi.fn()
+    store.publish = publish
+
+    expect(wrapper.get('[data-testid="publish-dashboard-button"]').attributes('disabled')).toBeDefined()
+
+    store.dashboardId = 'dashboard-1'
+    await wrapper.vm.$nextTick()
+
+    const publishButton = wrapper.get('[data-testid="publish-dashboard-button"]')
+    expect(publishButton.attributes('disabled')).toBeUndefined()
+    await publishButton.trigger('click')
+    expect(publish).toHaveBeenCalledOnce()
+
+    store.isSaving = true
+    store.activeSaveIntent = 'publish'
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.text()).toContain('Publishing')
+    expect(wrapper.get('[data-testid="publish-dashboard-button"]').text()).toBe('Publishing')
   })
 })

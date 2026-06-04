@@ -23,6 +23,7 @@ type DesignerState = {
   editorContextVersion: number
   saveOperationVersion: number
   activeSaveOperationVersion: number | null
+  activeSaveIntent: 'draft' | 'publish' | null
   localDraftReservationId: string
   error: string | null
 }
@@ -114,6 +115,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
     editorContextVersion: 0,
     saveOperationVersion: 0,
     activeSaveOperationVersion: null,
+    activeSaveIntent: null,
     localDraftReservationId: createLocalDraftReservationId(),
     error: null,
   }),
@@ -138,6 +140,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
     invalidateInFlightSave() {
       this.editorContextVersion += 1
       this.activeSaveOperationVersion = null
+      this.activeSaveIntent = null
       this.isSaving = false
     },
     replaceLocalDraft(schema: DashboardSchema = createDefaultDashboardSchema(), name = DEFAULT_DASHBOARD_NAME) {
@@ -237,6 +240,15 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       if (!hasComponent(this.schema, this.selectedComponentId)) {
         this.selectedComponentId = null
       }
+    },
+    applyPreset(schema: DashboardSchema) {
+      if (this.isLoading || this.isSaving) return
+
+      const history = useDashboardHistoryStore()
+      history.push(this.schema)
+      this.schema = cloneSchema(schema)
+      this.selectedComponentId = null
+      this.error = null
     },
     addComponent(component: DashboardComponent) {
       if (this.isSaving) return
@@ -363,6 +375,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
 
       this.saveOperationVersion = saveOperationVersion
       this.activeSaveOperationVersion = saveOperationVersion
+      this.activeSaveIntent = 'draft'
       this.isSaving = true
       this.error = null
 
@@ -411,6 +424,41 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
         draftWriteBarrier.release()
         if (isCurrentSaveOperation()) {
           this.activeSaveOperationVersion = null
+          this.activeSaveIntent = null
+          this.isSaving = false
+        }
+      }
+    },
+    async publish() {
+      if (this.isLoading || this.isSaving || !this.dashboardId) return
+
+      const saveOperationVersion = this.saveOperationVersion + 1
+      const editorContextVersion = this.editorContextVersion
+      const dashboardId = this.dashboardId
+      const isCurrentPublishOperation = () =>
+        this.activeSaveOperationVersion === saveOperationVersion &&
+        this.editorContextVersion === editorContextVersion &&
+        this.dashboardId === dashboardId
+
+      this.saveOperationVersion = saveOperationVersion
+      this.activeSaveOperationVersion = saveOperationVersion
+      this.activeSaveIntent = 'publish'
+      this.isSaving = true
+      this.error = null
+
+      try {
+        const record = await bigScreenApi.publish(dashboardId)
+        if (!isCurrentPublishOperation()) return
+
+        this.applySavedDashboard(record)
+      } catch (error) {
+        if (isCurrentPublishOperation()) {
+          this.error = getErrorMessage(error)
+        }
+      } finally {
+        if (isCurrentPublishOperation()) {
+          this.activeSaveOperationVersion = null
+          this.activeSaveIntent = null
           this.isSaving = false
         }
       }

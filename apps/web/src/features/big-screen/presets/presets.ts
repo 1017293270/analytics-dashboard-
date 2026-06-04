@@ -1,0 +1,158 @@
+import type { DashboardSchema } from '@analytics/shared'
+
+export const aiOperationsPreset: DashboardSchema = {
+  version: '1.0',
+  canvas: {
+    width: 1920,
+    height: 1080,
+    background: { type: 'color', value: '#07111f' },
+    scaleMode: 'fit-screen',
+  },
+  theme: {
+    name: 'AI Operations Command',
+    colors: ['#38bdf8', '#22c55e', '#f59e0b', '#ef4444', '#a78bfa'],
+    fontFamily: 'Inter',
+  },
+  refresh: {
+    mode: 'interval',
+    intervalSeconds: 30,
+  },
+  dataBindings: {
+    'ai-ops-total-requests': {
+      id: 'ai-ops-total-requests',
+      sourceType: 'mock',
+      query: { metrics: ['requests'] },
+      refreshSeconds: 30,
+    },
+    'ai-ops-autonomous-resolutions': {
+      id: 'ai-ops-autonomous-resolutions',
+      sourceType: 'mock',
+      query: { metrics: ['autonomous_resolutions'] },
+      refreshSeconds: 30,
+    },
+    'ai-ops-resolution-trend': {
+      id: 'ai-ops-resolution-trend',
+      sourceType: 'mock',
+      query: { dimensions: ['date'], metrics: ['resolved_questions'] },
+      refreshSeconds: 30,
+    },
+    'ai-ops-workload-mix': {
+      id: 'ai-ops-workload-mix',
+      sourceType: 'mock',
+      query: { dimensions: ['category'], metrics: ['count'] },
+      refreshSeconds: 45,
+    },
+    'ai-ops-queue-detail': {
+      id: 'ai-ops-queue-detail',
+      sourceType: 'mock',
+      query: { dimensions: ['table'], metrics: ['count'], limit: 8 },
+      refreshSeconds: 45,
+    },
+  },
+  components: [
+    {
+      id: 'ai-ops-title',
+      type: 'text',
+      name: 'Dashboard title',
+      layout: { x: 48, y: 28, width: 920, height: 72, zIndex: 1, visible: true, locked: true },
+      props: { text: 'AI Operations Command Center' },
+      style: {
+        backgroundColor: 'transparent',
+        fontColor: '#f8fafc',
+        fontSize: 40,
+        fontWeight: 800,
+      },
+    },
+    {
+      id: 'ai-ops-subtitle',
+      type: 'text',
+      name: 'Dashboard subtitle',
+      layout: { x: 52, y: 94, width: 780, height: 42, zIndex: 2, visible: true, locked: true },
+      props: { text: 'Live workload, automation quality, and response health' },
+      style: {
+        backgroundColor: 'transparent',
+        fontColor: '#94a3b8',
+        fontSize: 18,
+        fontWeight: 600,
+      },
+    },
+    {
+      id: 'ai-ops-metric-requests',
+      type: 'metric-card',
+      name: 'Total AI Requests',
+      layout: { x: 48, y: 164, width: 360, height: 180, zIndex: 3, visible: true },
+      props: { title: 'Total AI Requests', valuePrefix: '', valueSuffix: '', precision: 0 },
+      style: {
+        backgroundColor: 'rgba(15, 23, 42, 0.92)',
+        fontColor: '#e2e8f0',
+        accentColor: '#38bdf8',
+      },
+      dataBindingId: 'ai-ops-total-requests',
+    },
+    {
+      id: 'ai-ops-metric-autonomous',
+      type: 'metric-card',
+      name: 'Autonomous Resolutions',
+      layout: { x: 432, y: 164, width: 360, height: 180, zIndex: 4, visible: true },
+      props: { title: 'Autonomous Resolutions', valuePrefix: '', valueSuffix: '', precision: 0 },
+      style: {
+        backgroundColor: 'rgba(10, 31, 46, 0.92)',
+        fontColor: '#e0f2fe',
+        accentColor: '#22c55e',
+      },
+      dataBindingId: 'ai-ops-autonomous-resolutions',
+    },
+    {
+      id: 'ai-ops-trend-chart',
+      type: 'line-chart',
+      name: 'Resolution Trend',
+      layout: { x: 48, y: 380, width: 900, height: 408, zIndex: 5, visible: true },
+      props: { title: 'Resolution Trend', chartType: 'line' },
+      style: {
+        backgroundColor: 'rgba(15, 23, 42, 0.88)',
+        fontColor: '#dbeafe',
+        accentColor: '#60a5fa',
+      },
+      dataBindingId: 'ai-ops-resolution-trend',
+    },
+    {
+      id: 'ai-ops-workload-chart',
+      type: 'pie-chart',
+      name: 'Workload Mix',
+      layout: { x: 988, y: 164, width: 432, height: 360, zIndex: 6, visible: true },
+      props: { title: 'Workload Mix', chartType: 'pie' },
+      style: {
+        backgroundColor: 'rgba(17, 24, 39, 0.9)',
+        fontColor: '#e5e7eb',
+        accentColor: '#f59e0b',
+      },
+      dataBindingId: 'ai-ops-workload-mix',
+    },
+    {
+      id: 'ai-ops-queue-table',
+      type: 'table',
+      name: 'Operational Queue',
+      layout: { x: 988, y: 560, width: 820, height: 348, zIndex: 7, visible: true },
+      props: { title: 'Operational Queue Detail' },
+      style: {
+        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+        fontColor: '#e2e8f0',
+        accentColor: '#a78bfa',
+      },
+      dataBindingId: 'ai-ops-queue-detail',
+    },
+    {
+      id: 'ai-ops-footer',
+      type: 'text',
+      name: 'Runtime note',
+      layout: { x: 50, y: 950, width: 980, height: 46, zIndex: 8, visible: true, locked: true },
+      props: { text: 'Mock data refreshes every 30 seconds for stable runtime preview validation.' },
+      style: {
+        backgroundColor: 'transparent',
+        fontColor: '#64748b',
+        fontSize: 16,
+        fontWeight: 600,
+      },
+    },
+  ],
+}

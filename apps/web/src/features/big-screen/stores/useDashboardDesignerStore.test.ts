@@ -2,6 +2,7 @@ import type { DashboardComponent, DashboardSchema } from '@analytics/shared'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { bigScreenApi, type DashboardRecord } from '../api/bigScreenApi'
+import { aiOperationsPreset } from '../presets/presets'
 import { createDefaultDashboardSchema } from '../schema/defaults'
 import { useDashboardDesignerStore } from './useDashboardDesignerStore'
 import { useDashboardHistoryStore } from './useDashboardHistoryStore'
@@ -591,5 +592,106 @@ describe('useDashboardDesignerStore', () => {
     })
 
     expect(history.past).toHaveLength(0)
+  })
+
+  test('applyPreset pushes history, clears selection, marks schema dirty, and keeps the exported preset isolated', () => {
+    const store = useDashboardDesignerStore()
+    const history = useDashboardHistoryStore()
+    const presetSnapshot = JSON.parse(JSON.stringify(aiOperationsPreset))
+
+    store.addComponent(component)
+    expect(store.selectedComponentId).toBe(component.id)
+
+    store.applyPreset(aiOperationsPreset)
+
+    expect(history.past).toHaveLength(2)
+    expect(history.past.at(-1)?.components).toEqual([component])
+    expect(store.selectedComponentId).toBeNull()
+    expect(store.schema.components.map((presetComponent) => presetComponent.id)).toEqual(
+      aiOperationsPreset.components.map((presetComponent) => presetComponent.id),
+    )
+    expect(store.hasUnsavedChanges).toBe(true)
+
+    store.schema.components[0]!.props.text = 'Mutated in designer state'
+
+    expect(aiOperationsPreset).toEqual(presetSnapshot)
+  })
+
+  test('applyPreset is ignored while the dashboard is loading or saving', () => {
+    const store = useDashboardDesignerStore()
+
+    store.isLoading = true
+    store.applyPreset(aiOperationsPreset)
+    expect(store.schema.components).toHaveLength(0)
+
+    store.isLoading = false
+    store.isSaving = true
+    store.applyPreset(aiOperationsPreset)
+    expect(store.schema.components).toHaveLength(0)
+  })
+
+  test('publish sends the current dashboard id and applies the published record', async () => {
+    const store = useDashboardDesignerStore()
+    const schema = createDefaultDashboardSchema()
+    const publishedRecord = createRecord(schema, { id: 'dashboard-1', status: 'published' })
+    const publishSpy = vi.spyOn(bigScreenApi, 'publish').mockResolvedValue(publishedRecord)
+
+    store.replaceDashboardForLoad(createRecord(schema, { id: 'dashboard-1', status: 'draft' }))
+
+    await store.publish()
+
+    expect(publishSpy).toHaveBeenCalledWith('dashboard-1')
+    expect(store.dashboardStatus).toBe('published')
+    expect(store.hasUnsavedChanges).toBe(false)
+    expect(store.error).toBeNull()
+    expect(store.isSaving).toBe(false)
+    expect(store.activeSaveIntent).toBeNull()
+  })
+
+  test('publish is a no-op without a dashboard id', async () => {
+    const store = useDashboardDesignerStore()
+    const publishSpy = vi.spyOn(bigScreenApi, 'publish').mockResolvedValue(createRecord(store.schema))
+
+    await store.publish()
+
+    expect(publishSpy).not.toHaveBeenCalled()
+    expect(store.isSaving).toBe(false)
+    expect(store.activeSaveIntent).toBeNull()
+  })
+
+  test('publish reports errors without leaving saving state stuck', async () => {
+    const store = useDashboardDesignerStore()
+    store.replaceDashboardForLoad(createRecord(createDefaultDashboardSchema(), { id: 'dashboard-1' }))
+    vi.spyOn(bigScreenApi, 'publish').mockRejectedValue(new Error('Publish failed'))
+
+    await store.publish()
+
+    expect(store.error).toBe('Publish failed')
+    expect(store.isSaving).toBe(false)
+    expect(store.activeSaveIntent).toBeNull()
+  })
+
+  test('ignores stale publish responses after the editor context changes', async () => {
+    const store = useDashboardDesignerStore()
+    const stalePublish = createDeferred<DashboardRecord>()
+    const activeComponent = { ...component, id: 'component-current', name: 'Current metric' }
+
+    store.replaceDashboardForLoad(createRecord(createDefaultDashboardSchema(), { id: 'dashboard-a', name: 'Dashboard A' }))
+    vi.spyOn(bigScreenApi, 'publish').mockReturnValue(stalePublish.promise)
+
+    const publishPromise = store.publish()
+    await flushAsyncWork()
+    expect(store.isSaving).toBe(true)
+
+    store.replaceLocalDraft(createDefaultDashboardSchema(), 'Fresh local draft')
+    store.addComponent(activeComponent)
+
+    stalePublish.resolve(createRecord(createDefaultDashboardSchema(), { id: 'dashboard-a', status: 'published' }))
+    await publishPromise
+
+    expect(store.dashboardId).toBeNull()
+    expect(store.dashboardName).toBe('Fresh local draft')
+    expect(store.schema.components).toEqual([activeComponent])
+    expect(store.isSaving).toBe(false)
   })
 })

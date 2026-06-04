@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { aiOperationsPreset } from '../presets/presets'
 import { useDashboardHistoryStore } from '../stores/useDashboardHistoryStore'
 import { useDashboardDesignerStore } from '../stores/useDashboardDesignerStore'
 import { clampZoom, formatZoomPercent, MAX_ZOOM, MIN_ZOOM, ZOOM_STEP } from './designerLayout'
@@ -13,8 +14,13 @@ const canUndo = computed(() => history.past.length > 0 && !designer.isLoading &&
 const canRedo = computed(() => history.future.length > 0 && !designer.isLoading && !designer.isSaving)
 const hasValidName = computed(() => designer.dashboardName.trim().length > 0)
 const canSave = computed(() => hasValidName.value && !designer.isLoading && !designer.isSaving)
+const canApplyPreset = computed(() => !designer.isLoading && !designer.isSaving)
+const canPreview = computed(() => Boolean(designer.dashboardId) && !designer.isLoading)
+const canPublish = computed(() => Boolean(designer.dashboardId) && !designer.isLoading && !designer.isSaving)
+const runtimePreviewHref = computed(() => (designer.dashboardId ? `/runtime/${designer.dashboardId}` : undefined))
 const recordStatus = computed(() => (designer.dashboardStatus ?? 'local').toUpperCase())
 const saveState = computed(() => {
+  if (designer.isSaving && designer.activeSaveIntent === 'publish') return 'Publishing'
   if (designer.isSaving) return 'Saving draft'
   if (designer.hasUnsavedChanges) return 'Unsaved changes'
   if (!designer.dashboardId) return 'Ready to create'
@@ -34,6 +40,10 @@ function updateZoom(value: number) {
 function updateZoomFromSelect(event: Event) {
   const input = event.target as HTMLSelectElement
   updateZoom(Number(input.value))
+}
+
+function applyAiOperationsPreset() {
+  designer.applyPreset(aiOperationsPreset)
 }
 </script>
 
@@ -61,6 +71,15 @@ function updateZoomFromSelect(event: Event) {
     <div class="designer-toolbar__cluster" aria-label="History controls">
       <button class="designer-toolbar__button" type="button" :disabled="!canUndo" @click="designer.undo">Undo</button>
       <button class="designer-toolbar__button" type="button" :disabled="!canRedo" @click="designer.redo">Redo</button>
+      <button
+        class="designer-toolbar__button"
+        data-testid="apply-preset-button"
+        type="button"
+        :disabled="!canApplyPreset"
+        @click="applyAiOperationsPreset"
+      >
+        AI Ops Preset
+      </button>
     </div>
 
     <div class="designer-toolbar__cluster designer-toolbar__cluster--zoom" aria-label="Zoom controls">
@@ -96,7 +115,20 @@ function updateZoomFromSelect(event: Event) {
     </div>
 
     <div class="designer-toolbar__cluster designer-toolbar__cluster--primary" aria-label="Dashboard actions">
-      <button class="designer-toolbar__button" type="button" disabled title="Preview is not wired yet">Preview</button>
+      <a
+        class="designer-toolbar__button designer-toolbar__link-button"
+        data-testid="preview-runtime-link"
+        :class="{ 'is-disabled': !canPreview }"
+        :href="runtimePreviewHref"
+        target="_blank"
+        rel="noreferrer"
+        :aria-disabled="!canPreview"
+        :tabindex="canPreview ? 0 : -1"
+        :title="canPreview ? 'Open runtime preview' : 'Save the dashboard before previewing'"
+        @click="!canPreview && $event.preventDefault()"
+      >
+        Preview
+      </a>
       <button
         class="designer-toolbar__button designer-toolbar__button--primary"
         data-testid="save-dashboard-button"
@@ -105,9 +137,18 @@ function updateZoomFromSelect(event: Event) {
         :title="designer.dashboardId ? 'Save draft' : 'Create dashboard and save draft'"
         @click="designer.saveDraft"
       >
-        {{ designer.isSaving ? 'Saving' : 'Save' }}
+        {{ designer.isSaving && designer.activeSaveIntent === 'draft' ? 'Saving' : 'Save' }}
       </button>
-      <button class="designer-toolbar__button" type="button" disabled title="Publish is not wired yet">Publish</button>
+      <button
+        class="designer-toolbar__button"
+        data-testid="publish-dashboard-button"
+        type="button"
+        :disabled="!canPublish"
+        :title="designer.dashboardId ? 'Publish current saved draft' : 'Save the dashboard before publishing'"
+        @click="designer.publish"
+      >
+        {{ designer.isSaving && designer.activeSaveIntent === 'publish' ? 'Publishing' : 'Publish' }}
+      </button>
     </div>
   </header>
 </template>
@@ -225,7 +266,16 @@ function updateZoomFromSelect(event: Event) {
 }
 
 .designer-toolbar__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 152px;
   padding: 0 12px;
+  overflow: hidden;
+  text-align: center;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .designer-toolbar__icon-button {
@@ -239,6 +289,7 @@ function updateZoomFromSelect(event: Event) {
 }
 
 .designer-toolbar__button:hover:not(:disabled),
+.designer-toolbar__link-button:hover:not(.is-disabled),
 .designer-toolbar__icon-button:hover:not(:disabled),
 .designer-toolbar__zoom-select:hover:not(:disabled),
 .designer-toolbar__name-input:hover:not(:disabled) {
@@ -253,11 +304,13 @@ function updateZoomFromSelect(event: Event) {
 }
 
 .designer-toolbar__button:disabled,
+.designer-toolbar__link-button.is-disabled,
 .designer-toolbar__icon-button:disabled,
 .designer-toolbar__zoom-select:disabled,
 .designer-toolbar__name-input:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+  pointer-events: none;
 }
 
 .designer-toolbar__button--primary:disabled {
@@ -265,6 +318,15 @@ function updateZoomFromSelect(event: Event) {
   background: #e2e8f0;
   color: var(--color-text-muted);
   opacity: 1;
+}
+
+.designer-toolbar__name-input:focus-visible,
+.designer-toolbar__zoom-select:focus-visible,
+.designer-toolbar__button:focus-visible,
+.designer-toolbar__icon-button:focus-visible,
+.designer-toolbar__link-button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--color-accent) 36%, transparent);
+  outline-offset: 2px;
 }
 
 @media (max-width: 1100px) {
@@ -275,6 +337,10 @@ function updateZoomFromSelect(event: Event) {
 
   .designer-toolbar__identity {
     grid-column: 1 / -1;
+  }
+
+  .designer-toolbar__cluster {
+    flex-wrap: wrap;
   }
 }
 </style>
