@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e": "playwright test --pass-with-no-tests",
+    "e2e": "playwright test",
     "lint": "vue-tsc -b --pretty false"
   },
   "dependencies": {
