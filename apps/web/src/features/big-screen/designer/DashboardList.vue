@@ -355,7 +355,7 @@ onMounted(() => {
                     <li v-for="version in versionStates[dashboard.id].versions" :key="version.id">
                       <span>
                         v{{ version.version }}
-                        <small>{{ version.publishNote || 'No publish note' }} · {{ formatDate(version.createdAt) }}</small>
+                        <small>{{ version.publishNote || 'No publish note' }} - {{ formatDate(version.createdAt) }}</small>
                       </span>
                       <button
                         type="button"
