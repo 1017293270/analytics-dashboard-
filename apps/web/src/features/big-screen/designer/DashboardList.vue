@@ -1,18 +1,24 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { bigScreenApi, type DashboardListItem } from '../api/bigScreenApi'
+import { bigScreenApi, type DashboardListItem, type DashboardRecord, type DashboardVersion } from '../api/bigScreenApi'
 
 type ListState = 'loading' | 'success' | 'error'
-type RowAction = 'copy' | 'archive' | 'share'
+type RowAction = 'copy' | 'archive' | 'share' | 'versions' | 'rollback'
+type RowActionState = Partial<Record<RowAction, boolean>>
+type VersionState =
+  | { status: 'loading'; versions: []; error: '' }
+  | { status: 'success'; versions: DashboardVersion[]; error: '' }
+  | { status: 'error'; versions: []; error: string }
 
 const router = useRouter()
 const dashboards = ref<DashboardListItem[]>([])
 const listState = ref<ListState>('loading')
 const errorMessage = ref('')
 const isCreating = ref(false)
-const activeRowAction = ref<{ id: string; action: RowAction } | null>(null)
+const activeRowActions = ref<Record<string, RowActionState>>({})
 const shareLinks = ref<Record<string, string>>({})
+const versionStates = ref<Record<string, VersionState>>({})
 
 const isLoading = computed(() => listState.value === 'loading')
 const hasDashboards = computed(() => listState.value === 'success' && dashboards.value.length > 0)
@@ -37,9 +43,42 @@ function getStatusLabel(status: DashboardListItem['status']) {
   return status === 'published' ? 'Published' : 'Draft'
 }
 
+function toListItem(record: DashboardRecord): DashboardListItem {
+  return {
+    id: record.id,
+    name: record.name,
+    description: record.description,
+    status: record.status,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+    publishedAt: record.publishedAt,
+  }
+}
+
 function isRowBusy(id: string, action?: RowAction) {
-  if (!activeRowAction.value || activeRowAction.value.id !== id) return false
-  return action ? activeRowAction.value.action === action : true
+  const rowActions = activeRowActions.value[id]
+  if (!rowActions) return false
+  return action ? Boolean(rowActions[action]) : Object.values(rowActions).some(Boolean)
+}
+
+function setRowAction(id: string, action: RowAction, isActive: boolean) {
+  const nextRowActions = { ...(activeRowActions.value[id] ?? {}) }
+  if (isActive) {
+    nextRowActions[action] = true
+  } else {
+    delete nextRowActions[action]
+  }
+
+  activeRowActions.value = {
+    ...activeRowActions.value,
+    [id]: nextRowActions,
+  }
+
+  if (Object.keys(nextRowActions).length === 0) {
+    const remainingActions = { ...activeRowActions.value }
+    delete remainingActions[id]
+    activeRowActions.value = remainingActions
+  }
 }
 
 async function loadDashboards() {
@@ -71,7 +110,7 @@ async function createDashboard() {
 }
 
 async function copyDashboard(dashboard: DashboardListItem) {
-  activeRowAction.value = { id: dashboard.id, action: 'copy' }
+  setRowAction(dashboard.id, 'copy', true)
   errorMessage.value = ''
 
   try {
@@ -80,7 +119,7 @@ async function copyDashboard(dashboard: DashboardListItem) {
   } catch (error) {
     errorMessage.value = getErrorMessage(error)
   } finally {
-    activeRowAction.value = null
+    setRowAction(dashboard.id, 'copy', false)
   }
 }
 
@@ -88,7 +127,7 @@ async function archiveDashboard(dashboard: DashboardListItem) {
   const confirmed = window.confirm(`Archive "${dashboard.name}"? It will be removed from the library.`)
   if (!confirmed) return
 
-  activeRowAction.value = { id: dashboard.id, action: 'archive' }
+  setRowAction(dashboard.id, 'archive', true)
   errorMessage.value = ''
 
   try {
@@ -97,14 +136,14 @@ async function archiveDashboard(dashboard: DashboardListItem) {
   } catch (error) {
     errorMessage.value = getErrorMessage(error)
   } finally {
-    activeRowAction.value = null
+    setRowAction(dashboard.id, 'archive', false)
   }
 }
 
 async function createShareLink(dashboard: DashboardListItem) {
   if (dashboard.status !== 'published') return
 
-  activeRowAction.value = { id: dashboard.id, action: 'share' }
+  setRowAction(dashboard.id, 'share', true)
   errorMessage.value = ''
 
   try {
@@ -113,7 +152,53 @@ async function createShareLink(dashboard: DashboardListItem) {
   } catch (error) {
     errorMessage.value = getErrorMessage(error)
   } finally {
-    activeRowAction.value = null
+    setRowAction(dashboard.id, 'share', false)
+  }
+}
+
+async function loadVersions(dashboard: DashboardListItem) {
+  setRowAction(dashboard.id, 'versions', true)
+  versionStates.value = {
+    ...versionStates.value,
+    [dashboard.id]: { status: 'loading', versions: [], error: '' },
+  }
+
+  try {
+    const versions = await bigScreenApi.listVersions(dashboard.id)
+    versionStates.value = {
+      ...versionStates.value,
+      [dashboard.id]: { status: 'success', versions, error: '' },
+    }
+  } catch (error) {
+    versionStates.value = {
+      ...versionStates.value,
+      [dashboard.id]: { status: 'error', versions: [], error: getErrorMessage(error) },
+    }
+  } finally {
+    setRowAction(dashboard.id, 'versions', false)
+  }
+}
+
+async function rollbackVersion(dashboard: DashboardListItem, version: DashboardVersion) {
+  const confirmed = window.confirm(`Rollback "${dashboard.name}" to version ${version.version}?`)
+  if (!confirmed) return
+
+  setRowAction(dashboard.id, 'rollback', true)
+  errorMessage.value = ''
+
+  try {
+    const rolledBack = await bigScreenApi.rollbackVersion(dashboard.id, version.version)
+    dashboards.value = dashboards.value.map((item) =>
+      item.id === dashboard.id ? { ...item, ...toListItem(rolledBack) } : item,
+    )
+    await loadVersions({ ...dashboard, ...toListItem(rolledBack) })
+  } catch (error) {
+    versionStates.value = {
+      ...versionStates.value,
+      [dashboard.id]: { status: 'error', versions: [], error: getErrorMessage(error) },
+    }
+  } finally {
+    setRowAction(dashboard.id, 'rollback', false)
   }
 }
 
@@ -177,71 +262,114 @@ onMounted(() => {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="dashboard in dashboards" :key="dashboard.id">
-            <td class="dashboard-list__name-cell">
-              <RouterLink class="dashboard-list__name-link" :to="`/big-screens/${dashboard.id}`">
-                {{ dashboard.name }}
-              </RouterLink>
-              <span v-if="dashboard.description" class="dashboard-list__description">
-                {{ dashboard.description }}
-              </span>
-              <a
-                v-if="shareLinks[dashboard.id]"
-                class="dashboard-list__share-link"
-                :href="shareLinks[dashboard.id]"
-                target="_blank"
-                rel="noreferrer"
-              >
-                {{ shareLinks[dashboard.id] }}
-              </a>
-            </td>
-            <td>
-              <span class="dashboard-list__status" :class="`is-${dashboard.status}`">
-                {{ getStatusLabel(dashboard.status) }}
-              </span>
-            </td>
-            <td>{{ formatDate(dashboard.updatedAt) }}</td>
-            <td>{{ formatDate(dashboard.publishedAt) }}</td>
-            <td>
-              <div class="dashboard-list__actions">
-                <RouterLink class="dashboard-list__action" :to="`/big-screens/${dashboard.id}`">Edit</RouterLink>
+          <template v-for="dashboard in dashboards" :key="dashboard.id">
+            <tr>
+              <td class="dashboard-list__name-cell">
+                <RouterLink class="dashboard-list__name-link" :to="`/big-screens/${dashboard.id}`">
+                  {{ dashboard.name }}
+                </RouterLink>
+                <span v-if="dashboard.description" class="dashboard-list__description">
+                  {{ dashboard.description }}
+                </span>
                 <a
-                  class="dashboard-list__action"
-                  :class="{ 'is-disabled': dashboard.status !== 'published' }"
-                  :href="dashboard.status === 'published' ? `/runtime/${dashboard.id}` : undefined"
+                  v-if="shareLinks[dashboard.id]"
+                  class="dashboard-list__share-link"
+                  :href="shareLinks[dashboard.id]"
                   target="_blank"
                   rel="noreferrer"
-                  :aria-disabled="dashboard.status !== 'published'"
-                  :tabindex="dashboard.status === 'published' ? 0 : -1"
-                  @click="dashboard.status !== 'published' && $event.preventDefault()"
                 >
-                  Runtime
+                  {{ shareLinks[dashboard.id] }}
                 </a>
-                <button
-                  type="button"
-                  :disabled="isRowBusy(dashboard.id)"
-                  @click="copyDashboard(dashboard)"
-                >
-                  {{ isRowBusy(dashboard.id, 'copy') ? 'Copying' : 'Copy' }}
-                </button>
-                <button
-                  type="button"
-                  :disabled="dashboard.status !== 'published' || isRowBusy(dashboard.id)"
-                  @click="createShareLink(dashboard)"
-                >
-                  {{ isRowBusy(dashboard.id, 'share') ? 'Sharing' : 'Share' }}
-                </button>
-                <button
-                  class="dashboard-list__danger"
-                  type="button"
-                  :disabled="isRowBusy(dashboard.id)"
-                  @click="archiveDashboard(dashboard)"
-                >
-                  {{ isRowBusy(dashboard.id, 'archive') ? 'Archiving' : 'Archive' }}
-                </button>
-              </div>
-            </td>
-          </tr>
+              </td>
+              <td>
+                <span class="dashboard-list__status" :class="`is-${dashboard.status}`">
+                  {{ getStatusLabel(dashboard.status) }}
+                </span>
+              </td>
+              <td>{{ formatDate(dashboard.updatedAt) }}</td>
+              <td>{{ formatDate(dashboard.publishedAt) }}</td>
+              <td>
+                <div class="dashboard-list__actions">
+                  <RouterLink class="dashboard-list__action" :to="`/big-screens/${dashboard.id}`">Edit</RouterLink>
+                  <a
+                    class="dashboard-list__action"
+                    :class="{ 'is-disabled': dashboard.status !== 'published' }"
+                    :href="dashboard.status === 'published' ? `/runtime/${dashboard.id}` : undefined"
+                    target="_blank"
+                    rel="noreferrer"
+                    :aria-disabled="dashboard.status !== 'published'"
+                    :tabindex="dashboard.status === 'published' ? 0 : -1"
+                    @click="dashboard.status !== 'published' && $event.preventDefault()"
+                  >
+                    Runtime
+                  </a>
+                  <button
+                    type="button"
+                    :disabled="isRowBusy(dashboard.id)"
+                    @click="copyDashboard(dashboard)"
+                  >
+                    {{ isRowBusy(dashboard.id, 'copy') ? 'Copying' : 'Copy' }}
+                  </button>
+                  <button
+                    type="button"
+                    :disabled="isRowBusy(dashboard.id)"
+                    @click="loadVersions(dashboard)"
+                  >
+                    {{ isRowBusy(dashboard.id, 'versions') ? 'Loading' : 'Versions' }}
+                  </button>
+                  <button
+                    type="button"
+                    :disabled="dashboard.status !== 'published' || isRowBusy(dashboard.id)"
+                    @click="createShareLink(dashboard)"
+                  >
+                    {{ isRowBusy(dashboard.id, 'share') ? 'Sharing' : 'Share' }}
+                  </button>
+                  <button
+                    class="dashboard-list__danger"
+                    type="button"
+                    :disabled="isRowBusy(dashboard.id)"
+                    @click="archiveDashboard(dashboard)"
+                  >
+                    {{ isRowBusy(dashboard.id, 'archive') ? 'Archiving' : 'Archive' }}
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="versionStates[dashboard.id]" class="dashboard-list__version-row">
+              <td colspan="5">
+                <div class="dashboard-list__versions" :aria-busy="versionStates[dashboard.id].status === 'loading'">
+                  <p class="dashboard-list__versions-title">Versions</p>
+                  <p v-if="versionStates[dashboard.id].status === 'loading'" class="dashboard-list__versions-state">
+                    Loading versions
+                  </p>
+                  <p v-else-if="versionStates[dashboard.id].status === 'error'" class="dashboard-list__versions-state is-error">
+                    {{ versionStates[dashboard.id].error }}
+                  </p>
+                  <p
+                    v-else-if="versionStates[dashboard.id].versions.length === 0"
+                    class="dashboard-list__versions-state"
+                  >
+                    No published versions
+                  </p>
+                  <ul v-else class="dashboard-list__version-list">
+                    <li v-for="version in versionStates[dashboard.id].versions" :key="version.id">
+                      <span>
+                        v{{ version.version }}
+                        <small>{{ version.publishNote || 'No publish note' }} · {{ formatDate(version.createdAt) }}</small>
+                      </span>
+                      <button
+                        type="button"
+                        :disabled="isRowBusy(dashboard.id)"
+                        @click="rollbackVersion(dashboard, version)"
+                      >
+                        {{ isRowBusy(dashboard.id, 'rollback') ? 'Rolling back' : 'Rollback' }}
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              </td>
+            </tr>
+          </template>
         </tbody>
       </table>
     </section>
@@ -524,6 +652,80 @@ onMounted(() => {
   background: color-mix(in srgb, var(--color-danger) 6%, var(--color-panel));
 }
 
+.dashboard-list__version-row td {
+  padding: 0;
+  background: color-mix(in srgb, var(--color-panel-muted) 72%, #eff6ff);
+}
+
+.dashboard-list__versions {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px 16px;
+  min-width: 0;
+}
+
+.dashboard-list__versions-title,
+.dashboard-list__versions-state {
+  margin: 0;
+}
+
+.dashboard-list__versions-title {
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.dashboard-list__versions-state {
+  color: var(--color-text-muted);
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-list__versions-state.is-error {
+  color: var(--color-danger);
+}
+
+.dashboard-list__version-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.dashboard-list__version-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  background: var(--color-panel);
+}
+
+.dashboard-list__version-list span,
+.dashboard-list__version-list small {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-list__version-list span {
+  color: var(--color-text);
+  font-weight: 900;
+}
+
+.dashboard-list__version-list small {
+  margin-top: 3px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 @media (max-width: 760px) {
   .dashboard-list {
     padding: 18px;
@@ -576,6 +778,18 @@ onMounted(() => {
   .dashboard-list__actions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-list__version-row {
+    padding: 0;
+  }
+
+  .dashboard-list__version-row td {
+    padding: 0;
+  }
+
+  .dashboard-list__version-list li {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

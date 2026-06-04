@@ -120,6 +120,39 @@ describe('dashboard workflow routes', () => {
     expect(audit).toBeTruthy()
   })
 
+  test('non-public-runtime share scope cannot load public runtime', async () => {
+    const app = createApp()
+    const dashboard = await createPublishedDashboard(app, 'Scoped Share Runtime')
+    const share = await request(app).post(`/api/big-screens/${dashboard.id}/share-links`).send({}).expect(201)
+    await prisma.dashboardShareLink.update({
+      where: { token: share.body.data.token },
+      data: { accessScope: 'internal-review' },
+    })
+
+    const response = await request(app).get(`/api/public/big-screens/${share.body.data.token}`).expect(404)
+
+    expect(response.body.error.code).toBe('NOT_FOUND')
+  })
+
+  test('share token is disabled after unpublish and archive', async () => {
+    const app = createApp()
+    const unpublishedDashboard = await createPublishedDashboard(app, 'Unpublished Share Runtime')
+    const unpublishedShare = await request(app)
+      .post(`/api/big-screens/${unpublishedDashboard.id}/share-links`)
+      .send({})
+      .expect(201)
+    await request(app).post(`/api/big-screens/${unpublishedDashboard.id}/unpublish`).send({}).expect(200)
+    await request(app).get(`/api/public/big-screens/${unpublishedShare.body.data.token}`).expect(404)
+
+    const archivedDashboard = await createPublishedDashboard(app, 'Archived Share Runtime')
+    const archivedShare = await request(app)
+      .post(`/api/big-screens/${archivedDashboard.id}/share-links`)
+      .send({})
+      .expect(201)
+    await request(app).delete(`/api/big-screens/${archivedDashboard.id}`).expect(200)
+    await request(app).get(`/api/public/big-screens/${archivedShare.body.data.token}`).expect(404)
+  })
+
   test('cannot create share link before publish', async () => {
     const app = createApp()
     const created = await request(app).post('/api/big-screens').send({ name: 'Draft Share' }).expect(201)

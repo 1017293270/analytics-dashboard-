@@ -50,6 +50,7 @@ const shareTokenParams = z.object({
 })
 
 export const dashboardRoutes = Router()
+const VALID_DASHBOARD_PERMISSIONS = ['view', 'edit', 'owner']
 
 function isUniqueConstraintError(error: unknown) {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002'
@@ -110,7 +111,11 @@ dashboardRoutes.get('/big-screens', asyncHandler(async (_req, res) => {
       workspaceId: DEFAULT_WORKSPACE_ID,
       status: { not: 'archived' },
       permissions: {
-        some: { subjectType: 'user', subjectId: DEFAULT_ACTOR_ID },
+        some: {
+          subjectType: 'user',
+          subjectId: DEFAULT_ACTOR_ID,
+          permission: { in: VALID_DASHBOARD_PERMISSIONS },
+        },
       },
     },
     orderBy: { updatedAt: 'desc' },
@@ -164,6 +169,7 @@ dashboardRoutes.get('/public/big-screens/:shareToken', asyncHandler(async (req, 
     include: { dashboard: true },
   })
   if (!shareLink || !shareLink.isEnabled) return sendNotFound(res)
+  if (shareLink.accessScope !== 'public-runtime') return sendNotFound(res)
   if (shareLink.expiresAt && shareLink.expiresAt.getTime() <= Date.now()) return sendNotFound(res)
 
   const dashboard = shareLink.dashboard

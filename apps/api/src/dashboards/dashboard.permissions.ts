@@ -8,7 +8,8 @@ export async function getDashboardPermission(dashboardId: string, actorId = DEFA
   })
 
   if (!permission) return null
-  return dashboardPermissionValidator.parse(permission.permission)
+  const parsedPermission = dashboardPermissionValidator.safeParse(permission.permission)
+  return parsedPermission.success ? parsedPermission.data : null
 }
 
 export function hasViewPermission(permission: DashboardPermission | null): boolean {

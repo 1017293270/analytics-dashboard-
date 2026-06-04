@@ -30,6 +30,15 @@ export type DashboardShareLink = {
   url: string
 }
 
+export type DashboardVersion = {
+  id: string
+  dashboardId: string
+  version: number
+  publishNote?: string | null
+  createdBy: string
+  createdAt: string
+}
+
 export type CreateDashboardInput = {
   name: string
   description?: string
@@ -148,6 +157,16 @@ export const bigScreenApi = {
   },
   createShareLink(id: string, init?: RequestInit) {
     return requestJson<DashboardShareLink>(`/api/big-screens/${id}/share-links`, {
+      ...init,
+      method: 'POST',
+      body: JSON.stringify({}),
+    })
+  },
+  listVersions(id: string, init?: RequestInit) {
+    return requestJson<DashboardVersion[]>(`/api/big-screens/${id}/versions`, init)
+  },
+  rollbackVersion(id: string, version: number, init?: RequestInit) {
+    return requestJson<DashboardRecord>(`/api/big-screens/${id}/versions/${version}/rollback`, {
       ...init,
       method: 'POST',
       body: JSON.stringify({}),
