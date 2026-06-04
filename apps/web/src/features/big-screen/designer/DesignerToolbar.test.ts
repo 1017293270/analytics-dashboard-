@@ -11,7 +11,14 @@ function mountToolbar() {
 
   return {
     store: useDashboardDesignerStore(),
-    wrapper: mount(DesignerToolbar, { global: { plugins: [pinia] } }),
+    wrapper: mount(DesignerToolbar, {
+      global: {
+        plugins: [pinia],
+        stubs: {
+          RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' },
+        },
+      },
+    }),
   }
 }
 
@@ -19,6 +26,16 @@ describe('DesignerToolbar', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.restoreAllMocks()
+  })
+
+  test('offers a stable return link to the dashboard library', () => {
+    const { wrapper } = mountToolbar()
+    const libraryLink = wrapper.get('[data-testid="dashboard-library-link"]')
+
+    expect(libraryLink.attributes('href')).toBe('/big-screens')
+    expect(libraryLink.attributes('aria-label')).toBe('Back to dashboard library')
+    expect(libraryLink.attributes('title')).toBe('Back to dashboard library')
+    expect(libraryLink.find('svg').exists()).toBe(true)
   })
 
   test('allows valid local drafts to save through create-on-save flow', async () => {

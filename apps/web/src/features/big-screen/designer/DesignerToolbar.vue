@@ -66,6 +66,19 @@ function applyAiOperationsPreset() {
 
 <template>
   <header class="designer-toolbar">
+    <RouterLink
+      class="designer-toolbar__icon-button designer-toolbar__back-link"
+      data-testid="dashboard-library-link"
+      to="/big-screens"
+      aria-label="Back to dashboard library"
+      title="Back to dashboard library"
+    >
+      <svg aria-hidden="true" viewBox="0 0 24 24">
+        <path d="M10.5 6 4.5 12l6 6" />
+        <path d="M5.5 12h14" />
+      </svg>
+    </RouterLink>
+
     <div class="designer-toolbar__identity">
       <label class="designer-toolbar__name-field">
         <span class="designer-toolbar__sr-only">Dashboard name</span>
@@ -172,12 +185,13 @@ function applyAiOperationsPreset() {
 
 <style scoped>
 .designer-toolbar {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(260px, 1fr) auto auto auto;
   align-items: center;
   gap: 14px;
   min-height: 64px;
-  padding: 10px 18px;
+  padding: 10px 18px 10px 72px;
   border-bottom: 1px solid var(--color-border);
   background: color-mix(in srgb, var(--color-panel) 94%, #e0f2fe);
 }
@@ -295,7 +309,30 @@ function applyAiOperationsPreset() {
   white-space: nowrap;
 }
 
+.designer-toolbar__back-link {
+  position: absolute;
+  top: 50%;
+  left: 20px;
+  z-index: 1;
+  flex: 0 0 auto;
+  transform: translateY(-50%);
+  text-decoration: none;
+}
+
+.designer-toolbar__back-link svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+}
+
 .designer-toolbar__icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 34px;
   padding: 0;
 }

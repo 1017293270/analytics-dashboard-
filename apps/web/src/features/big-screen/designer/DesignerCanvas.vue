@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { DashboardComponent } from '@analytics/shared'
 import { computed, onBeforeUnmount, ref } from 'vue'
-import { componentRegistry } from '../components/registry'
 import { useDashboardDesignerStore } from '../stores/useDashboardDesignerStore'
+import DesignerCanvasComponent from './DesignerCanvasComponent.vue'
 import { clampLayout, getCanvasBackgroundStyle } from './designerLayout'
 
 type InteractionMode = 'move' | 'resize'
@@ -226,14 +226,7 @@ onBeforeUnmount(() => {
             @pointerdown.stop="beginInteraction($event, component, 'move')"
             @keydown="handleComponentKeydown($event, component)"
           >
-            <component
-              :is="componentRegistry[component.type].renderer"
-              class="designer-canvas__renderer"
-              :component="component"
-              :data="null"
-              :loading="false"
-              error=""
-            />
+            <DesignerCanvasComponent :component="component" :schema="designer.schema" />
 
             <template v-if="designer.selectedComponentId === component.id">
               <span class="designer-canvas__corner designer-canvas__corner--nw" aria-hidden="true" />
@@ -384,12 +377,6 @@ onBeforeUnmount(() => {
 
 .designer-canvas__component-frame.is-locked.is-selected {
   border-style: dashed;
-}
-
-.designer-canvas__renderer {
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
 }
 
 .designer-canvas__corner,

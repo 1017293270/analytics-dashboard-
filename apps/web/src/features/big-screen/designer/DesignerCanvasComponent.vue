@@ -2,7 +2,7 @@
 import type { DashboardComponent, DashboardSchema } from '@analytics/shared'
 import { computed, type PropType } from 'vue'
 import { componentRegistry } from '../components/registry'
-import { useComponentData } from './useComponentData'
+import { useComponentData } from '../runtime/useComponentData'
 
 const props = defineProps({
   component: { type: Object as PropType<DashboardComponent>, required: true },
@@ -10,13 +10,6 @@ const props = defineProps({
 })
 
 const renderer = computed(() => componentRegistry[props.component.type].renderer)
-const componentStyle = computed(() => ({
-  left: `${props.component.layout.x}px`,
-  top: `${props.component.layout.y}px`,
-  width: `${props.component.layout.width}px`,
-  height: `${props.component.layout.height}px`,
-  zIndex: props.component.layout.zIndex,
-}))
 const { data, loading, error } = useComponentData(
   () => props.component,
   () => props.schema,
@@ -24,16 +17,20 @@ const { data, loading, error } = useComponentData(
 </script>
 
 <template>
-  <div class="runtime-component" :style="componentStyle">
-    <component :is="renderer" :component="component" :data="data" :loading="loading" :error="error" />
-  </div>
+  <component
+    :is="renderer"
+    class="designer-canvas-component"
+    :component="component"
+    :data="data"
+    :loading="loading"
+    :error="error"
+  />
 </template>
 
 <style scoped>
-.runtime-component {
-  position: absolute;
-  min-width: 24px;
-  min-height: 24px;
-  overflow: hidden;
+.designer-canvas-component {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
 </style>
