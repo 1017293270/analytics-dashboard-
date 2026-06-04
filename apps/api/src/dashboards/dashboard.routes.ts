@@ -87,8 +87,12 @@ async function findActiveDashboard(id: string) {
 }
 
 async function sendExistingReservation(res: Response, dashboardId: string) {
-  const dashboard = await findActiveDashboard(dashboardId)
+  const dashboard = await prisma.dashboard.findUnique({ where: { id: dashboardId } })
   if (!dashboard) return null
+  if (!isActiveDashboard(dashboard)) {
+    sendNotFound(res)
+    return true
+  }
 
   const permission = await getDashboardPermission(dashboard.id)
   if (!hasEditPermission(permission)) {

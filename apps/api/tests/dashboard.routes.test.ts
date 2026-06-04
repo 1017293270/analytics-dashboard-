@@ -103,6 +103,57 @@ describe('dashboard routes', () => {
     expect(response.body.error.code).toBe('FORBIDDEN')
   })
 
+  test('rejects archived local reservation reuse with stable not found envelope', async () => {
+    const app = createApp()
+    const clientReservationId = 'local-draft-archived-reuse'
+
+    await request(app).post('/api/big-screens').send({ name: 'Archived Reservation', clientReservationId }).expect(201)
+    await request(app).delete(`/api/big-screens/${clientReservationId}`).expect(200)
+
+    const response = await request(app)
+      .post('/api/big-screens')
+      .send({ name: 'Should Not Resurrect', clientReservationId })
+      .expect(404)
+
+    expect(response.body).toEqual({
+      success: false,
+      data: null,
+      error: { code: 'NOT_FOUND', message: 'Dashboard not found' },
+    })
+
+    const dashboards = await prisma.dashboard.findMany({ where: { id: clientReservationId } })
+    expect(dashboards).toHaveLength(1)
+    expect(dashboards[0]?.status).toBe('archived')
+    expect(dashboards[0]?.name).toBe('Archived Reservation')
+  })
+
+  test('rejects cross-workspace local reservation reuse with stable not found envelope', async () => {
+    const app = createApp()
+    const clientReservationId = 'local-draft-cross-workspace-reuse'
+
+    await request(app).post('/api/big-screens').send({ name: 'Cross Workspace Reservation', clientReservationId }).expect(201)
+    await prisma.dashboard.update({
+      where: { id: clientReservationId },
+      data: { workspaceId: 'other-workspace' },
+    })
+
+    const response = await request(app)
+      .post('/api/big-screens')
+      .send({ name: 'Should Not Duplicate', clientReservationId })
+      .expect(404)
+
+    expect(response.body).toEqual({
+      success: false,
+      data: null,
+      error: { code: 'NOT_FOUND', message: 'Dashboard not found' },
+    })
+
+    const dashboards = await prisma.dashboard.findMany({ where: { id: clientReservationId } })
+    expect(dashboards).toHaveLength(1)
+    expect(dashboards[0]?.workspaceId).toBe('other-workspace')
+    expect(dashboards[0]?.name).toBe('Cross Workspace Reservation')
+  })
+
   test('updates dashboard metadata with edit permission', async () => {
     const app = createApp()
 
