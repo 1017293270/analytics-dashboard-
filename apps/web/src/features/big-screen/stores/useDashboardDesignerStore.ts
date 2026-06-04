@@ -23,6 +23,7 @@ type DesignerState = {
   dashboardName: string
   savedDashboardName: string
   dashboardStatus: DashboardRecord['status'] | null
+  savedDashboardUpdatedAt: string | null
   schema: DashboardSchema
   savedSchemaSignature: string
   selectedComponentId: string | null
@@ -67,6 +68,12 @@ function createDraftWriteBarrier(targetId: string) {
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Something went wrong'
+}
+
+function requireDashboardRevision(record: DashboardRecord) {
+  if (!record.updatedAt) throw new Error('Dashboard revision missing. Reload before saving.')
+
+  return record.updatedAt
 }
 
 function cloneSchema(schema: DashboardSchema): DashboardSchema {
@@ -115,6 +122,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
     dashboardName: DEFAULT_DASHBOARD_NAME,
     savedDashboardName: DEFAULT_DASHBOARD_NAME,
     dashboardStatus: null,
+    savedDashboardUpdatedAt: null,
     schema: createDefaultDashboardSchema(),
     savedSchemaSignature: stableStringify(createDefaultDashboardSchema()),
     selectedComponentId: null,
@@ -158,6 +166,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       this.dashboardName = name
       this.savedDashboardName = name
       this.dashboardStatus = null
+      this.savedDashboardUpdatedAt = null
       this.schema = cloneSchema(schema)
       this.savedSchemaSignature = stableStringify(this.schema)
       this.selectedComponentId = null
@@ -170,6 +179,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       this.dashboardName = record.name
       this.savedDashboardName = record.name
       this.dashboardStatus = record.status
+      this.savedDashboardUpdatedAt = requireDashboardRevision(record)
       this.schema = cloneSchema(record.draftSchema)
       this.savedSchemaSignature = stableStringify(this.schema)
       this.selectedComponentId = null
@@ -179,20 +189,24 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
     },
     applySavedDashboard(record: DashboardRecord) {
       const selectedComponentId = this.selectedComponentId
+      const updatedAt = requireDashboardRevision(record)
       this.dashboardId = record.id
       this.dashboardName = record.name
       this.savedDashboardName = record.name
       this.dashboardStatus = record.status
+      this.savedDashboardUpdatedAt = updatedAt
       this.schema = cloneSchema(record.draftSchema)
       this.savedSchemaSignature = stableStringify(this.schema)
       this.selectedComponentId = hasComponent(this.schema, selectedComponentId) ? selectedComponentId : null
       this.error = null
     },
     applyCreatedDashboardIdentity(record: DashboardRecord) {
+      const updatedAt = requireDashboardRevision(record)
       this.dashboardId = record.id
       this.dashboardName = record.name
       this.savedDashboardName = record.name
       this.dashboardStatus = record.status
+      this.savedDashboardUpdatedAt = updatedAt
       this.error = null
     },
     rotateLocalDraftReservation() {
@@ -420,11 +434,18 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
           const created = await bigScreenApi.createDashboard({ name, clientReservationId: targetDashboardId })
           if (!isCurrentSaveOperation()) return createFailedSaveResult()
 
-          const dashboard = created.name === name ? created : await bigScreenApi.updateDashboard(created.id, { name })
+          const createdUpdatedAt = requireDashboardRevision(created)
+
+          const dashboard =
+            created.name === name
+              ? created
+              : await bigScreenApi.updateDashboard(created.id, { name, expectedUpdatedAt: createdUpdatedAt })
           if (!isCurrentSaveOperation()) return createFailedSaveResult()
 
           this.applyCreatedDashboardIdentity(dashboard)
-          const saved = await bigScreenApi.saveDraft(dashboard.id, schema)
+          const dashboardUpdatedAt = requireDashboardRevision(dashboard)
+
+          const saved = await bigScreenApi.saveDraft(dashboard.id, schema, dashboardUpdatedAt)
           if (!isCurrentSaveOperation()) return createFailedSaveResult()
 
           this.applySavedDashboard(saved)
@@ -440,10 +461,14 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
         }
 
         const shouldRotateReservationAfterSave = dashboardId === this.localDraftReservationId
-        await bigScreenApi.updateDashboard(dashboardId, { name })
-        if (!isCurrentSaveOperation()) return createFailedSaveResult()
+        const expectedUpdatedAt = this.savedDashboardUpdatedAt
+        if (!expectedUpdatedAt) throw new Error('Dashboard revision missing. Reload before saving.')
 
-        const record = await bigScreenApi.saveDraft(dashboardId, schema)
+        const dashboard = await bigScreenApi.updateDashboard(dashboardId, { name, expectedUpdatedAt })
+        if (!isCurrentSaveOperation()) return createFailedSaveResult()
+        const dashboardUpdatedAt = requireDashboardRevision(dashboard)
+
+        const record = await bigScreenApi.saveDraft(dashboardId, schema, dashboardUpdatedAt)
         if (!isCurrentSaveOperation()) return createFailedSaveResult()
 
         this.applySavedDashboard(record)

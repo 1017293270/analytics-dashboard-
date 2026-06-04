@@ -1,5 +1,20 @@
+import type { DashboardSchema } from '@analytics/shared'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { bigScreenApi, requestJson } from './bigScreenApi'
+
+const minimalSchema: DashboardSchema = {
+  version: '1.0',
+  canvas: {
+    width: 1920,
+    height: 1080,
+    background: { type: 'color', value: '#0b1220' },
+    scaleMode: 'fit-screen',
+  },
+  theme: { name: 'Command Center', fontFamily: 'Inter', colors: ['#2563eb'] },
+  components: [],
+  dataBindings: {},
+  refresh: { mode: 'manual' },
+}
 
 function mockFetch(body: string, init: ResponseInit = { status: 200 }) {
   const fetchMock = vi.fn(async (_input: RequestInfo | URL, _requestInit?: RequestInit) => new Response(body, init))
@@ -49,6 +64,49 @@ describe('requestJson', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/big-screens/dashboard-1/versions', expect.any(Object))
     const requestInit = fetchMock.mock.calls[0]?.[1]
     expect(requestInit?.method).toBeUndefined()
+  })
+
+  test('updates dashboard metadata with the expected revision', async () => {
+    const fetchMock = mockFetch(
+      JSON.stringify({
+        success: true,
+        data: { id: 'dashboard-1', name: 'Renamed', status: 'draft', draftSchema: minimalSchema },
+        error: null,
+      }),
+    )
+
+    await bigScreenApi.updateDashboard('dashboard-1', {
+      name: 'Renamed',
+      expectedUpdatedAt: '2026-06-04T00:00:00.000Z',
+    })
+
+    const requestInit = fetchMock.mock.calls[0]?.[1]
+    expect(fetchMock).toHaveBeenCalledWith('/api/big-screens/dashboard-1', expect.any(Object))
+    expect(requestInit?.method).toBe('PATCH')
+    expect(JSON.parse(String(requestInit?.body))).toEqual({
+      name: 'Renamed',
+      expectedUpdatedAt: '2026-06-04T00:00:00.000Z',
+    })
+  })
+
+  test('saves dashboard drafts with the expected revision', async () => {
+    const fetchMock = mockFetch(
+      JSON.stringify({
+        success: true,
+        data: { id: 'dashboard-1', name: 'Dashboard', status: 'draft', draftSchema: minimalSchema },
+        error: null,
+      }),
+    )
+
+    await bigScreenApi.saveDraft('dashboard-1', minimalSchema, '2026-06-04T00:00:00.000Z')
+
+    const requestInit = fetchMock.mock.calls[0]?.[1]
+    expect(fetchMock).toHaveBeenCalledWith('/api/big-screens/dashboard-1/draft', expect.any(Object))
+    expect(requestInit?.method).toBe('PATCH')
+    expect(JSON.parse(String(requestInit?.body))).toEqual({
+      draftSchema: minimalSchema,
+      expectedUpdatedAt: '2026-06-04T00:00:00.000Z',
+    })
   })
 
   test('rolls back a dashboard version with a stable POST body', async () => {

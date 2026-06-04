@@ -74,7 +74,10 @@ describe('dashboard workflow routes', () => {
     const app = createApp()
     const created = await request(app).post('/api/big-screens').send({ name: 'Versioned Board' }).expect(201)
 
-    await request(app).post(`/api/big-screens/${created.body.data.id}/publish`).send({ publishNote: 'v1' }).expect(200)
+    const publishedV1 = await request(app)
+      .post(`/api/big-screens/${created.body.data.id}/publish`)
+      .send({ publishNote: 'v1' })
+      .expect(200)
 
     const draftSchema = created.body.data.draftSchema
     await request(app)
@@ -84,6 +87,7 @@ describe('dashboard workflow routes', () => {
           ...draftSchema,
           canvas: { ...draftSchema.canvas, background: { type: 'color', value: '#111827' } },
         },
+        expectedUpdatedAt: publishedV1.body.data.updatedAt,
       })
       .expect(200)
     await request(app).post(`/api/big-screens/${created.body.data.id}/publish`).send({ publishNote: 'v2' }).expect(200)
@@ -172,8 +176,14 @@ describe('dashboard workflow routes', () => {
     await request(app).delete(`/api/big-screens/${dashboard.id}`).expect(200)
 
     await request(app).get(`/api/big-screens/${dashboard.id}`).expect(404)
-    await request(app).patch(`/api/big-screens/${dashboard.id}`).send({ name: 'Archived Rename' }).expect(404)
-    await request(app).patch(`/api/big-screens/${dashboard.id}/draft`).send({ draftSchema: dashboard.draftSchema }).expect(404)
+    await request(app)
+      .patch(`/api/big-screens/${dashboard.id}`)
+      .send({ name: 'Archived Rename', expectedUpdatedAt: dashboard.updatedAt })
+      .expect(404)
+    await request(app)
+      .patch(`/api/big-screens/${dashboard.id}/draft`)
+      .send({ draftSchema: dashboard.draftSchema, expectedUpdatedAt: dashboard.updatedAt })
+      .expect(404)
     await request(app).post(`/api/big-screens/${dashboard.id}/publish`).send({}).expect(404)
     await request(app).get(`/api/big-screens/${dashboard.id}/runtime`).expect(404)
     await request(app).post(`/api/big-screens/${dashboard.id}/copy`).send({}).expect(404)
@@ -192,8 +202,14 @@ describe('dashboard workflow routes', () => {
     })
 
     await request(app).get(`/api/big-screens/${dashboard.id}`).expect(404)
-    await request(app).patch(`/api/big-screens/${dashboard.id}`).send({ name: 'Cross Workspace Rename' }).expect(404)
-    await request(app).patch(`/api/big-screens/${dashboard.id}/draft`).send({ draftSchema: dashboard.draftSchema }).expect(404)
+    await request(app)
+      .patch(`/api/big-screens/${dashboard.id}`)
+      .send({ name: 'Cross Workspace Rename', expectedUpdatedAt: dashboard.updatedAt })
+      .expect(404)
+    await request(app)
+      .patch(`/api/big-screens/${dashboard.id}/draft`)
+      .send({ draftSchema: dashboard.draftSchema, expectedUpdatedAt: dashboard.updatedAt })
+      .expect(404)
     await request(app).post(`/api/big-screens/${dashboard.id}/publish`).send({}).expect(404)
     await request(app).get(`/api/big-screens/${dashboard.id}/runtime`).expect(404)
   })

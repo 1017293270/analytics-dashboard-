@@ -32,20 +32,23 @@ function createDeferred<T>(): Deferred<T> {
 }
 
 function createListItem(overrides: Partial<DashboardListItem> = {}): DashboardListItem {
+  const updatedAt = overrides.updatedAt ?? '2026-06-04T02:00:00.000Z'
+
   return {
     id: 'dashboard-1',
     name: 'Operations Board',
     description: null,
     status: 'draft',
     createdAt: '2026-06-04T01:00:00.000Z',
-    updatedAt: '2026-06-04T02:00:00.000Z',
     publishedAt: null,
     ...overrides,
+    updatedAt,
   }
 }
 
 function createRecord(id: string, overrides: Partial<DashboardRecord> = {}): DashboardRecord {
   const schema = createDefaultDashboardSchema()
+  const updatedAt = overrides.updatedAt ?? '2026-06-04T02:00:00.000Z'
 
   return {
     id,
@@ -54,6 +57,7 @@ function createRecord(id: string, overrides: Partial<DashboardRecord> = {}): Das
     draftSchema: schema,
     publishedSchema: null,
     ...overrides,
+    updatedAt,
   }
 }
 

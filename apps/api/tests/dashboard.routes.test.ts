@@ -1,5 +1,6 @@
 import request from 'supertest'
-import { describe, expect, test } from 'vitest'
+import { Prisma } from '@prisma/client'
+import { describe, expect, test, vi } from 'vitest'
 import { prisma } from '../src/db.js'
 import { createApp } from '../src/app.js'
 
@@ -33,7 +34,7 @@ describe('dashboard routes', () => {
 
     const response = await request(app)
       .patch(`/api/big-screens/${created.body.data.id}/draft`)
-      .send({ draftSchema: { version: 'bad' } })
+      .send({ draftSchema: { version: 'bad' }, expectedUpdatedAt: created.body.data.updatedAt })
       .expect(400)
 
     expect(response.body.success).toBe(false)
@@ -161,7 +162,7 @@ describe('dashboard routes', () => {
 
     const updated = await request(app)
       .patch(`/api/big-screens/${created.body.data.id}`)
-      .send({ name: 'Renamed Dashboard' })
+      .send({ name: 'Renamed Dashboard', expectedUpdatedAt: created.body.data.updatedAt })
       .expect(200)
 
     expect(updated.body.success).toBe(true)
@@ -190,6 +191,44 @@ describe('dashboard routes', () => {
     })
   })
 
+  test('rejects stale dashboard metadata revisions with a stable conflict shape', async () => {
+    const app = createApp()
+
+    const created = await request(app).post('/api/big-screens').send({ name: 'Stale Metadata' }).expect(201)
+    await prisma.dashboard.update({
+      where: { id: created.body.data.id },
+      data: { name: 'Changed Elsewhere' },
+    })
+
+    const response = await request(app)
+      .patch(`/api/big-screens/${created.body.data.id}`)
+      .send({ name: 'Stale Rename', expectedUpdatedAt: created.body.data.updatedAt })
+      .expect(409)
+
+    expect(response.body).toEqual({
+      success: false,
+      data: null,
+      error: { code: 'DASHBOARD_CONFLICT', message: 'Dashboard changed. Reload before saving.' },
+    })
+  })
+
+  test('rejects duplicate dashboard metadata revisions after the first write commits', async () => {
+    const app = createApp()
+
+    const created = await request(app).post('/api/big-screens').send({ name: 'Duplicate Metadata' }).expect(201)
+    await request(app)
+      .patch(`/api/big-screens/${created.body.data.id}`)
+      .send({ name: 'First Rename', expectedUpdatedAt: created.body.data.updatedAt })
+      .expect(200)
+
+    const response = await request(app)
+      .patch(`/api/big-screens/${created.body.data.id}`)
+      .send({ name: 'Second Rename', expectedUpdatedAt: created.body.data.updatedAt })
+      .expect(409)
+
+    expect(response.body.error.code).toBe('DASHBOARD_CONFLICT')
+  })
+
   test('rejects dashboard metadata updates without edit permission', async () => {
     const app = createApp()
 
@@ -198,7 +237,7 @@ describe('dashboard routes', () => {
 
     const response = await request(app)
       .patch(`/api/big-screens/${created.body.data.id}`)
-      .send({ name: 'Forbidden Rename' })
+      .send({ name: 'Forbidden Rename', expectedUpdatedAt: created.body.data.updatedAt })
       .expect(403)
 
     expect(response.body.error.code).toBe('FORBIDDEN')
@@ -218,7 +257,7 @@ describe('dashboard routes', () => {
 
     const update = await request(app)
       .patch(`/api/big-screens/${created.body.data.id}`)
-      .send({ name: 'Should Not Rename' })
+      .send({ name: 'Should Not Rename', expectedUpdatedAt: created.body.data.updatedAt })
       .expect(403)
     expect(update.body.error.code).toBe('FORBIDDEN')
 
@@ -239,6 +278,51 @@ describe('dashboard routes', () => {
     })
   })
 
+  test('rejects stale draft revisions with a stable conflict shape', async () => {
+    const app = createApp()
+
+    const created = await request(app).post('/api/big-screens').send({ name: 'Stale Draft' }).expect(201)
+    await prisma.dashboard.update({
+      where: { id: created.body.data.id },
+      data: { name: 'Changed Before Draft Save' },
+    })
+
+    const response = await request(app)
+      .patch(`/api/big-screens/${created.body.data.id}/draft`)
+      .send({ draftSchema: created.body.data.draftSchema, expectedUpdatedAt: created.body.data.updatedAt })
+      .expect(409)
+
+    expect(response.body).toEqual({
+      success: false,
+      data: null,
+      error: { code: 'DASHBOARD_CONFLICT', message: 'Dashboard changed. Reload before saving.' },
+    })
+  })
+
+  test('rejects duplicate draft revisions after the first write commits', async () => {
+    const app = createApp()
+
+    const created = await request(app).post('/api/big-screens').send({ name: 'Duplicate Draft' }).expect(201)
+    const draftSchema = {
+      ...created.body.data.draftSchema,
+      canvas: {
+        ...created.body.data.draftSchema.canvas,
+        background: { type: 'color', value: '#111827' },
+      },
+    }
+    await request(app)
+      .patch(`/api/big-screens/${created.body.data.id}/draft`)
+      .send({ draftSchema, expectedUpdatedAt: created.body.data.updatedAt })
+      .expect(200)
+
+    const response = await request(app)
+      .patch(`/api/big-screens/${created.body.data.id}/draft`)
+      .send({ draftSchema: created.body.data.draftSchema, expectedUpdatedAt: created.body.data.updatedAt })
+      .expect(409)
+
+    expect(response.body.error.code).toBe('DASHBOARD_CONFLICT')
+  })
+
   test('publishes a dashboard and returns runtime schema', async () => {
     const app = createApp()
 
@@ -253,6 +337,32 @@ describe('dashboard routes', () => {
 
     expect(runtime.body.success).toBe(true)
     expect(runtime.body.data.schema.version).toBe('1.0')
+  })
+
+  test('returns a stable conflict when publish version creation races', async () => {
+    const app = createApp()
+
+    const created = await request(app).post('/api/big-screens').send({ name: 'Publish Conflict' }).expect(201)
+    const conflict = new Prisma.PrismaClientKnownRequestError('Unique constraint failed on dashboard version', {
+      code: 'P2002',
+      clientVersion: 'test',
+      meta: { target: ['dashboardId', 'version'] },
+    })
+    const transactionSpy = vi.spyOn(prisma, '$transaction').mockRejectedValueOnce(conflict)
+
+    const response = await request(app).post(`/api/big-screens/${created.body.data.id}/publish`).send({}).expect(409)
+
+    expect(response.body).toEqual({
+      success: false,
+      data: null,
+      error: {
+        code: 'PUBLISH_CONFLICT',
+        message: 'Dashboard was published concurrently. Reload and try again.',
+      },
+    })
+    expect(transactionSpy).toHaveBeenCalledOnce()
+    expect(await prisma.dashboardVersion.count({ where: { dashboardId: created.body.data.id } })).toBe(0)
+    expect((await prisma.dashboard.findUnique({ where: { id: created.body.data.id } }))?.status).toBe('draft')
   })
 
   test('corrupt stored schema returns stable internal error shape', async () => {

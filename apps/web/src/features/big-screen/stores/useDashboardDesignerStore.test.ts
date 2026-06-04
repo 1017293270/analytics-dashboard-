@@ -16,6 +16,8 @@ const component: DashboardComponent = {
   style: { color: '#fff', fontSize: 20 },
 }
 
+const DEFAULT_UPDATED_AT = '2026-06-04T00:00:00.000Z'
+
 function createDeferred<T>() {
   let resolve!: (value: T) => void
   let reject!: (error: Error) => void
@@ -39,8 +41,15 @@ function createRecord(schema: DashboardSchema, overrides: Partial<DashboardRecor
     status: 'draft',
     draftSchema: schema,
     publishedSchema: null,
+    updatedAt: DEFAULT_UPDATED_AT,
     ...overrides,
   }
+}
+
+function withoutRevision(record: DashboardRecord): DashboardRecord {
+  const { updatedAt: _updatedAt, ...recordWithoutRevision } = record
+
+  return recordWithoutRevision as DashboardRecord
 }
 
 describe('useDashboardDesignerStore', () => {
@@ -52,8 +61,7 @@ describe('useDashboardDesignerStore', () => {
   test('saveDraft preserves selected component and history', async () => {
     const store = useDashboardDesignerStore()
     const history = useDashboardHistoryStore()
-    store.dashboardId = 'dashboard-1'
-    store.dashboardName = 'Command Center'
+    store.replaceDashboardForLoad(createRecord(createDefaultDashboardSchema(), { id: 'dashboard-1' }))
     store.addComponent(component)
     const historyLength = history.past.length
 
@@ -178,8 +186,15 @@ describe('useDashboardDesignerStore', () => {
 
     expect(createSpy).toHaveBeenCalledTimes(2)
     expect(createSpy).toHaveBeenLastCalledWith({ name: 'Second local draft', clientReservationId: reservationId })
-    expect(updateSpy).toHaveBeenCalledWith(reservationId, { name: 'Second local draft' })
-    expect(saveSpy).toHaveBeenCalledWith(reservationId, expect.objectContaining({ components: [activeComponent] }))
+    expect(updateSpy).toHaveBeenCalledWith(reservationId, {
+      name: 'Second local draft',
+      expectedUpdatedAt: DEFAULT_UPDATED_AT,
+    })
+    expect(saveSpy).toHaveBeenCalledWith(
+      reservationId,
+      expect.objectContaining({ components: [activeComponent] }),
+      DEFAULT_UPDATED_AT,
+    )
     expect(store.dashboardId).toBe(reservationId)
     expect(store.dashboardName).toBe('Second local draft')
   })
@@ -245,7 +260,7 @@ describe('useDashboardDesignerStore', () => {
     const staleSavePromise = store.saveDraft()
     await flushAsyncWork()
 
-    expect(saveSpy).toHaveBeenCalledWith(reservationId, expect.any(Object))
+    expect(saveSpy).toHaveBeenCalledWith(reservationId, expect.any(Object), DEFAULT_UPDATED_AT)
     expect(store.dashboardId).toBe(reservationId)
     expect(store.localDraftReservationId).toBe(reservationId)
 
@@ -263,8 +278,15 @@ describe('useDashboardDesignerStore', () => {
 
     expect(createSpy).toHaveBeenCalledTimes(2)
     expect(createSpy).toHaveBeenLastCalledWith({ name: 'Second local draft', clientReservationId: reservationId })
-    expect(updateSpy).toHaveBeenCalledWith(reservationId, { name: 'Second local draft' })
-    expect(saveSpy).toHaveBeenCalledWith(reservationId, expect.objectContaining({ components: [activeComponent] }))
+    expect(updateSpy).toHaveBeenCalledWith(reservationId, {
+      name: 'Second local draft',
+      expectedUpdatedAt: DEFAULT_UPDATED_AT,
+    })
+    expect(saveSpy).toHaveBeenCalledWith(
+      reservationId,
+      expect.objectContaining({ components: [activeComponent] }),
+      DEFAULT_UPDATED_AT,
+    )
     expect(store.dashboardId).toBe(reservationId)
   })
 
@@ -295,6 +317,7 @@ describe('useDashboardDesignerStore', () => {
     expect(saveSpy).toHaveBeenCalledWith(
       reservationId,
       expect.objectContaining({ components: [oldComponent] }),
+      DEFAULT_UPDATED_AT,
     )
 
     store.replaceLocalDraft(createDefaultDashboardSchema(), 'Second local draft')
@@ -313,11 +336,15 @@ describe('useDashboardDesignerStore', () => {
 
     expect(createSpy).toHaveBeenCalledTimes(2)
     expect(createSpy).toHaveBeenLastCalledWith({ name: 'Second local draft', clientReservationId: reservationId })
-    expect(updateSpy).toHaveBeenCalledWith(reservationId, { name: 'Second local draft' })
+    expect(updateSpy).toHaveBeenCalledWith(reservationId, {
+      name: 'Second local draft',
+      expectedUpdatedAt: DEFAULT_UPDATED_AT,
+    })
     expect(saveSpy).toHaveBeenCalledTimes(2)
     expect(saveSpy).toHaveBeenLastCalledWith(
       reservationId,
       expect.objectContaining({ components: [activeComponent] }),
+      DEFAULT_UPDATED_AT,
     )
     expect(store.dashboardId).toBe(reservationId)
     expect(store.schema.components).toEqual([activeComponent])
@@ -391,6 +418,7 @@ describe('useDashboardDesignerStore', () => {
     expect(saveSpy).toHaveBeenCalledWith(
       'dashboard-a',
       expect.objectContaining({ components: [oldComponent] }),
+      DEFAULT_UPDATED_AT,
     )
 
     store.replaceDashboardForLoad(createRecord(createDefaultDashboardSchema(), { id: 'dashboard-a', name: 'Dashboard A' }))
@@ -411,6 +439,7 @@ describe('useDashboardDesignerStore', () => {
     expect(saveSpy).toHaveBeenLastCalledWith(
       'dashboard-a',
       expect.objectContaining({ components: [activeComponent] }),
+      DEFAULT_UPDATED_AT,
     )
     expect(store.dashboardId).toBe('dashboard-a')
     expect(store.schema.components).toEqual([activeComponent])
@@ -480,7 +509,11 @@ describe('useDashboardDesignerStore', () => {
       name: 'Local Command',
       clientReservationId: expect.stringMatching(/^local-draft-/),
     })
-    expect(saveSpy).toHaveBeenCalledWith(reservationId, expect.objectContaining({ components: [component] }))
+    expect(saveSpy).toHaveBeenCalledWith(
+      reservationId,
+      expect.objectContaining({ components: [component] }),
+      DEFAULT_UPDATED_AT,
+    )
     expect(store.dashboardId).toBe(reservationId)
     expect(store.dashboardName).toBe('Local Command')
     expect(store.dashboardStatus).toBe('draft')
@@ -514,7 +547,10 @@ describe('useDashboardDesignerStore', () => {
     await store.saveDraft()
 
     expect(createSpy).toHaveBeenCalledOnce()
-    expect(updateSpy).toHaveBeenCalledWith(reservationId, { name: 'Retry Command' })
+    expect(updateSpy).toHaveBeenCalledWith(reservationId, {
+      name: 'Retry Command',
+      expectedUpdatedAt: DEFAULT_UPDATED_AT,
+    })
     expect(saveSpy).toHaveBeenCalledTimes(2)
     expect(store.error).toBeNull()
     expect(store.localDraftReservationId).not.toBe(reservationId)
@@ -522,8 +558,8 @@ describe('useDashboardDesignerStore', () => {
 
   test('saveDraft persists dashboard metadata before saving an existing draft', async () => {
     const store = useDashboardDesignerStore()
-    store.dashboardId = 'dashboard-1'
-    store.dashboardName = 'Renamed Command'
+    store.replaceDashboardForLoad(createRecord(store.schema, { id: 'dashboard-1', name: 'Command Center' }))
+    store.setDashboardName('Renamed Command')
 
     const updateSpy = vi
       .spyOn(bigScreenApi, 'updateDashboard')
@@ -534,10 +570,28 @@ describe('useDashboardDesignerStore', () => {
 
     await store.saveDraft()
 
-    expect(updateSpy).toHaveBeenCalledWith('dashboard-1', { name: 'Renamed Command' })
-    expect(saveSpy).toHaveBeenCalledWith('dashboard-1', store.schema)
+    expect(updateSpy).toHaveBeenCalledWith('dashboard-1', {
+      name: 'Renamed Command',
+      expectedUpdatedAt: DEFAULT_UPDATED_AT,
+    })
+    expect(saveSpy).toHaveBeenCalledWith('dashboard-1', store.schema, DEFAULT_UPDATED_AT)
     expect(store.dashboardName).toBe('Renamed Command')
     expect(store.dashboardStatus).toBe('published')
+  })
+
+  test('saveDraft reports an error when the saved draft response omits its revision', async () => {
+    const store = useDashboardDesignerStore()
+    store.replaceDashboardForLoad(createRecord(store.schema, { id: 'dashboard-1', name: 'Command Center' }))
+    store.addComponent(component)
+
+    vi.spyOn(bigScreenApi, 'updateDashboard').mockResolvedValue(createRecord(store.schema, { id: 'dashboard-1' }))
+    vi.spyOn(bigScreenApi, 'saveDraft').mockResolvedValue(withoutRevision(createRecord(store.schema, { id: 'dashboard-1' })))
+
+    await store.saveDraft()
+
+    expect(store.error).toBe('Dashboard revision missing. Reload before saving.')
+    expect(store.hasUnsavedChanges).toBe(true)
+    expect(store.isSaving).toBe(false)
   })
 
   test('locked components ignore edits and removal until unlocked', () => {
@@ -646,8 +700,11 @@ describe('useDashboardDesignerStore', () => {
 
     await store.publish()
 
-    expect(updateSpy).toHaveBeenCalledWith('dashboard-1', { name: 'Command Center' })
-    expect(saveSpy).toHaveBeenCalledWith('dashboard-1', schema)
+    expect(updateSpy).toHaveBeenCalledWith('dashboard-1', {
+      name: 'Command Center',
+      expectedUpdatedAt: DEFAULT_UPDATED_AT,
+    })
+    expect(saveSpy).toHaveBeenCalledWith('dashboard-1', schema, DEFAULT_UPDATED_AT)
     expect(publishSpy).toHaveBeenCalledWith('dashboard-1')
     expect(store.dashboardStatus).toBe('published')
     expect(store.hasUnsavedChanges).toBe(false)
@@ -681,11 +738,31 @@ describe('useDashboardDesignerStore', () => {
     expect(saveSpy).toHaveBeenCalledWith(
       'dashboard-1',
       expect.objectContaining({ components: aiOperationsPreset.components }),
+      DEFAULT_UPDATED_AT,
     )
     expect(publishSpy).toHaveBeenCalledWith('dashboard-1')
     expect(store.schema.components).toEqual(aiOperationsPreset.components)
     expect(store.dashboardStatus).toBe('published')
     expect(store.hasUnsavedChanges).toBe(false)
+    expect(store.isSaving).toBe(false)
+    expect(store.activeSaveIntent).toBeNull()
+  })
+
+  test('publish reports an error when the publish response omits its revision', async () => {
+    const store = useDashboardDesignerStore()
+    const schema = createDefaultDashboardSchema()
+    store.replaceDashboardForLoad(createRecord(schema, { id: 'dashboard-1', status: 'draft' }))
+
+    vi.spyOn(bigScreenApi, 'updateDashboard').mockResolvedValue(createRecord(schema, { id: 'dashboard-1', status: 'draft' }))
+    vi.spyOn(bigScreenApi, 'saveDraft').mockResolvedValue(createRecord(schema, { id: 'dashboard-1', status: 'draft' }))
+    vi.spyOn(bigScreenApi, 'publish').mockResolvedValue(
+      withoutRevision(createRecord(schema, { id: 'dashboard-1', status: 'published' })),
+    )
+
+    await store.publish()
+
+    expect(store.error).toBe('Dashboard revision missing. Reload before saving.')
+    expect(store.dashboardStatus).toBe('draft')
     expect(store.isSaving).toBe(false)
     expect(store.activeSaveIntent).toBeNull()
   })
@@ -799,6 +876,7 @@ describe('useDashboardDesignerStore', () => {
     expect(saveSpy).toHaveBeenLastCalledWith(
       'dashboard-a',
       expect.objectContaining({ components: [activeComponent] }),
+      DEFAULT_UPDATED_AT,
     )
     expect(publishSpy).toHaveBeenCalledWith('dashboard-a')
     expect(store.dashboardStatus).toBe('published')

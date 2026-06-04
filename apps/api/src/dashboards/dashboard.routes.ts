@@ -5,7 +5,7 @@ import { nanoid } from 'nanoid'
 import { z } from 'zod'
 import { recordAudit } from '../audit/audit.js'
 import { prisma } from '../db.js'
-import { asyncHandler, sendBadRequest, sendForbidden, sendNotFound } from '../errors.js'
+import { asyncHandler, sendBadRequest, sendConflict, sendForbidden, sendNotFound } from '../errors.js'
 import {
   getDashboardPermission,
   hasEditPermission,
@@ -27,10 +27,12 @@ const createDashboardBody = z.object({
 
 const updateDraftBody = z.object({
   draftSchema: z.unknown(),
+  expectedUpdatedAt: z.string().trim().min(1),
 })
 
 const updateMetadataBody = z.object({
   name: z.string().trim().min(1).max(120),
+  expectedUpdatedAt: z.string().trim().min(1),
 })
 
 const publishBody = z.object({
@@ -85,6 +87,15 @@ async function findActiveDashboard(id: string) {
   const dashboard = await prisma.dashboard.findUnique({ where: { id } })
 
   return isActiveDashboard(dashboard) ? dashboard : null
+}
+
+function parseExpectedRevision(expectedUpdatedAt: string): Date | null {
+  const expectedTime = new Date(expectedUpdatedAt).getTime()
+  return Number.isFinite(expectedTime) ? new Date(expectedTime) : null
+}
+
+function sendDashboardConflict(res: Response) {
+  return sendConflict(res, 'DASHBOARD_CONFLICT', 'Dashboard changed. Reload before saving.')
 }
 
 async function sendExistingReservation(res: Response, dashboardId: string) {
@@ -386,15 +397,25 @@ dashboardRoutes.patch('/big-screens/:id', asyncHandler(async (req, res) => {
 
   const permission = await getDashboardPermission(dashboard.id)
   if (!hasEditPermission(permission)) return sendForbidden(res)
+  const expectedRevision = parseExpectedRevision(body.data.expectedUpdatedAt)
+  if (!expectedRevision) return sendDashboardConflict(res)
 
   const updated = await prisma.$transaction(async (tx) => {
-    const updatedDashboard = await tx.dashboard.update({
-      where: { id: dashboard.id },
+    const updateResult = await tx.dashboard.updateMany({
+      where: {
+        id: dashboard.id,
+        workspaceId: DEFAULT_WORKSPACE_ID,
+        status: { not: 'archived' },
+        updatedAt: expectedRevision,
+      },
       data: { name: body.data.name },
     })
+    if (updateResult.count !== 1) return null
+    const updatedDashboard = await tx.dashboard.findUniqueOrThrow({ where: { id: dashboard.id } })
     await recordAudit('dashboard.metadata.updated', dashboard.id, DEFAULT_ACTOR_ID, { name: body.data.name }, tx)
     return updatedDashboard
   })
+  if (!updated) return sendDashboardConflict(res)
 
   res.json(
     ok({
@@ -416,18 +437,28 @@ dashboardRoutes.patch('/big-screens/:id/draft', asyncHandler(async (req, res) =>
 
   const permission = await getDashboardPermission(dashboard.id)
   if (!hasEditPermission(permission)) return sendForbidden(res)
+  const expectedRevision = parseExpectedRevision(body.data.expectedUpdatedAt)
+  if (!expectedRevision) return sendDashboardConflict(res)
 
   const draftSchema = dashboardSchemaValidator.safeParse(body.data.draftSchema)
   if (!draftSchema.success) return sendBadRequest(res, 'SCHEMA_INVALID', 'Draft schema is invalid')
 
   const updated = await prisma.$transaction(async (tx) => {
-    const updatedDashboard = await tx.dashboard.update({
-      where: { id: dashboard.id },
+    const updateResult = await tx.dashboard.updateMany({
+      where: {
+        id: dashboard.id,
+        workspaceId: DEFAULT_WORKSPACE_ID,
+        status: { not: 'archived' },
+        updatedAt: expectedRevision,
+      },
       data: { draftSchema: JSON.stringify(draftSchema.data), status: 'draft' },
     })
+    if (updateResult.count !== 1) return null
+    const updatedDashboard = await tx.dashboard.findUniqueOrThrow({ where: { id: dashboard.id } })
     await recordAudit('dashboard.draft.updated', dashboard.id, DEFAULT_ACTOR_ID, { name: dashboard.name }, tx)
     return updatedDashboard
   })
+  if (!updated) return sendDashboardConflict(res)
 
   res.json(
     ok({
@@ -445,40 +476,51 @@ dashboardRoutes.post('/big-screens/:id/publish', asyncHandler(async (req, res) =
   const body = publishBody.safeParse(req.body)
   if (!body.success) return sendBadRequest(res, 'PUBLISH_INVALID', 'Publish request is invalid')
 
-  const dashboard = await prisma.dashboard.findUnique({
-    where: { id: params.data.id },
-    include: { versions: { orderBy: { version: 'desc' }, take: 1 } },
-  })
+  const dashboard = await prisma.dashboard.findUnique({ where: { id: params.data.id } })
   if (!isActiveDashboard(dashboard)) return sendNotFound(res)
 
   const permission = await getDashboardPermission(dashboard.id)
   if (!hasPublishPermission(permission)) return sendForbidden(res)
 
   const draftSchema = parseSchema(dashboard.draftSchema)
-  const nextVersion = (dashboard.versions[0]?.version ?? 0) + 1
   const publishedAt = new Date()
 
-  const updated = await prisma.$transaction(async (tx) => {
-    const updatedDashboard = await tx.dashboard.update({
-      where: { id: dashboard.id },
-      data: {
-        status: 'published',
-        publishedSchema: JSON.stringify(draftSchema),
-        publishedAt,
-        versions: {
-          create: {
-            id: nanoIdForVersion(dashboard.id, nextVersion),
-            version: nextVersion,
-            schema: JSON.stringify(draftSchema),
-            publishNote: body.data.publishNote ?? null,
-            createdBy: DEFAULT_ACTOR_ID,
-          },
+  let updated
+  try {
+    updated = await prisma.$transaction(async (tx) => {
+      const latestVersion = await tx.dashboardVersion.findFirst({
+        where: { dashboardId: dashboard.id },
+        orderBy: { version: 'desc' },
+      })
+      const nextVersion = (latestVersion?.version ?? 0) + 1
+      const updatedDashboard = await tx.dashboard.update({
+        where: { id: dashboard.id },
+        data: {
+          status: 'published',
+          publishedSchema: JSON.stringify(draftSchema),
+          publishedAt,
         },
-      },
+      })
+      await tx.dashboardVersion.create({
+        data: {
+          id: nanoid(),
+          dashboardId: dashboard.id,
+          version: nextVersion,
+          schema: JSON.stringify(draftSchema),
+          publishNote: body.data.publishNote ?? null,
+          createdBy: DEFAULT_ACTOR_ID,
+        },
+      })
+      await recordAudit('dashboard.published', dashboard.id, DEFAULT_ACTOR_ID, { version: nextVersion }, tx)
+      return updatedDashboard
     })
-    await recordAudit('dashboard.published', dashboard.id, DEFAULT_ACTOR_ID, { version: nextVersion }, tx)
-    return updatedDashboard
-  })
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      return sendConflict(res, 'PUBLISH_CONFLICT', 'Dashboard was published concurrently. Reload and try again.')
+    }
+
+    throw error
+  }
 
   res.json(
     ok({
@@ -509,7 +551,3 @@ dashboardRoutes.get('/big-screens/:id/runtime', asyncHandler(async (req, res) =>
     }),
   )
 }))
-
-function nanoIdForVersion(dashboardId: string, version: number) {
-  return `${dashboardId}-${version}`
-}

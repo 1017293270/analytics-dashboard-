@@ -15,6 +15,10 @@ export function sendForbidden(res: Response, message = 'You do not have permissi
   return res.status(403).json(fail('FORBIDDEN', message))
 }
 
+export function sendConflict(res: Response, code: string, message: string) {
+  return res.status(409).json(fail(code, message))
+}
+
 export function sendNotFound(res: Response, message = 'Dashboard not found') {
   return res.status(404).json(fail('NOT_FOUND', message))
 }

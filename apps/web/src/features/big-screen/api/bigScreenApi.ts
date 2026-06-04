@@ -8,7 +8,7 @@ export type DashboardRecord = {
   draftSchema: DashboardSchema
   publishedSchema?: DashboardSchema | null
   createdAt?: string
-  updatedAt?: string
+  updatedAt: string
   publishedAt?: string | null
 }
 
@@ -114,18 +114,18 @@ export const bigScreenApi = {
   getDashboard(id: string, init?: RequestInit) {
     return requestJson<DashboardRecord>(`/api/big-screens/${id}`, init)
   },
-  updateDashboard(id: string, input: { name: string }, init?: RequestInit) {
+  updateDashboard(id: string, input: { name: string; expectedUpdatedAt: string }, init?: RequestInit) {
     return requestJson<DashboardRecord>(`/api/big-screens/${id}`, {
       ...init,
       method: 'PATCH',
       body: JSON.stringify(input),
     })
   },
-  saveDraft(id: string, draftSchema: DashboardSchema, init?: RequestInit) {
+  saveDraft(id: string, draftSchema: DashboardSchema, expectedUpdatedAt: string, init?: RequestInit) {
     return requestJson<DashboardRecord>(`/api/big-screens/${id}/draft`, {
       ...init,
       method: 'PATCH',
-      body: JSON.stringify({ draftSchema }),
+      body: JSON.stringify({ draftSchema, expectedUpdatedAt }),
     })
   },
   publish(id: string, init?: RequestInit) {

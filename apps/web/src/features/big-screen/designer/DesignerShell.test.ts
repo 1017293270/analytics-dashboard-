@@ -29,6 +29,7 @@ function createRecord(id: string, schema: DashboardSchema = createDefaultDashboa
     status: 'draft',
     draftSchema: schema,
     publishedSchema: null,
+    updatedAt: '2026-06-04T00:00:00.000Z',
   }
 }
 
