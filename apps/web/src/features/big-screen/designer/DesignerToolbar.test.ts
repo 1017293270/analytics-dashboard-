@@ -72,15 +72,23 @@ describe('DesignerToolbar', () => {
     expect(applyPreset).toHaveBeenCalledWith(aiOperationsPreset)
   })
 
-  test('keeps preview inert until a dashboard id exists', async () => {
+  test('keeps preview inert until the dashboard is published and clean', async () => {
     const { store, wrapper } = mountToolbar()
     const previewLink = wrapper.get('[data-testid="preview-runtime-link"]')
 
     expect(previewLink.attributes('href')).toBeUndefined()
     expect(previewLink.attributes('aria-disabled')).toBe('true')
     expect(previewLink.attributes('tabindex')).toBe('-1')
+    expect(previewLink.attributes('title')).toBe('Publish saved changes before previewing')
 
     store.dashboardId = 'dashboard-1'
+    await wrapper.vm.$nextTick()
+
+    const draftPreviewLink = wrapper.get('[data-testid="preview-runtime-link"]')
+    expect(draftPreviewLink.attributes('href')).toBeUndefined()
+    expect(draftPreviewLink.attributes('aria-disabled')).toBe('true')
+
+    store.dashboardStatus = 'published'
     await wrapper.vm.$nextTick()
 
     const enabledPreviewLink = wrapper.get('[data-testid="preview-runtime-link"]')
@@ -88,20 +96,32 @@ describe('DesignerToolbar', () => {
     expect(enabledPreviewLink.attributes('target')).toBe('_blank')
     expect(enabledPreviewLink.attributes('aria-disabled')).toBe('false')
     expect(enabledPreviewLink.attributes('tabindex')).toBe('0')
+    expect(enabledPreviewLink.attributes('title')).toBe('Open published runtime preview')
+
+    store.dashboardName = 'Dirty dashboard'
+    await wrapper.vm.$nextTick()
+
+    const dirtyPreviewLink = wrapper.get('[data-testid="preview-runtime-link"]')
+    expect(dirtyPreviewLink.attributes('href')).toBeUndefined()
+    expect(dirtyPreviewLink.attributes('aria-disabled')).toBe('true')
   })
 
-  test('publishes persisted dashboards and surfaces publishing state', async () => {
+  test('publishes available dashboards and surfaces publishing state', async () => {
     const { store, wrapper } = mountToolbar()
     const publish = vi.fn()
     store.publish = publish
 
-    expect(wrapper.get('[data-testid="publish-dashboard-button"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-testid="publish-dashboard-button"]').attributes('disabled')).toBeUndefined()
+    expect(wrapper.get('[data-testid="publish-dashboard-button"]').attributes('title')).toBe(
+      'Create, save, and publish dashboard',
+    )
 
     store.dashboardId = 'dashboard-1'
     await wrapper.vm.$nextTick()
 
     const publishButton = wrapper.get('[data-testid="publish-dashboard-button"]')
     expect(publishButton.attributes('disabled')).toBeUndefined()
+    expect(publishButton.attributes('title')).toBe('Publish dashboard')
     await publishButton.trigger('click')
     expect(publish).toHaveBeenCalledOnce()
 

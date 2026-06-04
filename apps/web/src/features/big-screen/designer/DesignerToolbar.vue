@@ -15,9 +15,26 @@ const canRedo = computed(() => history.future.length > 0 && !designer.isLoading 
 const hasValidName = computed(() => designer.dashboardName.trim().length > 0)
 const canSave = computed(() => hasValidName.value && !designer.isLoading && !designer.isSaving)
 const canApplyPreset = computed(() => !designer.isLoading && !designer.isSaving)
-const canPreview = computed(() => Boolean(designer.dashboardId) && !designer.isLoading)
-const canPublish = computed(() => Boolean(designer.dashboardId) && !designer.isLoading && !designer.isSaving)
-const runtimePreviewHref = computed(() => (designer.dashboardId ? `/runtime/${designer.dashboardId}` : undefined))
+const canPreview = computed(
+  () =>
+    Boolean(designer.dashboardId) &&
+    designer.dashboardStatus === 'published' &&
+    !designer.hasUnsavedChanges &&
+    !designer.isLoading,
+)
+const canPublish = computed(() => hasValidName.value && !designer.isLoading && !designer.isSaving)
+const runtimePreviewHref = computed(() =>
+  canPreview.value && designer.dashboardId ? `/runtime/${designer.dashboardId}` : undefined,
+)
+const previewTitle = computed(() =>
+  canPreview.value ? 'Open published runtime preview' : 'Publish saved changes before previewing',
+)
+const publishTitle = computed(() => {
+  if (!designer.dashboardId) return 'Create, save, and publish dashboard'
+  if (designer.hasUnsavedChanges) return 'Save current draft and publish'
+
+  return 'Publish dashboard'
+})
 const recordStatus = computed(() => (designer.dashboardStatus ?? 'local').toUpperCase())
 const saveState = computed(() => {
   if (designer.isSaving && designer.activeSaveIntent === 'publish') return 'Publishing'
@@ -124,7 +141,7 @@ function applyAiOperationsPreset() {
         rel="noreferrer"
         :aria-disabled="!canPreview"
         :tabindex="canPreview ? 0 : -1"
-        :title="canPreview ? 'Open runtime preview' : 'Save the dashboard before previewing'"
+        :title="previewTitle"
         @click="!canPreview && $event.preventDefault()"
       >
         Preview
@@ -144,7 +161,7 @@ function applyAiOperationsPreset() {
         data-testid="publish-dashboard-button"
         type="button"
         :disabled="!canPublish"
-        :title="designer.dashboardId ? 'Publish current saved draft' : 'Save the dashboard before publishing'"
+        :title="publishTitle"
         @click="designer.publish"
       >
         {{ designer.isSaving && designer.activeSaveIntent === 'publish' ? 'Publishing' : 'Publish' }}

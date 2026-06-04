@@ -630,9 +630,15 @@ describe('useDashboardDesignerStore', () => {
     expect(store.schema.components).toHaveLength(0)
   })
 
-  test('publish sends the current dashboard id and applies the published record', async () => {
+  test('publish saves the current existing draft before publishing it', async () => {
     const store = useDashboardDesignerStore()
     const schema = createDefaultDashboardSchema()
+    const updateSpy = vi.spyOn(bigScreenApi, 'updateDashboard').mockResolvedValue(
+      createRecord(schema, { id: 'dashboard-1', status: 'draft' }),
+    )
+    const saveSpy = vi.spyOn(bigScreenApi, 'saveDraft').mockResolvedValue(
+      createRecord(schema, { id: 'dashboard-1', status: 'draft' }),
+    )
     const publishedRecord = createRecord(schema, { id: 'dashboard-1', status: 'published' })
     const publishSpy = vi.spyOn(bigScreenApi, 'publish').mockResolvedValue(publishedRecord)
 
@@ -640,6 +646,8 @@ describe('useDashboardDesignerStore', () => {
 
     await store.publish()
 
+    expect(updateSpy).toHaveBeenCalledWith('dashboard-1', { name: 'Command Center' })
+    expect(saveSpy).toHaveBeenCalledWith('dashboard-1', schema)
     expect(publishSpy).toHaveBeenCalledWith('dashboard-1')
     expect(store.dashboardStatus).toBe('published')
     expect(store.hasUnsavedChanges).toBe(false)
@@ -648,20 +656,72 @@ describe('useDashboardDesignerStore', () => {
     expect(store.activeSaveIntent).toBeNull()
   })
 
-  test('publish is a no-op without a dashboard id', async () => {
+  test('publish saves dirty preset edits before publishing and keeps them in state', async () => {
     const store = useDashboardDesignerStore()
-    const publishSpy = vi.spyOn(bigScreenApi, 'publish').mockResolvedValue(createRecord(store.schema))
+    const savedSchemas: DashboardSchema[] = []
+
+    store.replaceDashboardForLoad(createRecord(createDefaultDashboardSchema(), { id: 'dashboard-1', status: 'draft' }))
+    store.applyPreset(aiOperationsPreset)
+
+    vi.spyOn(bigScreenApi, 'updateDashboard').mockResolvedValue(
+      createRecord(createDefaultDashboardSchema(), { id: 'dashboard-1', status: 'draft' }),
+    )
+    const saveSpy = vi.spyOn(bigScreenApi, 'saveDraft').mockImplementation(async (id, schema) => {
+      savedSchemas.push(schema)
+      return createRecord(schema, { id, status: 'draft' })
+    })
+    const publishSpy = vi.spyOn(bigScreenApi, 'publish').mockImplementation(async (id) =>
+      createRecord(savedSchemas[0] ?? createDefaultDashboardSchema(), { id, status: 'published' }),
+    )
+
+    expect(store.hasUnsavedChanges).toBe(true)
 
     await store.publish()
 
-    expect(publishSpy).not.toHaveBeenCalled()
+    expect(saveSpy).toHaveBeenCalledWith(
+      'dashboard-1',
+      expect.objectContaining({ components: aiOperationsPreset.components }),
+    )
+    expect(publishSpy).toHaveBeenCalledWith('dashboard-1')
+    expect(store.schema.components).toEqual(aiOperationsPreset.components)
+    expect(store.dashboardStatus).toBe('published')
+    expect(store.hasUnsavedChanges).toBe(false)
     expect(store.isSaving).toBe(false)
     expect(store.activeSaveIntent).toBeNull()
   })
 
+  test('publish creates a local draft before publishing the new dashboard id', async () => {
+    const store = useDashboardDesignerStore()
+    const reservationId = store.localDraftReservationId
+    store.dashboardName = 'Local AI Ops'
+    store.applyPreset(aiOperationsPreset)
+
+    const createSpy = vi.spyOn(bigScreenApi, 'createDashboard').mockResolvedValue(
+      createRecord(createDefaultDashboardSchema(), { id: 'dashboard-created', name: 'Local AI Ops' }),
+    )
+    vi.spyOn(bigScreenApi, 'saveDraft').mockImplementation(async (id, schema) =>
+      createRecord(schema, { id, name: 'Local AI Ops', status: 'draft' }),
+    )
+    const publishSpy = vi.spyOn(bigScreenApi, 'publish').mockImplementation(async (id) =>
+      createRecord(store.schema, { id, name: 'Local AI Ops', status: 'published' }),
+    )
+
+    await store.publish()
+
+    expect(createSpy).toHaveBeenCalledWith({ name: 'Local AI Ops', clientReservationId: reservationId })
+    expect(publishSpy).toHaveBeenCalledWith('dashboard-created')
+    expect(store.dashboardId).toBe('dashboard-created')
+    expect(store.dashboardStatus).toBe('published')
+    expect(store.localDraftReservationId).not.toBe(reservationId)
+    expect(store.isSaving).toBe(false)
+  })
+
   test('publish reports errors without leaving saving state stuck', async () => {
     const store = useDashboardDesignerStore()
-    store.replaceDashboardForLoad(createRecord(createDefaultDashboardSchema(), { id: 'dashboard-1' }))
+    const schema = createDefaultDashboardSchema()
+    store.replaceDashboardForLoad(createRecord(schema, { id: 'dashboard-1' }))
+    vi.spyOn(bigScreenApi, 'updateDashboard').mockResolvedValue(createRecord(schema, { id: 'dashboard-1' }))
+    vi.spyOn(bigScreenApi, 'saveDraft').mockResolvedValue(createRecord(schema, { id: 'dashboard-1' }))
     vi.spyOn(bigScreenApi, 'publish').mockRejectedValue(new Error('Publish failed'))
 
     await store.publish()
@@ -674,9 +734,12 @@ describe('useDashboardDesignerStore', () => {
   test('ignores stale publish responses after the editor context changes', async () => {
     const store = useDashboardDesignerStore()
     const stalePublish = createDeferred<DashboardRecord>()
+    const schema = createDefaultDashboardSchema()
     const activeComponent = { ...component, id: 'component-current', name: 'Current metric' }
 
-    store.replaceDashboardForLoad(createRecord(createDefaultDashboardSchema(), { id: 'dashboard-a', name: 'Dashboard A' }))
+    store.replaceDashboardForLoad(createRecord(schema, { id: 'dashboard-a', name: 'Dashboard A' }))
+    vi.spyOn(bigScreenApi, 'updateDashboard').mockResolvedValue(createRecord(schema, { id: 'dashboard-a', name: 'Dashboard A' }))
+    vi.spyOn(bigScreenApi, 'saveDraft').mockResolvedValue(createRecord(schema, { id: 'dashboard-a', name: 'Dashboard A' }))
     vi.spyOn(bigScreenApi, 'publish').mockReturnValue(stalePublish.promise)
 
     const publishPromise = store.publish()
@@ -693,5 +756,52 @@ describe('useDashboardDesignerStore', () => {
     expect(store.dashboardName).toBe('Fresh local draft')
     expect(store.schema.components).toEqual([activeComponent])
     expect(store.isSaving).toBe(false)
+  })
+
+  test('publish waits for pending same-dashboard draft writes before saving and publishing', async () => {
+    const store = useDashboardDesignerStore()
+    const staleDraftSave = createDeferred<DashboardRecord>()
+    const oldComponent = { ...component, id: 'component-old', name: 'Old metric' }
+    const activeComponent = { ...component, id: 'component-current', name: 'Current metric' }
+
+    store.replaceDashboardForLoad(createRecord(createDefaultDashboardSchema(), { id: 'dashboard-a', name: 'Dashboard A' }))
+    store.addComponent(oldComponent)
+
+    vi.spyOn(bigScreenApi, 'updateDashboard').mockResolvedValue(
+      createRecord(createDefaultDashboardSchema(), { id: 'dashboard-a', name: 'Dashboard A' }),
+    )
+    const saveSpy = vi
+      .spyOn(bigScreenApi, 'saveDraft')
+      .mockReturnValueOnce(staleDraftSave.promise)
+      .mockImplementationOnce(async (id, schema) => createRecord(schema, { id, name: 'Dashboard A' }))
+    const publishSpy = vi
+      .spyOn(bigScreenApi, 'publish')
+      .mockImplementation(async (id) => createRecord(store.schema, { id, status: 'published' }))
+
+    const staleSavePromise = store.saveDraft()
+    await flushAsyncWork()
+    expect(saveSpy).toHaveBeenCalledTimes(1)
+
+    store.replaceDashboardForLoad(createRecord(createDefaultDashboardSchema(), { id: 'dashboard-a', name: 'Dashboard A' }))
+    store.addComponent(activeComponent)
+
+    const publishPromise = store.publish()
+    await flushAsyncWork()
+
+    expect(saveSpy).toHaveBeenCalledTimes(1)
+    expect(publishSpy).not.toHaveBeenCalled()
+
+    staleDraftSave.resolve(createRecord(createDefaultDashboardSchema(), { id: 'dashboard-a', name: 'Dashboard A stale' }))
+    await staleSavePromise
+    await publishPromise
+
+    expect(saveSpy).toHaveBeenCalledTimes(2)
+    expect(saveSpy).toHaveBeenLastCalledWith(
+      'dashboard-a',
+      expect.objectContaining({ components: [activeComponent] }),
+    )
+    expect(publishSpy).toHaveBeenCalledWith('dashboard-a')
+    expect(store.dashboardStatus).toBe('published')
+    expect(store.schema.components).toEqual([activeComponent])
   })
 })

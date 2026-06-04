@@ -9,6 +9,15 @@ type ComponentPatch = Partial<Omit<DashboardComponent, 'layout' | 'props' | 'sty
   layout?: Partial<DashboardComponent['layout']>
 }
 
+type SaveIntent = 'draft' | 'publish'
+
+type DraftSaveResult = {
+  saved: boolean
+  dashboardId: string | null
+  saveOperationVersion: number
+  editorContextVersion: number
+}
+
 type DesignerState = {
   dashboardId: string | null
   dashboardName: string
@@ -23,7 +32,7 @@ type DesignerState = {
   editorContextVersion: number
   saveOperationVersion: number
   activeSaveOperationVersion: number | null
-  activeSaveIntent: 'draft' | 'publish' | null
+  activeSaveIntent: SaveIntent | null
   localDraftReservationId: string
   error: string | null
 }
@@ -363,19 +372,37 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       })
       this.selectedComponentId = null
     },
-    async saveDraft() {
-      if (this.isSaving) return
+    async saveCurrentDraft(
+      saveIntent: SaveIntent,
+      options: { keepSavingOnSuccess?: boolean } = {},
+    ): Promise<DraftSaveResult> {
+      if (this.isSaving) {
+        return {
+          saved: false,
+          dashboardId: this.dashboardId,
+          saveOperationVersion: this.saveOperationVersion,
+          editorContextVersion: this.editorContextVersion,
+        }
+      }
 
+      let savedDashboardId: string | null = null
+      let didSave = false
       const saveOperationVersion = this.saveOperationVersion + 1
       const editorContextVersion = this.editorContextVersion
       const targetDashboardId = this.dashboardId ?? this.localDraftReservationId
       const draftWriteBarrier = createDraftWriteBarrier(targetDashboardId)
       const isCurrentSaveOperation = () =>
         this.activeSaveOperationVersion === saveOperationVersion && this.editorContextVersion === editorContextVersion
+      const createFailedSaveResult = (): DraftSaveResult => ({
+        saved: false,
+        dashboardId: savedDashboardId,
+        saveOperationVersion,
+        editorContextVersion,
+      })
 
       this.saveOperationVersion = saveOperationVersion
       this.activeSaveOperationVersion = saveOperationVersion
-      this.activeSaveIntent = 'draft'
+      this.activeSaveIntent = saveIntent
       this.isSaving = true
       this.error = null
 
@@ -386,35 +413,50 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
 
         if (draftWriteBarrier.previousWrite) {
           await draftWriteBarrier.previousWrite
-          if (!isCurrentSaveOperation()) return
+          if (!isCurrentSaveOperation()) return createFailedSaveResult()
         }
 
         if (!dashboardId) {
           const created = await bigScreenApi.createDashboard({ name, clientReservationId: targetDashboardId })
-          if (!isCurrentSaveOperation()) return
+          if (!isCurrentSaveOperation()) return createFailedSaveResult()
 
           const dashboard = created.name === name ? created : await bigScreenApi.updateDashboard(created.id, { name })
-          if (!isCurrentSaveOperation()) return
+          if (!isCurrentSaveOperation()) return createFailedSaveResult()
 
           this.applyCreatedDashboardIdentity(dashboard)
           const saved = await bigScreenApi.saveDraft(dashboard.id, schema)
-          if (!isCurrentSaveOperation()) return
+          if (!isCurrentSaveOperation()) return createFailedSaveResult()
 
           this.applySavedDashboard(saved)
           this.rotateLocalDraftReservation()
-          return
+          savedDashboardId = saved.id
+          didSave = true
+          return {
+            saved: true,
+            dashboardId: savedDashboardId,
+            saveOperationVersion,
+            editorContextVersion,
+          }
         }
 
         const shouldRotateReservationAfterSave = dashboardId === this.localDraftReservationId
         await bigScreenApi.updateDashboard(dashboardId, { name })
-        if (!isCurrentSaveOperation()) return
+        if (!isCurrentSaveOperation()) return createFailedSaveResult()
 
         const record = await bigScreenApi.saveDraft(dashboardId, schema)
-        if (!isCurrentSaveOperation()) return
+        if (!isCurrentSaveOperation()) return createFailedSaveResult()
 
         this.applySavedDashboard(record)
         if (shouldRotateReservationAfterSave) {
           this.rotateLocalDraftReservation()
+        }
+        savedDashboardId = record.id
+        didSave = true
+        return {
+          saved: true,
+          dashboardId: savedDashboardId,
+          saveOperationVersion,
+          editorContextVersion,
         }
       } catch (error) {
         if (isCurrentSaveOperation()) {
@@ -423,28 +465,30 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       } finally {
         draftWriteBarrier.release()
         if (isCurrentSaveOperation()) {
-          this.activeSaveOperationVersion = null
-          this.activeSaveIntent = null
-          this.isSaving = false
+          if (!options.keepSavingOnSuccess || !didSave) {
+            this.activeSaveOperationVersion = null
+            this.activeSaveIntent = null
+            this.isSaving = false
+          }
         }
       }
+
+      return createFailedSaveResult()
+    },
+    async saveDraft() {
+      await this.saveCurrentDraft('draft')
     },
     async publish() {
-      if (this.isLoading || this.isSaving || !this.dashboardId) return
+      if (this.isLoading || this.isSaving) return
 
-      const saveOperationVersion = this.saveOperationVersion + 1
-      const editorContextVersion = this.editorContextVersion
-      const dashboardId = this.dashboardId
+      const saveResult = await this.saveCurrentDraft('publish', { keepSavingOnSuccess: true })
+      const dashboardId = saveResult.dashboardId
       const isCurrentPublishOperation = () =>
-        this.activeSaveOperationVersion === saveOperationVersion &&
-        this.editorContextVersion === editorContextVersion &&
+        this.activeSaveOperationVersion === saveResult.saveOperationVersion &&
+        this.editorContextVersion === saveResult.editorContextVersion &&
         this.dashboardId === dashboardId
 
-      this.saveOperationVersion = saveOperationVersion
-      this.activeSaveOperationVersion = saveOperationVersion
-      this.activeSaveIntent = 'publish'
-      this.isSaving = true
-      this.error = null
+      if (!saveResult.saved || !dashboardId || !isCurrentPublishOperation()) return
 
       try {
         const record = await bigScreenApi.publish(dashboardId)
