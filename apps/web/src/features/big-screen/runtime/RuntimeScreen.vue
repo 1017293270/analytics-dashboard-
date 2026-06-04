@@ -33,23 +33,23 @@ const isLoading = computed(() => loadState.value.status === 'loading')
 const error = computed(() => (loadState.value.status === 'error' ? loadState.value.error : ''))
 
 async function loadRuntime() {
+  const serial = requestSerial + 1
+  requestSerial = serial
   const id = runtimeId.value
   if (!id) {
     loadState.value = { status: 'error', schema: null, error: 'Runtime screen not found' }
     return
   }
 
-  const serial = requestSerial + 1
-  requestSerial = serial
   loadState.value = { status: 'loading', schema: null, error: null }
 
   try {
     const runtime = await bigScreenApi.getRuntime(id)
-    if (serial !== requestSerial) return
+    if (serial !== requestSerial || runtimeId.value !== id) return
 
     loadState.value = { status: 'success', schema: runtime.schema, error: null }
   } catch (errorValue) {
-    if (serial !== requestSerial) return
+    if (serial !== requestSerial || runtimeId.value !== id) return
 
     const message = errorValue instanceof Error ? errorValue.message : 'Runtime screen unavailable'
     loadState.value = { status: 'error', schema: null, error: message }

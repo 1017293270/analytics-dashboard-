@@ -28,6 +28,33 @@ const componentStyle = computed(() => ({
 const data = computed<ComponentData | null>(() => loadState.value.data)
 const loading = computed(() => loadState.value.status === 'loading')
 const error = computed(() => (loadState.value.status === 'error' ? loadState.value.error : ''))
+const bindingSignature = computed(() =>
+  JSON.stringify({
+    dataBindingId: props.component.dataBindingId ?? null,
+    sourceType: binding.value?.sourceType ?? null,
+    sourceId: binding.value?.sourceId ?? null,
+    query: stableSerialize(binding.value?.query ?? null),
+    refreshSeconds: binding.value?.refreshSeconds ?? null,
+    schemaRefreshMode: props.schema.refresh.mode,
+    schemaRefreshSeconds: props.schema.refresh.intervalSeconds ?? null,
+  }),
+)
+
+function stableSerialize(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(stableSerialize)
+  }
+
+  if (typeof value === 'object' && value !== null) {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([firstKey], [secondKey]) => firstKey.localeCompare(secondKey))
+        .map(([key, field]) => [key, stableSerialize(field)]),
+    )
+  }
+
+  return value
+}
 
 function getRefreshSeconds(): number | null {
   if (binding.value?.refreshSeconds) {
@@ -49,6 +76,8 @@ function clearRefreshTimer() {
 }
 
 async function loadData() {
+  const serial = requestSerial + 1
+  requestSerial = serial
   const currentBinding = binding.value
 
   if (!currentBinding) {
@@ -56,9 +85,17 @@ async function loadData() {
     return
   }
 
-  const serial = requestSerial + 1
-  requestSerial = serial
   const previousData = loadState.value.data
+
+  if (currentBinding.sourceType !== 'mock') {
+    loadState.value = {
+      status: 'error',
+      data: previousData,
+      error: `Unsupported data source: ${currentBinding.sourceType}`,
+    }
+    return
+  }
+
   loadState.value = { status: 'loading', data: previousData, error: null }
 
   try {
@@ -78,7 +115,7 @@ function startRefreshTimer() {
   clearRefreshTimer()
 
   const refreshSeconds = getRefreshSeconds()
-  if (!refreshSeconds || typeof window === 'undefined' || !binding.value) {
+  if (!refreshSeconds || typeof window === 'undefined' || binding.value?.sourceType !== 'mock') {
     return
   }
 
@@ -88,7 +125,7 @@ function startRefreshTimer() {
 }
 
 watch(
-  () => [props.component.dataBindingId, binding.value?.refreshSeconds, props.schema.refresh.mode, props.schema.refresh.intervalSeconds],
+  bindingSignature,
   () => {
     clearRefreshTimer()
     void loadData()
