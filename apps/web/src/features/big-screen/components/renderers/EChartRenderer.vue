@@ -50,7 +50,13 @@ const chartOption = computed(() =>
 </script>
 
 <template>
-  <section class="echart-renderer" :style="panelStyle" :aria-busy="loading">
+  <section
+    class="echart-renderer"
+    data-testid="echart-renderer"
+    :data-component-id="component.id"
+    :style="panelStyle"
+    :aria-busy="loading"
+  >
     <header class="echart-renderer__header">{{ title }}</header>
     <div class="echart-renderer__body">
       <div v-if="loading" class="echart-renderer__state">

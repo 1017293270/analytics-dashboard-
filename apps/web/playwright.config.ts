@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { defineConfig, devices } from '@playwright/test'
 
 const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
+const reuseExistingServer = !process.env.CI
 
 export default defineConfig({
   testDir: './e2e',
@@ -15,14 +16,14 @@ export default defineConfig({
     {
       command: 'npm --workspace apps/api run prisma:migrate && npm --workspace apps/api run dev',
       url: 'http://localhost:4000/api/health',
-      reuseExistingServer: true,
+      reuseExistingServer,
       timeout: 120_000,
       cwd: workspaceRoot,
     },
     {
       command: 'npm --workspace apps/web run dev',
       url: 'http://localhost:5173',
-      reuseExistingServer: true,
+      reuseExistingServer,
       timeout: 120_000,
       cwd: workspaceRoot,
     },
