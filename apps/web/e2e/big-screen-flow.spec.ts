@@ -38,6 +38,8 @@ test('publishes the AI Ops preset and renders its runtime canvas', async ({ page
   await expect(page.getByText(PRESET_TITLE)).toBeVisible()
   await expect(page.getByText('Total AI Requests')).toBeVisible()
   await expect(page.getByText('128,430').first()).toBeVisible()
+  await expect(page.getByText('Resolution Trend')).toBeVisible()
+  await expect(page.getByText('Workload Mix')).toBeVisible()
   await expect(page.getByText('Operational Queue Detail')).toBeVisible()
   await expect(page.getByText('Pending questions')).toBeVisible()
   await expect(
