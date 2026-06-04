@@ -7,9 +7,11 @@ This repository contains a working product slice with a dashboard library, free-
 ## Local Setup
 
 ```bash
-npm install
+git clone https://github.com/1017293270/analytics-dashboard-.git
+cd analytics-dashboard-
+npm ci
 npm --workspace apps/api run prisma:generate
-npm --workspace apps/api run prisma:migrate -- --name init
+npm --workspace apps/api run prisma:migrate
 npm run dev
 ```
 
