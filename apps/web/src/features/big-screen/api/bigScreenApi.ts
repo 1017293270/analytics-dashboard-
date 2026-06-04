@@ -12,6 +12,24 @@ export type DashboardRecord = {
   publishedAt?: string | null
 }
 
+export type DashboardListItem = Omit<DashboardRecord, 'draftSchema' | 'publishedSchema'>
+
+export type DashboardRuntime = {
+  id: string
+  name: string
+  schema: DashboardSchema
+  publishedAt?: string | null
+}
+
+export type DashboardShareLink = {
+  id: string
+  dashboardId: string
+  token: string
+  accessScope: string
+  expiresAt?: string | null
+  url: string
+}
+
 export type CreateDashboardInput = {
   name: string
   description?: string
@@ -74,6 +92,9 @@ export async function requestJson<T>(url: string, init?: RequestInit): Promise<T
 }
 
 export const bigScreenApi = {
+  listDashboards(init?: RequestInit) {
+    return requestJson<DashboardListItem[]>('/api/big-screens', init)
+  },
   createDashboard(input: CreateDashboardInput, init?: RequestInit) {
     return requestJson<DashboardRecord>('/api/big-screens', {
       ...init,
@@ -105,10 +126,37 @@ export const bigScreenApi = {
       body: JSON.stringify({ publishNote: 'Published from designer' }),
     })
   },
+  copyDashboard(id: string, init?: RequestInit) {
+    return requestJson<DashboardRecord>(`/api/big-screens/${id}/copy`, {
+      ...init,
+      method: 'POST',
+      body: JSON.stringify({}),
+    })
+  },
+  deleteDashboard(id: string, init?: RequestInit) {
+    return requestJson<DashboardRecord>(`/api/big-screens/${id}`, {
+      ...init,
+      method: 'DELETE',
+    })
+  },
+  unpublish(id: string, init?: RequestInit) {
+    return requestJson<DashboardRecord>(`/api/big-screens/${id}/unpublish`, {
+      ...init,
+      method: 'POST',
+      body: JSON.stringify({}),
+    })
+  },
+  createShareLink(id: string, init?: RequestInit) {
+    return requestJson<DashboardShareLink>(`/api/big-screens/${id}/share-links`, {
+      ...init,
+      method: 'POST',
+      body: JSON.stringify({}),
+    })
+  },
   getRuntime(id: string, init?: RequestInit) {
-    return requestJson<{ id: string; name: string; schema: DashboardSchema; publishedAt?: string | null }>(
-      `/api/big-screens/${id}/runtime`,
-      init,
-    )
+    return requestJson<DashboardRuntime>(`/api/big-screens/${id}/runtime`, init)
+  },
+  getSharedRuntime(token: string, init?: RequestInit) {
+    return requestJson<DashboardRuntime>(`/api/public/big-screens/${token}`, init)
   },
 }

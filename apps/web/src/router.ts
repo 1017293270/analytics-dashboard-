@@ -3,7 +3,11 @@ import { createRouter, createWebHistory } from 'vue-router'
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/', redirect: '/big-screens/new' },
+    { path: '/', redirect: '/big-screens' },
+    {
+      path: '/big-screens',
+      component: () => import('./features/big-screen/designer/DashboardList.vue'),
+    },
     {
       path: '/big-screens/:id',
       component: () => import('./features/big-screen/designer/DesignerShell.vue'),

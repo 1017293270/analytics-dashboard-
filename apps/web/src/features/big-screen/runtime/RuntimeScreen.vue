@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { DashboardSchema } from '@analytics/shared'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { bigScreenApi } from '../api/bigScreenApi'
 import { getCanvasBackgroundStyle } from '../designer/designerLayout'
@@ -20,6 +20,19 @@ const runtimeId = computed(() => {
   const value = route.params.id
   return Array.isArray(value) ? value[0] : value
 })
+const shareToken = computed(() => {
+  const value = route.params.token
+  return Array.isArray(value) ? value[0] : value
+})
+const runtimeSource = computed(() => {
+  if (shareToken.value) return { kind: 'share' as const, value: shareToken.value }
+  if (runtimeId.value) return { kind: 'runtime' as const, value: runtimeId.value }
+
+  return null
+})
+const runtimeSourceKey = computed(() =>
+  runtimeSource.value ? `${runtimeSource.value.kind}:${runtimeSource.value.value}` : 'missing',
+)
 const schema = computed(() => (loadState.value.status === 'success' ? loadState.value.schema : null))
 const visibleComponents = computed(() =>
   schema.value
@@ -35,8 +48,9 @@ const error = computed(() => (loadState.value.status === 'error' ? loadState.val
 async function loadRuntime() {
   const serial = requestSerial + 1
   requestSerial = serial
-  const id = runtimeId.value
-  if (!id) {
+  const source = runtimeSource.value
+  const sourceKey = runtimeSourceKey.value
+  if (!source) {
     loadState.value = { status: 'error', schema: null, error: 'Runtime screen not found' }
     return
   }
@@ -44,25 +58,24 @@ async function loadRuntime() {
   loadState.value = { status: 'loading', schema: null, error: null }
 
   try {
-    const runtime = await bigScreenApi.getRuntime(id)
-    if (serial !== requestSerial || runtimeId.value !== id) return
+    const runtime =
+      source.kind === 'share'
+        ? await bigScreenApi.getSharedRuntime(source.value)
+        : await bigScreenApi.getRuntime(source.value)
+    if (serial !== requestSerial || runtimeSourceKey.value !== sourceKey) return
 
     loadState.value = { status: 'success', schema: runtime.schema, error: null }
   } catch (errorValue) {
-    if (serial !== requestSerial || runtimeId.value !== id) return
+    if (serial !== requestSerial || runtimeSourceKey.value !== sourceKey) return
 
     const message = errorValue instanceof Error ? errorValue.message : 'Runtime screen unavailable'
     loadState.value = { status: 'error', schema: null, error: message }
   }
 }
 
-watch(runtimeId, () => {
+watch(runtimeSourceKey, () => {
   void loadRuntime()
-})
-
-onMounted(() => {
-  void loadRuntime()
-})
+}, { immediate: true })
 </script>
 
 <template>

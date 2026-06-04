@@ -1,6 +1,5 @@
 import type { DashboardComponent, DashboardSchema } from '@analytics/shared'
 import { flushPromises, mount } from '@vue/test-utils'
-import { nextTick } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { bigScreenApi } from '../api/bigScreenApi'
@@ -12,6 +11,7 @@ import RuntimeScreen from './RuntimeScreen.vue'
 vi.mock('../api/bigScreenApi', () => ({
   bigScreenApi: {
     getRuntime: vi.fn(),
+    getSharedRuntime: vi.fn(),
   },
 }))
 
@@ -161,7 +161,7 @@ describe('RuntimeScreen loading', () => {
     vi.clearAllMocks()
   })
 
-  test('ignores stale runtime data after route changes to no id', async () => {
+  test('loads shared runtime by token and ignores stale id runtime data', async () => {
     const pendingRuntime = createDeferred<{
       id: string
       name: string
@@ -169,6 +169,12 @@ describe('RuntimeScreen loading', () => {
       publishedAt?: string | null
     }>()
     vi.mocked(bigScreenApi.getRuntime).mockReturnValue(pendingRuntime.promise)
+    vi.mocked(bigScreenApi.getSharedRuntime).mockResolvedValue({
+      id: 'shared',
+      name: 'Shared',
+      schema: createSchema(),
+      publishedAt: null,
+    })
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [
@@ -192,11 +198,13 @@ describe('RuntimeScreen loading', () => {
     expect(vi.mocked(bigScreenApi.getRuntime)).toHaveBeenCalledWith('first')
 
     await router.push('/share/token-1')
-    await nextTick()
+    await flushPromises()
+    expect(vi.mocked(bigScreenApi.getSharedRuntime)).toHaveBeenCalledWith('token-1')
+
     pendingRuntime.resolve({ id: 'first', name: 'First', schema: createSchema(), publishedAt: null })
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Runtime screen not found')
-    expect(wrapper.text()).not.toContain('No visible components')
+    expect(wrapper.text()).toContain('No visible components')
+    expect(wrapper.text()).not.toContain('Runtime screen not found')
   })
 })
