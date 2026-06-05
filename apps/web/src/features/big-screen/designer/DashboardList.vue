@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { bigScreenApi, type DashboardListItem, type DashboardRecord, type DashboardVersion } from '../api/bigScreenApi'
+import { bigScreenText } from '../i18n/zh-CN'
 
 type ListState = 'loading' | 'success' | 'error'
 type RowAction = 'copy' | 'archive' | 'share' | 'versions' | 'rollback'
@@ -25,13 +26,13 @@ const hasDashboards = computed(() => listState.value === 'success' && dashboards
 const isEmpty = computed(() => listState.value === 'success' && dashboards.value.length === 0)
 
 function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Dashboard library unavailable'
+  return error instanceof Error ? error.message : bigScreenText.dashboardList.unavailable
 }
 
 function formatDate(value?: string | null) {
-  if (!value) return 'Not published'
+  if (!value) return bigScreenText.dashboardList.notPublished
 
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat('zh-CN', {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -40,7 +41,7 @@ function formatDate(value?: string | null) {
 }
 
 function getStatusLabel(status: DashboardListItem['status']) {
-  return status === 'published' ? 'Published' : 'Draft'
+  return status === 'published' ? bigScreenText.common.status.published : bigScreenText.common.status.draft
 }
 
 function toListItem(record: DashboardRecord): DashboardListItem {
@@ -99,7 +100,7 @@ async function createDashboard() {
   errorMessage.value = ''
 
   try {
-    const dashboard = await bigScreenApi.createDashboard({ name: 'Untitled Dashboard' })
+    const dashboard = await bigScreenApi.createDashboard({ name: bigScreenText.dashboardList.untitled })
     await router.push(`/big-screens/${dashboard.id}`)
   } catch (error) {
     errorMessage.value = getErrorMessage(error)
@@ -124,7 +125,7 @@ async function copyDashboard(dashboard: DashboardListItem) {
 }
 
 async function archiveDashboard(dashboard: DashboardListItem) {
-  const confirmed = window.confirm(`Archive "${dashboard.name}"? It will be removed from the library.`)
+  const confirmed = window.confirm(bigScreenText.dashboardList.archiveConfirm(dashboard.name))
   if (!confirmed) return
 
   setRowAction(dashboard.id, 'archive', true)
@@ -180,7 +181,7 @@ async function loadVersions(dashboard: DashboardListItem) {
 }
 
 async function rollbackVersion(dashboard: DashboardListItem, version: DashboardVersion) {
-  const confirmed = window.confirm(`Rollback "${dashboard.name}" to version ${version.version}?`)
+  const confirmed = window.confirm(bigScreenText.dashboardList.rollbackConfirm(dashboard.name, version.version))
   if (!confirmed) return
 
   setRowAction(dashboard.id, 'rollback', true)
@@ -211,8 +212,7 @@ onMounted(() => {
   <main class="dashboard-list">
     <header class="dashboard-list__header">
       <div class="dashboard-list__title-group">
-        <p class="dashboard-list__eyebrow">Big screens</p>
-        <h1>Dashboard library</h1>
+        <h1>{{ bigScreenText.dashboardList.dashboardLibrary }}</h1>
       </div>
       <button
         class="dashboard-list__primary-action"
@@ -221,7 +221,7 @@ onMounted(() => {
         data-testid="create-dashboard-button"
         @click="createDashboard"
       >
-        {{ isCreating ? 'Creating' : 'New Big Screen' }}
+        {{ isCreating ? bigScreenText.common.actions.creating : bigScreenText.dashboardList.newBigScreen }}
       </button>
     </header>
 
@@ -234,31 +234,31 @@ onMounted(() => {
     </section>
 
     <section v-else-if="listState === 'error'" class="dashboard-list__state dashboard-list__state--error">
-      <p class="dashboard-list__eyebrow">Load failed</p>
-      <h2>Dashboard library unavailable</h2>
+      <p class="dashboard-list__eyebrow">{{ bigScreenText.dashboardList.loadFailed }}</p>
+      <h2>{{ bigScreenText.dashboardList.unavailable }}</h2>
       <p>{{ errorMessage }}</p>
-      <button type="button" @click="loadDashboards">Retry</button>
+      <button type="button" @click="loadDashboards">{{ bigScreenText.common.actions.retry }}</button>
     </section>
 
     <section v-else-if="isEmpty" class="dashboard-list__state">
-      <p class="dashboard-list__eyebrow">No dashboards</p>
-      <h2>Create the first big screen</h2>
-      <p>Your published command center screens and drafts will appear here.</p>
+      <p class="dashboard-list__eyebrow">{{ bigScreenText.dashboardList.noDashboards }}</p>
+      <h2>{{ bigScreenText.dashboardList.createFirst }}</h2>
+      <p>{{ bigScreenText.dashboardList.emptyDescription }}</p>
       <button type="button" :disabled="isCreating" @click="createDashboard">
-        {{ isCreating ? 'Creating' : 'New Big Screen' }}
+        {{ isCreating ? bigScreenText.common.actions.creating : bigScreenText.dashboardList.newBigScreen }}
       </button>
     </section>
 
-    <section v-else-if="hasDashboards" class="dashboard-list__panel" aria-label="Dashboard library">
+    <section v-else-if="hasDashboards" class="dashboard-list__panel" :aria-label="bigScreenText.dashboardList.dashboardLibrary">
       <p v-if="errorMessage" class="dashboard-list__inline-error" role="status">{{ errorMessage }}</p>
       <table class="dashboard-list__table">
         <thead>
           <tr>
-            <th scope="col">Name</th>
-            <th scope="col">Status</th>
-            <th scope="col">Updated</th>
-            <th scope="col">Published</th>
-            <th scope="col">Actions</th>
+            <th scope="col">{{ bigScreenText.dashboardList.table.name }}</th>
+            <th scope="col">{{ bigScreenText.dashboardList.table.status }}</th>
+            <th scope="col">{{ bigScreenText.dashboardList.table.updated }}</th>
+            <th scope="col">{{ bigScreenText.dashboardList.table.published }}</th>
+            <th scope="col">{{ bigScreenText.dashboardList.table.actions }}</th>
           </tr>
         </thead>
         <tbody>
@@ -290,7 +290,9 @@ onMounted(() => {
               <td>{{ formatDate(dashboard.publishedAt) }}</td>
               <td>
                 <div class="dashboard-list__actions">
-                  <RouterLink class="dashboard-list__action" :to="`/big-screens/${dashboard.id}`">Edit</RouterLink>
+                  <RouterLink class="dashboard-list__action" :to="`/big-screens/${dashboard.id}`">
+                    {{ bigScreenText.common.actions.edit }}
+                  </RouterLink>
                   <a
                     class="dashboard-list__action"
                     :class="{ 'is-disabled': dashboard.status !== 'published' }"
@@ -301,28 +303,28 @@ onMounted(() => {
                     :tabindex="dashboard.status === 'published' ? 0 : -1"
                     @click="dashboard.status !== 'published' && $event.preventDefault()"
                   >
-                    Runtime
+                    {{ bigScreenText.common.actions.runtime }}
                   </a>
                   <button
                     type="button"
                     :disabled="isRowBusy(dashboard.id)"
                     @click="copyDashboard(dashboard)"
                   >
-                    {{ isRowBusy(dashboard.id, 'copy') ? 'Copying' : 'Copy' }}
+                    {{ isRowBusy(dashboard.id, 'copy') ? bigScreenText.common.actions.copying : bigScreenText.common.actions.copy }}
                   </button>
                   <button
                     type="button"
                     :disabled="isRowBusy(dashboard.id)"
                     @click="loadVersions(dashboard)"
                   >
-                    {{ isRowBusy(dashboard.id, 'versions') ? 'Loading' : 'Versions' }}
+                    {{ isRowBusy(dashboard.id, 'versions') ? bigScreenText.common.actions.loading : bigScreenText.common.actions.versions }}
                   </button>
                   <button
                     type="button"
                     :disabled="dashboard.status !== 'published' || isRowBusy(dashboard.id)"
                     @click="createShareLink(dashboard)"
                   >
-                    {{ isRowBusy(dashboard.id, 'share') ? 'Sharing' : 'Share' }}
+                    {{ isRowBusy(dashboard.id, 'share') ? bigScreenText.common.actions.sharing : bigScreenText.common.actions.share }}
                   </button>
                   <button
                     class="dashboard-list__danger"
@@ -330,7 +332,7 @@ onMounted(() => {
                     :disabled="isRowBusy(dashboard.id)"
                     @click="archiveDashboard(dashboard)"
                   >
-                    {{ isRowBusy(dashboard.id, 'archive') ? 'Archiving' : 'Archive' }}
+                    {{ isRowBusy(dashboard.id, 'archive') ? bigScreenText.common.actions.archiving : bigScreenText.common.actions.archive }}
                   </button>
                 </div>
               </td>
@@ -338,9 +340,9 @@ onMounted(() => {
             <tr v-if="versionStates[dashboard.id]" class="dashboard-list__version-row">
               <td colspan="5">
                 <div class="dashboard-list__versions" :aria-busy="versionStates[dashboard.id].status === 'loading'">
-                  <p class="dashboard-list__versions-title">Versions</p>
+                  <p class="dashboard-list__versions-title">{{ bigScreenText.common.actions.versions }}</p>
                   <p v-if="versionStates[dashboard.id].status === 'loading'" class="dashboard-list__versions-state">
-                    Loading versions
+                    {{ bigScreenText.dashboardList.versionLoading }}
                   </p>
                   <p v-else-if="versionStates[dashboard.id].status === 'error'" class="dashboard-list__versions-state is-error">
                     {{ versionStates[dashboard.id].error }}
@@ -349,20 +351,20 @@ onMounted(() => {
                     v-else-if="versionStates[dashboard.id].versions.length === 0"
                     class="dashboard-list__versions-state"
                   >
-                    No published versions
+                    {{ bigScreenText.dashboardList.noPublishedVersions }}
                   </p>
                   <ul v-else class="dashboard-list__version-list">
                     <li v-for="version in versionStates[dashboard.id].versions" :key="version.id">
                       <span>
                         v{{ version.version }}
-                        <small>{{ version.publishNote || 'No publish note' }} - {{ formatDate(version.createdAt) }}</small>
+                        <small>{{ version.publishNote || bigScreenText.dashboardList.noPublishNote }} - {{ formatDate(version.createdAt) }}</small>
                       </span>
                       <button
                         type="button"
                         :disabled="isRowBusy(dashboard.id)"
                         @click="rollbackVersion(dashboard, version)"
                       >
-                        {{ isRowBusy(dashboard.id, 'rollback') ? 'Rolling back' : 'Rollback' }}
+                        {{ isRowBusy(dashboard.id, 'rollback') ? bigScreenText.common.actions.rollingBack : bigScreenText.common.actions.rollback }}
                       </button>
                     </li>
                   </ul>
@@ -420,9 +422,11 @@ onMounted(() => {
 }
 
 .dashboard-list__title-group h1 {
-  margin-top: 4px;
-  font-size: 34px;
-  line-height: 1.05;
+  font-family: "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
+  font-size: 30px;
+  font-weight: 760;
+  letter-spacing: 0;
+  line-height: 1.18;
 }
 
 .dashboard-list__primary-action,
@@ -741,7 +745,7 @@ onMounted(() => {
   }
 
   .dashboard-list__title-group h1 {
-    font-size: 28px;
+    font-size: 26px;
   }
 
   .dashboard-list__table,

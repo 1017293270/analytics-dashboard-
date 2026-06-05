@@ -2,6 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { bigScreenApi, type DashboardListItem, type DashboardRecord, type DashboardVersion } from '../api/bigScreenApi'
+import { bigScreenText } from '../i18n/zh-CN'
 import { createDefaultDashboardSchema } from '../schema/defaults'
 import DashboardList from './DashboardList.vue'
 
@@ -127,7 +128,9 @@ describe('DashboardList', () => {
 
     expect(wrapper.text()).toContain('Operations Board')
     expect(wrapper.text()).toContain('Live Wall')
-    const runtimeLinks = wrapper.findAll('.dashboard-list__action').filter((link) => link.text() === 'Runtime')
+    const runtimeLinks = wrapper
+      .findAll('.dashboard-list__action')
+      .filter((link) => link.text() === bigScreenText.common.actions.runtime)
     expect(runtimeLinks[0]?.attributes('aria-disabled')).toBe('true')
     expect(runtimeLinks[1]?.attributes('href')).toBe('/runtime/dashboard-2')
   })
@@ -138,10 +141,10 @@ describe('DashboardList', () => {
 
     const { router, wrapper } = await mountList()
     await flushPromises()
-    await findButton(wrapper, 'New Big Screen').trigger('click')
+    await findButton(wrapper, bigScreenText.dashboardList.newBigScreen).trigger('click')
     await flushPromises()
 
-    expect(bigScreenApi.createDashboard).toHaveBeenCalledWith({ name: 'Untitled Dashboard' })
+    expect(bigScreenApi.createDashboard).toHaveBeenCalledWith({ name: bigScreenText.dashboardList.untitled })
     expect(router.currentRoute.value.fullPath).toBe('/big-screens/created-1')
   })
 
@@ -152,7 +155,7 @@ describe('DashboardList', () => {
 
     const { wrapper } = await mountList()
     await flushPromises()
-    await findButton(wrapper, 'Archive').trigger('click')
+    await findButton(wrapper, bigScreenText.common.actions.archive).trigger('click')
     await flushPromises()
 
     expect(window.confirm).toHaveBeenCalled()
@@ -178,19 +181,19 @@ describe('DashboardList', () => {
 
     const { wrapper } = await mountList()
     await flushPromises()
-    await findRowButton(wrapper, 'Operations Board', 'Versions').trigger('click')
+    await findRowButton(wrapper, 'Operations Board', bigScreenText.common.actions.versions).trigger('click')
     await flushPromises()
 
     expect(bigScreenApi.listVersions).toHaveBeenCalledWith('dashboard-1')
     expect(wrapper.text()).toContain('v2')
     expect(wrapper.text()).toContain('Release 2')
 
-    await findRowButton(wrapper, 'v2', 'Rollback').trigger('click')
+    await findRowButton(wrapper, 'v2', bigScreenText.common.actions.rollback).trigger('click')
     await flushPromises()
 
     expect(window.confirm).toHaveBeenCalled()
     expect(bigScreenApi.rollbackVersion).toHaveBeenCalledWith('dashboard-1', 2)
-    expect(wrapper.text()).toContain('Published')
+    expect(wrapper.text()).toContain(bigScreenText.common.status.published)
   })
 
   test('shows version empty and error states', async () => {
@@ -207,12 +210,12 @@ describe('DashboardList', () => {
 
     const { wrapper } = await mountList()
     await flushPromises()
-    await findRowButton(wrapper, 'Empty Versions', 'Versions').trigger('click')
+    await findRowButton(wrapper, 'Empty Versions', bigScreenText.common.actions.versions).trigger('click')
     await flushPromises()
-    await findRowButton(wrapper, 'Error Versions', 'Versions').trigger('click')
+    await findRowButton(wrapper, 'Error Versions', bigScreenText.common.actions.versions).trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('No published versions')
+    expect(wrapper.text()).toContain(bigScreenText.dashboardList.noPublishedVersions)
     expect(wrapper.text()).toContain('Version service unavailable')
   })
 
@@ -234,14 +237,14 @@ describe('DashboardList', () => {
 
     const { wrapper } = await mountList()
     await flushPromises()
-    await findRowButton(wrapper, 'Copy Row', 'Copy').trigger('click')
+    await findRowButton(wrapper, 'Copy Row', bigScreenText.common.actions.copy).trigger('click')
     await flushPromises()
-    expect(wrapper.text()).toContain('Copying')
+    expect(wrapper.text()).toContain(bigScreenText.common.actions.copying)
 
-    await findRowButton(wrapper, 'Share Row', 'Share').trigger('click')
+    await findRowButton(wrapper, 'Share Row', bigScreenText.common.actions.share).trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Copying')
+    expect(wrapper.text()).toContain(bigScreenText.common.actions.copying)
     expect(wrapper.text()).toContain('/share/token-1')
     pendingCopy.resolve(createRecord('copied-dashboard'))
     await flushPromises()

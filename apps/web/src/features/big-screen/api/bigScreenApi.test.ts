@@ -1,5 +1,6 @@
 import type { DashboardSchema } from '@analytics/shared'
 import { afterEach, describe, expect, test, vi } from 'vitest'
+import { bigScreenText } from '../i18n/zh-CN'
 import { bigScreenApi, requestJson } from './bigScreenApi'
 
 const minimalSchema: DashboardSchema = {
@@ -30,19 +31,19 @@ describe('requestJson', () => {
   test('rejects success envelopes with missing data', async () => {
     mockFetch(JSON.stringify({ success: true }))
 
-    await expect(requestJson('/api/test')).rejects.toThrow('Invalid API response')
+    await expect(requestJson('/api/test')).rejects.toThrow(bigScreenText.common.errors.invalidApiResponse)
   })
 
   test('rejects failure envelopes with missing error details', async () => {
     mockFetch(JSON.stringify({ success: false, error: null }))
 
-    await expect(requestJson('/api/test')).rejects.toThrow('Invalid API response')
+    await expect(requestJson('/api/test')).rejects.toThrow(bigScreenText.common.errors.invalidApiResponse)
   })
 
   test('rejects non-JSON responses with a clear error', async () => {
     mockFetch('not json')
 
-    await expect(requestJson('/api/test')).rejects.toThrow('Invalid API response')
+    await expect(requestJson('/api/test')).rejects.toThrow(bigScreenText.common.errors.invalidApiResponse)
   })
 
   test('sends Accept without Content-Type for GET requests without a body', async () => {

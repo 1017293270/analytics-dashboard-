@@ -1,4 +1,5 @@
 import type { DashboardSchema } from '@analytics/shared'
+import { bigScreenText } from '../i18n/zh-CN'
 
 export function createDefaultDashboardSchema(): DashboardSchema {
   return {
@@ -10,7 +11,7 @@ export function createDefaultDashboardSchema(): DashboardSchema {
       scaleMode: 'fit-screen',
     },
     theme: {
-      name: 'Command Center',
+      name: bigScreenText.presets.aiOperations.name,
       colors: ['#2563eb', '#22c55e', '#f59e0b', '#ef4444'],
       fontFamily: 'Inter',
     },

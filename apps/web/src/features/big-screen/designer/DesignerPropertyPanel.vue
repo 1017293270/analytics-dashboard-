@@ -1,11 +1,43 @@
 <script setup lang="ts">
 import type { DashboardComponent } from '@analytics/shared'
 import { computed } from 'vue'
+import {
+  getAllChartPresets,
+  getChartPresetGroups,
+  isChartComponentType,
+  type ChartPresetDefinition,
+} from '../components/chartPresets'
+import { getChartThemeById, getChartThemes, getMatchingChartThemeId } from '../components/chartThemes'
 import { componentRegistry } from '../components/registry'
+import { bigScreenText } from '../i18n/zh-CN'
 import { useDashboardDesignerStore } from '../stores/useDashboardDesignerStore'
+import ChartThemePicker from './ChartThemePicker.vue'
+import ChartTypePicker from './ChartTypePicker.vue'
+import ColorField from './ColorField.vue'
 import { clampLayout, parseBoundedNumber } from './designerLayout'
 
 type NumericLayoutField = 'x' | 'y' | 'width' | 'height' | 'zIndex'
+
+const BASE_COLOR_SWATCHES = [
+  'transparent',
+  '#0b1220',
+  '#111827',
+  '#ffffff',
+  '#dbeafe',
+  '#38bdf8',
+  '#60a5fa',
+  '#22c55e',
+  '#f59e0b',
+  '#fb7185',
+  '#a78bfa',
+  '#ef4444',
+]
+const DEFAULT_STYLE_VALUES: Record<string, string> = {
+  backgroundColor: 'transparent',
+  fontColor: '#f8fafc',
+  accentColor: '#38bdf8',
+  borderColor: 'transparent',
+}
 
 const designer = useDashboardDesignerStore()
 
@@ -14,6 +46,33 @@ const selectedDefinition = computed(() =>
   selectedComponent.value ? componentRegistry[selectedComponent.value.type] : null,
 )
 const dataBindingIds = computed(() => Object.keys(designer.schema.dataBindings))
+const chartPresetGroups = computed(() => getChartPresetGroups())
+const allChartPresetOptions = computed(() => getAllChartPresets())
+const chartThemes = computed(() => getChartThemes())
+const selectedChartPresetId = computed(() => {
+  const component = selectedComponent.value
+  if (!component || !isChartComponentType(component.type)) return ''
+
+  const variant = component?.props.variant
+  const selectedPreset = allChartPresetOptions.value.find(
+    (preset) => preset.componentType === component.type && preset.id === variant,
+  )
+
+  return selectedPreset?.id ?? allChartPresetOptions.value.find((preset) => preset.componentType === component.type)?.id ?? ''
+})
+const selectedChartThemeId = computed(() => {
+  const component = selectedComponent.value
+  if (!component || !isChartComponentType(component.type)) return ''
+
+  return getMatchingChartThemeId(component.style)
+})
+const currentChartThemeColors = computed(() => {
+  const component = selectedComponent.value
+  if (!component || !isChartComponentType(component.type)) return []
+
+  const colors = stringArrayValue(component.style, 'seriesColors')
+  return colors.length > 0 ? colors : [styleValue(component, 'accentColor')].filter(Boolean)
+})
 const hasMissingBinding = computed(() => {
   const bindingId = selectedComponent.value?.dataBindingId
 
@@ -22,6 +81,11 @@ const hasMissingBinding = computed(() => {
 const showTitleProp = computed(() => selectedComponent.value && 'title' in selectedComponent.value.props)
 const showTextProp = computed(() => selectedComponent.value && 'text' in selectedComponent.value.props)
 const showImageSourceProp = computed(() => selectedComponent.value?.type === 'image')
+const showChartPicker = computed(() => {
+  const component = selectedComponent.value
+
+  return Boolean(component && isChartComponentType(component.type))
+})
 const showFontSize = computed(() => {
   const component = selectedComponent.value
 
@@ -29,6 +93,29 @@ const showFontSize = computed(() => {
 })
 const isEditingLocked = computed(() => selectedComponent.value?.layout.locked === true)
 const isEditingDisabled = computed(() => isEditingLocked.value || designer.isSaving)
+const colorSwatches = computed(() => {
+  const componentColors = selectedComponent.value
+    ? ['backgroundColor', 'fontColor', 'accentColor', 'borderColor'].map((key) =>
+        styleValue(selectedComponent.value as DashboardComponent, key),
+      )
+    : []
+  const presetColors = allChartPresetOptions.value.map((preset) => recordString(preset.style, 'accentColor'))
+  const chartThemeColors = chartThemes.value.flatMap((theme) => theme.seriesColors)
+  const colors = [
+    ...designer.schema.theme.colors,
+    ...componentColors,
+    ...presetColors,
+    ...chartThemeColors,
+    ...BASE_COLOR_SWATCHES,
+  ]
+  const seen = new Set<string>()
+
+  return colors.filter((color) => {
+    if (!color || seen.has(color)) return false
+    seen.add(color)
+    return true
+  })
+})
 
 function getInputValue(event: Event): string {
   return (event.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).value
@@ -39,7 +126,7 @@ function updateComponentName(event: Event) {
   if (!component) return
   if (isEditingDisabled.value) return
 
-  const fallback = selectedDefinition.value?.title ?? 'Component'
+  const fallback = selectedDefinition.value?.title ?? bigScreenText.components.names.text
   designer.updateComponent(component.id, { name: getInputValue(event).trim() || fallback })
 }
 
@@ -49,6 +136,75 @@ function updateComponentProp(key: string, event: Event) {
   if (isEditingDisabled.value) return
 
   designer.patchComponentProps(component.id, { [key]: getInputValue(event) })
+}
+
+function recordString(record: Record<string, unknown>, key: string): string {
+  const value = record[key]
+
+  return typeof value === 'string' ? value : ''
+}
+
+function stringArrayValue(record: Record<string, unknown>, key: string): string[] {
+  const value = record[key]
+
+  return Array.isArray(value) && value.every((item): item is string => typeof item === 'string') ? value : []
+}
+
+function convertChartComponent(component: DashboardComponent, preset: ChartPresetDefinition): DashboardComponent {
+  const currentDefinition = componentRegistry[component.type]
+  const targetDefinition = componentRegistry[preset.componentType]
+  const currentDefaultTitle = recordString(currentDefinition.defaultProps, 'title')
+  const targetDefaultTitle = recordString(targetDefinition.defaultProps, 'title')
+  const currentTitle = propString(component, 'title')
+  const shouldUseTargetTitle = !currentTitle || currentTitle === currentDefaultTitle
+  const shouldUseTargetName = component.name === currentDefinition.title
+  const nextProps = { ...targetDefinition.defaultProps, ...component.props, ...preset.props }
+
+  if (shouldUseTargetTitle && targetDefaultTitle) {
+    nextProps.title = targetDefaultTitle
+  }
+
+  return {
+    ...component,
+    type: preset.componentType,
+    name: shouldUseTargetName ? targetDefinition.title : component.name,
+    props: nextProps,
+    style: { ...targetDefinition.defaultStyle, ...component.style, ...preset.style },
+  }
+}
+
+function updateChartPreset(presetId: string) {
+  const component = selectedComponent.value
+  if (!component) return
+  if (isEditingDisabled.value) return
+  if (!isChartComponentType(component.type)) return
+
+  const preset = allChartPresetOptions.value.find((candidate) => candidate.id === presetId)
+  if (!preset) return
+
+  designer.patchSchema((draft) => {
+    draft.components = draft.components.map((draftComponent) =>
+      draftComponent.id === component.id ? convertChartComponent(draftComponent, preset) : draftComponent,
+    )
+  })
+}
+
+function updateChartTheme(themeId: string) {
+  const component = selectedComponent.value
+  if (!component) return
+  if (isEditingDisabled.value) return
+  if (!isChartComponentType(component.type)) return
+
+  const theme = getChartThemeById(themeId)
+  if (!theme) return
+
+  designer.patchComponentStyle(component.id, {
+    backgroundColor: theme.style.backgroundColor,
+    fontColor: theme.style.fontColor,
+    accentColor: theme.style.accentColor,
+    borderColor: theme.style.borderColor,
+    seriesColors: [...theme.seriesColors],
+  })
 }
 
 function propString(component: DashboardComponent, key: string): string {
@@ -122,18 +278,39 @@ function styleValue(component: DashboardComponent, key: string): string {
   return typeof value === 'string' ? value : ''
 }
 
-function updateStyleString(key: string, event: Event) {
+function defaultStyleValue(component: DashboardComponent, key: string): string {
+  const value = componentRegistry[component.type].defaultStyle[key]
+
+  return typeof value === 'string' ? value : (DEFAULT_STYLE_VALUES[key] ?? '#2563eb')
+}
+
+function styleNumber(component: DashboardComponent, key: string, fallback = 0): number {
+  const value = component.style[key]
+
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function updateStyleValue(key: string, value: string) {
   const component = selectedComponent.value
   if (!component) return
   if (isEditingDisabled.value) return
 
-  const value = getInputValue(event).trim()
-  if (value) {
-    designer.patchComponentStyle(component.id, { [key]: value })
+  const trimmedValue = value.trim()
+  if (trimmedValue) {
+    designer.patchComponentStyle(component.id, { [key]: trimmedValue })
     return
   }
 
   designer.unsetComponentStyle(component.id, key)
+}
+
+function updateBackgroundBlur(value: number) {
+  const component = selectedComponent.value
+  if (!component) return
+  if (isEditingDisabled.value) return
+
+  const backgroundBlur = Math.round(Math.min(Math.max(Number.isFinite(value) ? value : 0, 0), 100))
+  designer.patchComponentStyle(component.id, { backgroundBlur })
 }
 
 function updateFontSize(event: Event) {
@@ -155,24 +332,24 @@ function updateFontSize(event: Event) {
 </script>
 
 <template>
-  <aside class="property-panel" aria-label="Properties">
+  <aside class="property-panel" :aria-label="bigScreenText.propertyPanel.panelEyebrow">
     <header class="property-panel__header">
-      <p class="property-panel__eyebrow">Properties</p>
+      <p class="property-panel__eyebrow">{{ bigScreenText.propertyPanel.panelEyebrow }}</p>
       <h2 class="property-panel__title">
-        {{ selectedComponent ? selectedComponent.name : 'Selection' }}
+        {{ selectedComponent ? selectedComponent.name : bigScreenText.propertyPanel.emptyTitle }}
       </h2>
     </header>
 
     <div v-if="!selectedComponent" class="property-panel__empty" data-testid="property-empty">
-      <strong>No component selected</strong>
-      <span>The canvas stays editable from the palette and toolbar.</span>
+      <strong>{{ bigScreenText.propertyPanel.emptyTitle }}</strong>
+      <span>{{ bigScreenText.propertyPanel.emptyHint }}</span>
     </div>
 
     <form v-else class="property-panel__form" :class="{ 'is-locked': isEditingLocked, 'is-saving': designer.isSaving }" @submit.prevent>
       <section class="property-panel__section">
-        <h3>Basic</h3>
+        <h3>{{ bigScreenText.propertyPanel.sections.basic }}</h3>
         <label class="property-panel__field">
-          <span>Name</span>
+          <span>{{ bigScreenText.propertyPanel.componentName }}</span>
           <input
             data-testid="component-name-input"
             type="text"
@@ -183,7 +360,7 @@ function updateFontSize(event: Event) {
           />
         </label>
         <label v-if="showTitleProp" class="property-panel__field">
-          <span>Title</span>
+          <span>{{ bigScreenText.propertyPanel.title }}</span>
           <input
             type="text"
             :value="propString(selectedComponent, 'title')"
@@ -192,8 +369,17 @@ function updateFontSize(event: Event) {
             @change="updateComponentProp('title', $event)"
           />
         </label>
+        <div v-if="showChartPicker" class="property-panel__field">
+          <span>{{ bigScreenText.chartPicker.typeLabel }}</span>
+          <ChartTypePicker
+            :groups="chartPresetGroups"
+            :selected-preset-id="selectedChartPresetId"
+            :disabled="isEditingDisabled"
+            @select="updateChartPreset"
+          />
+        </div>
         <label v-if="showTextProp" class="property-panel__field">
-          <span>Text</span>
+          <span>{{ bigScreenText.components.names.text }}</span>
           <textarea
             rows="3"
             :value="propString(selectedComponent, 'text')"
@@ -203,7 +389,7 @@ function updateFontSize(event: Event) {
           />
         </label>
         <label v-if="showImageSourceProp" class="property-panel__field">
-          <span>Image URL</span>
+          <span>{{ bigScreenText.propertyPanel.imageUrl }}</span>
           <input
             type="text"
             :value="propString(selectedComponent, 'src')"
@@ -213,9 +399,9 @@ function updateFontSize(event: Event) {
           />
         </label>
         <div class="property-panel__readonly-grid">
-          <span>Type</span>
+          <span>{{ bigScreenText.propertyPanel.componentType }}</span>
           <strong>{{ selectedDefinition?.title }}</strong>
-          <span>ID</span>
+          <span>{{ bigScreenText.propertyPanel.componentId }}</span>
           <strong>{{ selectedComponent.id }}</strong>
         </div>
         <label class="property-panel__check property-panel__check--standalone">
@@ -226,12 +412,12 @@ function updateFontSize(event: Event) {
             :disabled="designer.isSaving"
             @change="updateLocked"
           />
-          <span>Locked</span>
+          <span>{{ bigScreenText.propertyPanel.locked }}</span>
         </label>
       </section>
 
       <section class="property-panel__section">
-        <h3>Layout</h3>
+        <h3>{{ bigScreenText.propertyPanel.sections.layout }}</h3>
         <div class="property-panel__grid">
           <label class="property-panel__field">
             <span>X</span>
@@ -269,60 +455,87 @@ function updateFontSize(event: Event) {
           </label>
           <label class="property-panel__check">
             <input type="checkbox" :checked="selectedComponent.layout.visible !== false" :disabled="isEditingDisabled" @change="updateVisible" />
-            <span>Visible</span>
+            <span>{{ bigScreenText.propertyPanel.visible }}</span>
           </label>
         </div>
       </section>
 
       <section class="property-panel__section">
-        <h3>Data</h3>
+        <h3>{{ bigScreenText.propertyPanel.sections.data }}</h3>
         <label class="property-panel__field">
-          <span>Binding</span>
+          <span>{{ bigScreenText.propertyPanel.binding }}</span>
           <select :value="selectedComponent.dataBindingId ?? ''" :disabled="isEditingDisabled" @change="updateDataBindingId">
-            <option value="">No binding</option>
+            <option value="">{{ bigScreenText.propertyPanel.noBinding }}</option>
             <option
               v-if="selectedComponent.dataBindingId && hasMissingBinding"
               :value="selectedComponent.dataBindingId"
             >
-              Missing: {{ selectedComponent.dataBindingId }}
+              {{ bigScreenText.propertyPanel.missingBinding(selectedComponent.dataBindingId) }}
             </option>
             <option v-for="bindingId in dataBindingIds" :key="bindingId" :value="bindingId">
               {{ bindingId }}
             </option>
           </select>
         </label>
-        <p v-if="hasMissingBinding" class="property-panel__warning">Binding is not present in the schema.</p>
+        <p v-if="hasMissingBinding" class="property-panel__warning">
+          {{ bigScreenText.propertyPanel.missingBindingWarning }}
+        </p>
       </section>
 
       <section class="property-panel__section">
-        <h3>Style</h3>
-        <label class="property-panel__field property-panel__field--color">
-          <span>Background</span>
-          <i :style="{ background: styleValue(selectedComponent, 'backgroundColor') || 'transparent' }" aria-hidden="true" />
-          <input
-            type="text"
-            :value="styleValue(selectedComponent, 'backgroundColor')"
+        <h3>{{ bigScreenText.propertyPanel.sections.style }}</h3>
+        <div v-if="showChartPicker" class="property-panel__field">
+          <span>{{ bigScreenText.propertyPanel.style.theme }}</span>
+          <ChartThemePicker
+            :themes="chartThemes"
+            :selected-theme-id="selectedChartThemeId"
+            :current-colors="currentChartThemeColors"
             :disabled="isEditingDisabled"
-            @change="updateStyleString('backgroundColor', $event)"
+            @select="updateChartTheme"
           />
-        </label>
-        <label class="property-panel__field property-panel__field--color">
-          <span>Text Color</span>
-          <i :style="{ background: styleValue(selectedComponent, 'fontColor') || 'transparent' }" aria-hidden="true" />
-          <input type="text" :value="styleValue(selectedComponent, 'fontColor')" :disabled="isEditingDisabled" @change="updateStyleString('fontColor', $event)" />
-        </label>
-        <label class="property-panel__field property-panel__field--color">
-          <span>Accent</span>
-          <i :style="{ background: styleValue(selectedComponent, 'accentColor') || 'transparent' }" aria-hidden="true" />
-          <input type="text" :value="styleValue(selectedComponent, 'accentColor')" :disabled="isEditingDisabled" @change="updateStyleString('accentColor', $event)" />
-        </label>
-        <label class="property-panel__field property-panel__field--color">
-          <span>Border</span>
-          <i :style="{ background: styleValue(selectedComponent, 'borderColor') || 'transparent' }" aria-hidden="true" />
-          <input type="text" :value="styleValue(selectedComponent, 'borderColor')" :disabled="isEditingDisabled" @change="updateStyleString('borderColor', $event)" />
-        </label>
+        </div>
+        <ColorField
+          name="backgroundColor"
+          :label="bigScreenText.propertyPanel.style.background"
+          :value="styleValue(selectedComponent, 'backgroundColor')"
+          :default-value="defaultStyleValue(selectedComponent, 'backgroundColor')"
+          :swatches="colorSwatches"
+          :disabled="isEditingDisabled"
+          show-background-blur
+          :background-blur="styleNumber(selectedComponent, 'backgroundBlur')"
+          :default-blur="0"
+          @change="updateStyleValue('backgroundColor', $event)"
+          @blur-change="updateBackgroundBlur"
+        />
+        <ColorField
+          name="fontColor"
+          :label="bigScreenText.propertyPanel.style.textColor"
+          :value="styleValue(selectedComponent, 'fontColor')"
+          :default-value="defaultStyleValue(selectedComponent, 'fontColor')"
+          :swatches="colorSwatches"
+          :disabled="isEditingDisabled"
+          @change="updateStyleValue('fontColor', $event)"
+        />
+        <ColorField
+          name="accentColor"
+          :label="bigScreenText.propertyPanel.style.accent"
+          :value="styleValue(selectedComponent, 'accentColor')"
+          :default-value="defaultStyleValue(selectedComponent, 'accentColor')"
+          :swatches="colorSwatches"
+          :disabled="isEditingDisabled"
+          @change="updateStyleValue('accentColor', $event)"
+        />
+        <ColorField
+          name="borderColor"
+          :label="bigScreenText.propertyPanel.border"
+          :value="styleValue(selectedComponent, 'borderColor')"
+          :default-value="defaultStyleValue(selectedComponent, 'borderColor')"
+          :swatches="colorSwatches"
+          :disabled="isEditingDisabled"
+          @change="updateStyleValue('borderColor', $event)"
+        />
         <label v-if="showFontSize" class="property-panel__field">
-          <span>Font Size</span>
+          <span>{{ bigScreenText.propertyPanel.fontSize }}</span>
           <input
             type="number"
             :value="selectedComponent.style.fontSize ?? ''"
@@ -335,7 +548,7 @@ function updateFontSize(event: Event) {
       </section>
 
       <button class="property-panel__danger" type="button" :disabled="isEditingDisabled" @click="designer.removeSelectedComponent">
-        Remove component
+        {{ bigScreenText.propertyPanel.removeComponent }}
       </button>
     </form>
   </aside>
@@ -469,33 +682,6 @@ function updateFontSize(event: Event) {
   min-height: 78px;
   padding: 8px 9px;
   resize: vertical;
-}
-
-.property-panel__field--color {
-  grid-template-columns: 18px minmax(0, 1fr);
-  align-items: end;
-}
-
-.property-panel__field--color span {
-  grid-column: 1 / -1;
-}
-
-.property-panel__field--color i {
-  width: 18px;
-  height: 34px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background-image:
-    linear-gradient(45deg, #cbd5e1 25%, transparent 25%),
-    linear-gradient(-45deg, #cbd5e1 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #cbd5e1 75%),
-    linear-gradient(-45deg, transparent 75%, #cbd5e1 75%);
-  background-position:
-    0 0,
-    0 6px,
-    6px -6px,
-    -6px 0;
-  background-size: 12px 12px;
 }
 
 .property-panel__grid {

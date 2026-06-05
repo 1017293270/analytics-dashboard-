@@ -5,8 +5,11 @@ import { componentRegistry, createComponent } from './registry'
 const componentTypes: ComponentType[] = [
   'metric-card',
   'line-chart',
+  'area-chart',
   'bar-chart',
   'pie-chart',
+  'radar-chart',
+  'funnel-chart',
   'table',
   'text',
   'image',

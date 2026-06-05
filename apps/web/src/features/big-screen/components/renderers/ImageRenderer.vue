@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { DashboardComponent } from '@analytics/shared'
 import { computed, type CSSProperties, type PropType } from 'vue'
+import { bigScreenText } from '../../i18n/zh-CN'
 import { isAllowedImageSource } from './imageRenderer.helpers'
+import { buildBackdropBlurStyle } from './rendererStyle.helpers'
 
 const props = defineProps({
   component: { type: Object as PropType<DashboardComponent>, required: true },
@@ -25,6 +27,7 @@ const imageStyle = computed<CSSProperties>(() => ({ objectFit: objectFit.value a
 const frameStyle = computed(() => ({
   backgroundColor: styleString('backgroundColor', 'rgba(15, 23, 42, 0.56)'),
   borderColor: styleString('borderColor', 'rgba(148, 163, 184, 0.26)'),
+  ...buildBackdropBlurStyle(props.component.style),
 }))
 </script>
 
@@ -32,7 +35,7 @@ const frameStyle = computed(() => ({
   <figure class="image-renderer" :style="frameStyle">
     <img v-if="safeSrc" :src="safeSrc" alt="" :style="imageStyle" />
     <figcaption v-else class="image-renderer__empty">
-      {{ isRejectedSource ? 'Unsupported image source' : 'Image not selected' }}
+      {{ isRejectedSource ? bigScreenText.renderers.imageUnavailable : bigScreenText.renderers.imageEmpty }}
     </figcaption>
   </figure>
 </template>

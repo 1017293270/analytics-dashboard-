@@ -71,6 +71,22 @@ describe('dashboardSchemaValidator', () => {
     expect(result.success).toBe(false)
   })
 
+  test('accepts extended chart component types', () => {
+    const result = dashboardSchemaValidator.safeParse({
+      ...baseDashboardSchema,
+      components: ['area-chart', 'radar-chart', 'funnel-chart'].map((type, index) => ({
+        id: `component-${index}`,
+        type,
+        name: type,
+        layout: { x: 0, y: 0, width: 320, height: 240, zIndex: index + 1 },
+        props: {},
+        style: {},
+      })),
+    })
+
+    expect(result.success).toBe(true)
+  })
+
   test('rejects duplicate component ids', () => {
     const component = {
       id: 'component-1',

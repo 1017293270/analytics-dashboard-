@@ -47,7 +47,7 @@ test('publishes the AI Ops preset and renders its runtime canvas', async ({ page
   await expect(page.getByLabel('Designer canvas')).toBeVisible()
   await expect(page.getByTestId('dashboard-name-input')).toBeVisible()
 
-  await page.getByTestId('apply-preset-button').click()
+  await page.getByTestId('preset-select').selectOption('ai-operations')
   await expect(page.getByText(PRESET_TITLE)).toBeVisible()
   await expect(page.getByText('Total AI Requests')).toBeVisible()
 

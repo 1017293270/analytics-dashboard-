@@ -2,6 +2,7 @@
 import type { ComponentType } from '@analytics/shared'
 import { computed } from 'vue'
 import { componentRegistry } from '../components/registry'
+import { bigScreenText } from '../i18n/zh-CN'
 import { useDashboardDesignerStore } from '../stores/useDashboardDesignerStore'
 import { createDesignerComponent } from './designerLayout'
 
@@ -15,10 +16,10 @@ function addComponent(type: ComponentType) {
 </script>
 
 <template>
-  <aside class="component-palette" aria-label="Component library">
+  <aside class="component-palette" :aria-label="bigScreenText.designer.library.aria">
     <header class="component-palette__header">
-      <p class="component-palette__eyebrow">Components</p>
-      <h2 class="component-palette__title">Build Blocks</h2>
+      <p class="component-palette__eyebrow">{{ bigScreenText.designer.library.eyebrow }}</p>
+      <h2 class="component-palette__title">{{ bigScreenText.designer.library.title }}</h2>
     </header>
 
     <div class="component-palette__list">
@@ -34,7 +35,7 @@ function addComponent(type: ComponentType) {
         <span class="component-palette__glyph" aria-hidden="true">{{ definition.title.slice(0, 1) }}</span>
         <span class="component-palette__copy">
           <span class="component-palette__name">{{ definition.title }}</span>
-          <span class="component-palette__meta">{{ definition.defaultLayout.width }} x {{ definition.defaultLayout.height }}</span>
+        <span class="component-palette__meta">{{ definition.defaultLayout.width }} × {{ definition.defaultLayout.height }}</span>
         </span>
       </button>
     </div>

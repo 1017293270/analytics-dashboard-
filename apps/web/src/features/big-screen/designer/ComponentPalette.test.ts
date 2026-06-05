@@ -1,8 +1,9 @@
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, test } from 'vitest'
-import ComponentPalette from './ComponentPalette.vue'
+import { bigScreenText } from '../i18n/zh-CN'
 import { useDashboardDesignerStore } from '../stores/useDashboardDesignerStore'
+import ComponentPalette from './ComponentPalette.vue'
 
 describe('ComponentPalette', () => {
   beforeEach(() => {
@@ -18,7 +19,7 @@ describe('ComponentPalette', () => {
     await wrapper.get('[data-testid="add-text"]').trigger('click')
 
     expect(store.schema.components).toHaveLength(1)
-    expect(store.selectedComponent).toMatchObject({ type: 'text', name: 'Text' })
+    expect(store.selectedComponent).toMatchObject({ type: 'text', name: bigScreenText.components.names.text })
   })
 
   test('disables component creation while saving', async () => {

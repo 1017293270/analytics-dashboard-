@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { DashboardComponent } from '@analytics/shared'
 import { computed, onBeforeUnmount, ref } from 'vue'
+import { bigScreenText } from '../i18n/zh-CN'
 import { useDashboardDesignerStore } from '../stores/useDashboardDesignerStore'
 import DesignerCanvasComponent from './DesignerCanvasComponent.vue'
 import { clampLayout, getCanvasBackgroundStyle } from './designerLayout'
@@ -192,9 +193,9 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="designer-canvas" aria-label="Designer canvas">
+  <section class="designer-canvas" :aria-label="bigScreenText.designer.canvas.label">
     <div class="designer-canvas__ruler">
-      <span>{{ canvas.width }} x {{ canvas.height }}</span>
+      <span>{{ canvas.width }} × {{ canvas.height }}</span>
       <span>{{ Math.round(designer.zoom * 100) }}%</span>
     </div>
 
@@ -202,8 +203,8 @@ onBeforeUnmount(() => {
       <div class="designer-canvas__stage" :style="stageStyle">
         <div class="designer-canvas__surface" :style="surfaceStyle" @pointerdown="clearSelection">
           <div v-if="components.length === 0" class="designer-canvas__empty" data-testid="canvas-empty-state">
-            <strong>No components yet</strong>
-            <span>Choose a block from the left panel.</span>
+            <strong>{{ bigScreenText.designer.canvas.emptyTitle }}</strong>
+            <span>{{ bigScreenText.designer.canvas.emptyHint }}</span>
           </div>
 
           <div
@@ -220,7 +221,7 @@ onBeforeUnmount(() => {
             :style="componentStyle(component)"
             role="button"
             tabindex="0"
-            :aria-label="`${component.name} component`"
+            :aria-label="component.name"
             :aria-pressed="designer.selectedComponentId === component.id"
             @click.stop="selectComponent(component.id)"
             @pointerdown.stop="beginInteraction($event, component, 'move')"
@@ -237,7 +238,7 @@ onBeforeUnmount(() => {
                 class="designer-canvas__resize-handle"
                 type="button"
                 tabindex="-1"
-                aria-label="Resize component"
+                :aria-label="bigScreenText.designer.canvas.resizeComponent"
                 @click.stop
                 @pointerdown.stop="beginInteraction($event, component, 'resize')"
               />

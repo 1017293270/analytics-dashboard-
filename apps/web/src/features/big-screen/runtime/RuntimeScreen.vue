@@ -4,6 +4,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { bigScreenApi } from '../api/bigScreenApi'
 import { getCanvasBackgroundStyle } from '../designer/designerLayout'
+import { bigScreenText } from '../i18n/zh-CN'
 import RuntimeComponent from './RuntimeComponent.vue'
 import RuntimeScaler from './RuntimeScaler.vue'
 
@@ -51,7 +52,7 @@ async function loadRuntime() {
   const source = runtimeSource.value
   const sourceKey = runtimeSourceKey.value
   if (!source) {
-    loadState.value = { status: 'error', schema: null, error: 'Runtime screen not found' }
+    loadState.value = { status: 'error', schema: null, error: bigScreenText.runtime.missingRuntime }
     return
   }
 
@@ -68,7 +69,7 @@ async function loadRuntime() {
   } catch (errorValue) {
     if (serial !== requestSerial || runtimeSourceKey.value !== sourceKey) return
 
-    const message = errorValue instanceof Error ? errorValue.message : 'Runtime screen unavailable'
+    const message = errorValue instanceof Error ? errorValue.message : bigScreenText.runtime.unavailable
     loadState.value = { status: 'error', schema: null, error: message }
   }
 }
@@ -87,9 +88,9 @@ watch(runtimeSourceKey, () => {
     </div>
 
     <section v-else-if="error" class="runtime-screen__state runtime-screen__state--error">
-      <h1>Runtime unavailable</h1>
+      <h1>{{ bigScreenText.runtime.unavailableTitle }}</h1>
       <p>{{ error }}</p>
-      <button type="button" @click="loadRuntime">Retry</button>
+      <button type="button" @click="loadRuntime">{{ bigScreenText.common.actions.retry }}</button>
     </section>
 
     <RuntimeScaler
@@ -100,8 +101,8 @@ watch(runtimeSourceKey, () => {
       :background="canvasBackground"
     >
       <div v-if="visibleComponents.length === 0" class="runtime-screen__empty">
-        <strong>No visible components</strong>
-        <span>This runtime screen has no visible dashboard blocks.</span>
+        <strong>{{ bigScreenText.runtime.emptyTitle }}</strong>
+        <span>{{ bigScreenText.runtime.emptyDescription }}</span>
       </div>
 
       <RuntimeComponent

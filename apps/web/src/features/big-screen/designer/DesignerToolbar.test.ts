@@ -1,7 +1,8 @@
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { aiOperationsPreset } from '../presets/presets'
+import { bigScreenText } from '../i18n/zh-CN'
+import { bigScreenPresets } from '../presets/presets'
 import { useDashboardDesignerStore } from '../stores/useDashboardDesignerStore'
 import DesignerToolbar from './DesignerToolbar.vue'
 
@@ -33,8 +34,8 @@ describe('DesignerToolbar', () => {
     const libraryLink = wrapper.get('[data-testid="dashboard-library-link"]')
 
     expect(libraryLink.attributes('href')).toBe('/big-screens')
-    expect(libraryLink.attributes('aria-label')).toBe('Back to dashboard library')
-    expect(libraryLink.attributes('title')).toBe('Back to dashboard library')
+    expect(libraryLink.attributes('aria-label')).toBe(bigScreenText.common.actions.backToLibrary)
+    expect(libraryLink.attributes('title')).toBe(bigScreenText.common.actions.backToLibrary)
     expect(libraryLink.find('svg').exists()).toBe(true)
   })
 
@@ -49,8 +50,8 @@ describe('DesignerToolbar', () => {
     await saveButton.trigger('click')
 
     expect(saveDraft).toHaveBeenCalledOnce()
-    expect(wrapper.text()).toContain('LOCAL')
-    expect(wrapper.text()).toContain('Ready to create')
+    expect(wrapper.text()).toContain(bigScreenText.common.status.local)
+    expect(wrapper.text()).toContain(bigScreenText.designer.toolbar.readyToCreate)
   })
 
   test('shows persisted dashboard record status and disables invalid names', async () => {
@@ -59,7 +60,7 @@ describe('DesignerToolbar', () => {
     store.dashboardStatus = 'published'
     await wrapper.get('[data-testid="dashboard-name-input"]').setValue('   ')
 
-    expect(wrapper.text()).toContain('PUBLISHED')
+    expect(wrapper.text()).toContain(bigScreenText.common.status.published)
     expect(wrapper.get('[data-testid="save-dashboard-button"]').attributes('disabled')).toBeDefined()
   })
 
@@ -70,7 +71,7 @@ describe('DesignerToolbar', () => {
     store.savedDashboardName = 'Saved Name'
     await wrapper.get('[data-testid="dashboard-name-input"]').setValue('Changed Name')
 
-    expect(wrapper.text()).toContain('Unsaved changes')
+    expect(wrapper.text()).toContain(bigScreenText.designer.toolbar.unsavedChanges)
 
     store.isSaving = true
     await wrapper.vm.$nextTick()
@@ -79,14 +80,23 @@ describe('DesignerToolbar', () => {
     expect(wrapper.get('[data-testid="save-dashboard-button"]').attributes('disabled')).toBeDefined()
   })
 
-  test('applies the AI operations preset from the toolbar', async () => {
+  test('applies a selected preset from the toolbar menu', async () => {
     const { store, wrapper } = mountToolbar()
     const applyPreset = vi.fn()
     store.applyPreset = applyPreset
 
-    await wrapper.get('[data-testid="apply-preset-button"]').trigger('click')
+    await wrapper.get('[data-testid="preset-select"]').setValue('business-kpi')
 
-    expect(applyPreset).toHaveBeenCalledWith(aiOperationsPreset)
+    expect(applyPreset).toHaveBeenCalledWith(bigScreenPresets[1]?.schema)
+  })
+
+  test('disables preset selection while saving', async () => {
+    const { store, wrapper } = mountToolbar()
+
+    store.isSaving = true
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.get('[data-testid="preset-select"]').attributes('disabled')).toBeDefined()
   })
 
   test('keeps preview inert until the dashboard is published and clean', async () => {
@@ -96,7 +106,7 @@ describe('DesignerToolbar', () => {
     expect(previewLink.attributes('href')).toBeUndefined()
     expect(previewLink.attributes('aria-disabled')).toBe('true')
     expect(previewLink.attributes('tabindex')).toBe('-1')
-    expect(previewLink.attributes('title')).toBe('Publish saved changes before previewing')
+    expect(previewLink.attributes('title')).toBe(bigScreenText.designer.toolbar.publishSavedFirst)
 
     store.dashboardId = 'dashboard-1'
     await wrapper.vm.$nextTick()
@@ -113,7 +123,7 @@ describe('DesignerToolbar', () => {
     expect(enabledPreviewLink.attributes('target')).toBe('_blank')
     expect(enabledPreviewLink.attributes('aria-disabled')).toBe('false')
     expect(enabledPreviewLink.attributes('tabindex')).toBe('0')
-    expect(enabledPreviewLink.attributes('title')).toBe('Open published runtime preview')
+    expect(enabledPreviewLink.attributes('title')).toBe(bigScreenText.designer.toolbar.openPublishedPreview)
 
     store.dashboardName = 'Dirty dashboard'
     await wrapper.vm.$nextTick()
@@ -130,7 +140,7 @@ describe('DesignerToolbar', () => {
 
     expect(wrapper.get('[data-testid="publish-dashboard-button"]').attributes('disabled')).toBeUndefined()
     expect(wrapper.get('[data-testid="publish-dashboard-button"]').attributes('title')).toBe(
-      'Create, save, and publish dashboard',
+      bigScreenText.designer.toolbar.createAndPublish,
     )
 
     store.dashboardId = 'dashboard-1'
@@ -138,7 +148,7 @@ describe('DesignerToolbar', () => {
 
     const publishButton = wrapper.get('[data-testid="publish-dashboard-button"]')
     expect(publishButton.attributes('disabled')).toBeUndefined()
-    expect(publishButton.attributes('title')).toBe('Publish dashboard')
+    expect(publishButton.attributes('title')).toBe(bigScreenText.designer.toolbar.publishDashboard)
     await publishButton.trigger('click')
     expect(publish).toHaveBeenCalledOnce()
 
@@ -146,7 +156,7 @@ describe('DesignerToolbar', () => {
     store.activeSaveIntent = 'publish'
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.text()).toContain('Publishing')
-    expect(wrapper.get('[data-testid="publish-dashboard-button"]').text()).toBe('Publishing')
+    expect(wrapper.text()).toContain(bigScreenText.common.actions.publishing)
+    expect(wrapper.get('[data-testid="publish-dashboard-button"]').text()).toBe(bigScreenText.common.actions.publishing)
   })
 })

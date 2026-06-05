@@ -2,6 +2,7 @@ import type { DashboardComponent, DashboardSchema } from '@analytics/shared'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
 import { bigScreenApi, type DashboardRecord } from '../api/bigScreenApi'
+import { bigScreenText } from '../i18n/zh-CN'
 import { createDefaultDashboardSchema } from '../schema/defaults'
 import { useDashboardHistoryStore } from './useDashboardHistoryStore'
 
@@ -38,7 +39,7 @@ type DesignerState = {
   error: string | null
 }
 
-const DEFAULT_DASHBOARD_NAME = 'Untitled Dashboard'
+const DEFAULT_DASHBOARD_NAME: string = bigScreenText.dashboardList.untitled
 const pendingDraftWritesByTarget = new Map<string, Promise<void>>()
 
 function createLocalDraftReservationId() {
@@ -67,11 +68,11 @@ function createDraftWriteBarrier(targetId: string) {
 }
 
 function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Something went wrong'
+  return error instanceof Error ? error.message : bigScreenText.common.errors.somethingWrong
 }
 
 function requireDashboardRevision(record: DashboardRecord) {
-  if (!record.updatedAt) throw new Error('Dashboard revision missing. Reload before saving.')
+  if (!record.updatedAt) throw new Error(bigScreenText.common.errors.missingDashboardRevision)
 
   return record.updatedAt
 }
@@ -462,7 +463,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
 
         const shouldRotateReservationAfterSave = dashboardId === this.localDraftReservationId
         const expectedUpdatedAt = this.savedDashboardUpdatedAt
-        if (!expectedUpdatedAt) throw new Error('Dashboard revision missing. Reload before saving.')
+        if (!expectedUpdatedAt) throw new Error(bigScreenText.common.errors.missingDashboardRevision)
 
         const dashboard = await bigScreenApi.updateDashboard(dashboardId, { name, expectedUpdatedAt })
         if (!isCurrentSaveOperation()) return createFailedSaveResult()

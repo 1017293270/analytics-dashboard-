@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { aiOperationsPreset } from '../presets/presets'
+import { bigScreenText } from '../i18n/zh-CN'
+import { bigScreenPresets } from '../presets/presets'
 import { useDashboardHistoryStore } from '../stores/useDashboardHistoryStore'
 import { useDashboardDesignerStore } from '../stores/useDashboardDesignerStore'
 import { clampZoom, formatZoomPercent, MAX_ZOOM, MIN_ZOOM, ZOOM_STEP } from './designerLayout'
@@ -27,22 +28,27 @@ const runtimePreviewHref = computed(() =>
   canPreview.value && designer.dashboardId ? `/runtime/${designer.dashboardId}` : undefined,
 )
 const previewTitle = computed(() =>
-  canPreview.value ? 'Open published runtime preview' : 'Publish saved changes before previewing',
+  canPreview.value ? bigScreenText.designer.toolbar.openPublishedPreview : bigScreenText.designer.toolbar.publishSavedFirst,
 )
 const publishTitle = computed(() => {
-  if (!designer.dashboardId) return 'Create, save, and publish dashboard'
-  if (designer.hasUnsavedChanges) return 'Save current draft and publish'
+  if (!designer.dashboardId) return bigScreenText.designer.toolbar.createAndPublish
+  if (designer.hasUnsavedChanges) return bigScreenText.designer.toolbar.saveDraftAndPublish
 
-  return 'Publish dashboard'
+  return bigScreenText.designer.toolbar.publishDashboard
 })
-const recordStatus = computed(() => (designer.dashboardStatus ?? 'local').toUpperCase())
-const saveState = computed(() => {
-  if (designer.isSaving && designer.activeSaveIntent === 'publish') return 'Publishing'
-  if (designer.isSaving) return 'Saving draft'
-  if (designer.hasUnsavedChanges) return 'Unsaved changes'
-  if (!designer.dashboardId) return 'Ready to create'
+const recordStatus = computed(() => {
+  const status = designer.dashboardStatus ?? 'local'
+  const labels = bigScreenText.common.status
 
-  return 'Draft ready'
+  return status === 'published' ? labels.published : status === 'draft' ? labels.draft : labels.local
+})
+const saveState = computed(() => {
+  if (designer.isSaving && designer.activeSaveIntent === 'publish') return bigScreenText.common.actions.publishing
+  if (designer.isSaving) return bigScreenText.designer.toolbar.savingDraft
+  if (designer.hasUnsavedChanges) return bigScreenText.designer.toolbar.unsavedChanges
+  if (!designer.dashboardId) return bigScreenText.designer.toolbar.readyToCreate
+
+  return bigScreenText.designer.toolbar.draftReady
 })
 
 function updateName(event: Event) {
@@ -59,8 +65,15 @@ function updateZoomFromSelect(event: Event) {
   updateZoom(Number(input.value))
 }
 
-function applyAiOperationsPreset() {
-  designer.applyPreset(aiOperationsPreset)
+function applyPresetFromSelect(event: Event) {
+  const input = event.target as HTMLSelectElement
+  const preset = bigScreenPresets.find((candidate) => candidate.id === input.value)
+
+  if (preset) {
+    designer.applyPreset(preset.schema)
+  }
+
+  input.value = ''
 }
 </script>
 
@@ -70,8 +83,8 @@ function applyAiOperationsPreset() {
       class="designer-toolbar__icon-button designer-toolbar__back-link"
       data-testid="dashboard-library-link"
       to="/big-screens"
-      aria-label="Back to dashboard library"
-      title="Back to dashboard library"
+      :aria-label="bigScreenText.common.actions.backToLibrary"
+      :title="bigScreenText.common.actions.backToLibrary"
     >
       <svg aria-hidden="true" viewBox="0 0 24 24">
         <path d="M10.5 6 4.5 12l6 6" />
@@ -81,7 +94,7 @@ function applyAiOperationsPreset() {
 
     <div class="designer-toolbar__identity">
       <label class="designer-toolbar__name-field">
-        <span class="designer-toolbar__sr-only">Dashboard name</span>
+        <span class="designer-toolbar__sr-only">{{ bigScreenText.designer.toolbar.dashboardName }}</span>
         <input
           class="designer-toolbar__name-input"
           data-testid="dashboard-name-input"
@@ -98,25 +111,33 @@ function applyAiOperationsPreset() {
       </span>
     </div>
 
-    <div class="designer-toolbar__cluster" aria-label="History controls">
-      <button class="designer-toolbar__button" type="button" :disabled="!canUndo" @click="designer.undo">Undo</button>
-      <button class="designer-toolbar__button" type="button" :disabled="!canRedo" @click="designer.redo">Redo</button>
-      <button
-        class="designer-toolbar__button"
-        data-testid="apply-preset-button"
-        type="button"
-        :disabled="!canApplyPreset"
-        @click="applyAiOperationsPreset"
-      >
-        AI Ops Preset
+    <div class="designer-toolbar__cluster" :aria-label="bigScreenText.designer.toolbar.historyControls">
+      <button class="designer-toolbar__button" type="button" :disabled="!canUndo" @click="designer.undo">
+        {{ bigScreenText.designer.toolbar.undo }}
       </button>
+      <button class="designer-toolbar__button" type="button" :disabled="!canRedo" @click="designer.redo">
+        {{ bigScreenText.designer.toolbar.redo }}
+      </button>
+      <select
+        class="designer-toolbar__preset-select"
+        data-testid="preset-select"
+        :aria-label="bigScreenText.designer.toolbar.applyPreset"
+        value=""
+        :disabled="!canApplyPreset"
+        @change="applyPresetFromSelect"
+      >
+        <option value="">{{ bigScreenText.designer.toolbar.presetPlaceholder }}</option>
+        <option v-for="preset in bigScreenPresets" :key="preset.id" :value="preset.id">
+          {{ preset.title }}
+        </option>
+      </select>
     </div>
 
-    <div class="designer-toolbar__cluster designer-toolbar__cluster--zoom" aria-label="Zoom controls">
+    <div class="designer-toolbar__cluster designer-toolbar__cluster--zoom" :aria-label="bigScreenText.designer.toolbar.zoomControls">
       <button
         class="designer-toolbar__icon-button"
         type="button"
-        aria-label="Zoom out"
+        :aria-label="bigScreenText.designer.toolbar.zoomOut"
         :disabled="designer.zoom <= MIN_ZOOM"
         @click="updateZoom(designer.zoom - ZOOM_STEP)"
       >
@@ -124,7 +145,7 @@ function applyAiOperationsPreset() {
       </button>
       <select
         class="designer-toolbar__zoom-select"
-        aria-label="Zoom"
+        :aria-label="bigScreenText.designer.toolbar.zoom"
         :value="designer.zoom"
         :disabled="designer.isLoading"
         @change="updateZoomFromSelect"
@@ -136,7 +157,7 @@ function applyAiOperationsPreset() {
       <button
         class="designer-toolbar__icon-button"
         type="button"
-        aria-label="Zoom in"
+        :aria-label="bigScreenText.designer.toolbar.zoomIn"
         :disabled="designer.zoom >= MAX_ZOOM"
         @click="updateZoom(designer.zoom + ZOOM_STEP)"
       >
@@ -144,7 +165,7 @@ function applyAiOperationsPreset() {
       </button>
     </div>
 
-    <div class="designer-toolbar__cluster designer-toolbar__cluster--primary" aria-label="Dashboard actions">
+    <div class="designer-toolbar__cluster designer-toolbar__cluster--primary" :aria-label="bigScreenText.designer.toolbar.dashboardActions">
       <a
         class="designer-toolbar__button designer-toolbar__link-button"
         data-testid="preview-runtime-link"
@@ -157,17 +178,17 @@ function applyAiOperationsPreset() {
         :title="previewTitle"
         @click="!canPreview && $event.preventDefault()"
       >
-        Preview
+        {{ bigScreenText.common.actions.preview }}
       </a>
       <button
         class="designer-toolbar__button designer-toolbar__button--primary"
         data-testid="save-dashboard-button"
         type="button"
         :disabled="!canSave"
-        :title="designer.dashboardId ? 'Save draft' : 'Create dashboard and save draft'"
+        :title="designer.dashboardId ? bigScreenText.designer.toolbar.saveDraft : bigScreenText.designer.toolbar.createAndSave"
         @click="designer.saveDraft"
       >
-        {{ designer.isSaving && designer.activeSaveIntent === 'draft' ? 'Saving' : 'Save' }}
+        {{ designer.isSaving && designer.activeSaveIntent === 'draft' ? bigScreenText.common.actions.saving : bigScreenText.common.actions.save }}
       </button>
       <button
         class="designer-toolbar__button"
@@ -177,7 +198,7 @@ function applyAiOperationsPreset() {
         :title="publishTitle"
         @click="designer.publish"
       >
-        {{ designer.isSaving && designer.activeSaveIntent === 'publish' ? 'Publishing' : 'Publish' }}
+        {{ designer.isSaving && designer.activeSaveIntent === 'publish' ? bigScreenText.common.actions.publishing : bigScreenText.common.actions.publish }}
       </button>
     </div>
   </header>
@@ -222,6 +243,7 @@ function applyAiOperationsPreset() {
 }
 
 .designer-toolbar__name-input,
+.designer-toolbar__preset-select,
 .designer-toolbar__zoom-select,
 .designer-toolbar__button,
 .designer-toolbar__icon-button {
@@ -288,6 +310,7 @@ function applyAiOperationsPreset() {
 }
 
 .designer-toolbar__button,
+.designer-toolbar__preset-select,
 .designer-toolbar__icon-button,
 .designer-toolbar__zoom-select {
   height: 34px;
@@ -342,8 +365,14 @@ function applyAiOperationsPreset() {
   padding: 0 8px;
 }
 
+.designer-toolbar__preset-select {
+  width: 150px;
+  padding: 0 8px;
+}
+
 .designer-toolbar__button:hover:not(:disabled),
 .designer-toolbar__link-button:hover:not(.is-disabled),
+.designer-toolbar__preset-select:hover:not(:disabled),
 .designer-toolbar__icon-button:hover:not(:disabled),
 .designer-toolbar__zoom-select:hover:not(:disabled),
 .designer-toolbar__name-input:hover:not(:disabled) {
@@ -359,6 +388,7 @@ function applyAiOperationsPreset() {
 
 .designer-toolbar__button:disabled,
 .designer-toolbar__link-button.is-disabled,
+.designer-toolbar__preset-select:disabled,
 .designer-toolbar__icon-button:disabled,
 .designer-toolbar__zoom-select:disabled,
 .designer-toolbar__name-input:disabled {
@@ -375,6 +405,7 @@ function applyAiOperationsPreset() {
 }
 
 .designer-toolbar__name-input:focus-visible,
+.designer-toolbar__preset-select:focus-visible,
 .designer-toolbar__zoom-select:focus-visible,
 .designer-toolbar__button:focus-visible,
 .designer-toolbar__icon-button:focus-visible,

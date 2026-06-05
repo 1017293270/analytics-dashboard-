@@ -4,6 +4,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { bigScreenApi } from '../api/bigScreenApi'
 import { mockDataAdapter } from '../data-adapters/mockDataAdapter'
+import { bigScreenText } from '../i18n/zh-CN'
 import { createDefaultDashboardSchema } from '../schema/defaults'
 import RuntimeComponent from './RuntimeComponent.vue'
 import RuntimeScreen from './RuntimeScreen.vue'
@@ -94,7 +95,7 @@ describe('RuntimeComponent data loading', () => {
     pendingQuery.resolve(createMetricData(42))
     await flushPromises()
 
-    expect(wrapper.text()).toContain('No metric data')
+    expect(wrapper.text()).toContain(bigScreenText.renderers.metricEmpty)
     expect(wrapper.text()).not.toContain('42')
     expect(wrapper.text()).not.toContain('Requests')
   })
@@ -129,7 +130,7 @@ describe('RuntimeComponent data loading', () => {
     await flushPromises()
 
     expect(vi.mocked(mockDataAdapter.query)).not.toHaveBeenCalled()
-    expect(wrapper.text()).toContain('Unsupported data source: dataset')
+    expect(wrapper.text()).toContain(bigScreenText.common.errors.unsupportedDataSource('dataset'))
   })
 
   test('stops refreshing after unmount', async () => {
@@ -204,7 +205,7 @@ describe('RuntimeScreen loading', () => {
     pendingRuntime.resolve({ id: 'first', name: 'First', schema: createSchema(), publishedAt: null })
     await flushPromises()
 
-    expect(wrapper.text()).toContain('No visible components')
-    expect(wrapper.text()).not.toContain('Runtime screen not found')
+    expect(wrapper.text()).toContain(bigScreenText.runtime.emptyTitle)
+    expect(wrapper.text()).not.toContain(bigScreenText.runtime.missingRuntime)
   })
 })

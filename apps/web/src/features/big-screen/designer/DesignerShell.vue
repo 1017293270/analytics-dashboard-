@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { bigScreenApi } from '../api/bigScreenApi'
+import { bigScreenText } from '../i18n/zh-CN'
 import { createDefaultDashboardSchema } from '../schema/defaults'
 import { useDashboardDesignerStore } from '../stores/useDashboardDesignerStore'
 import { useDashboardHistoryStore } from '../stores/useDashboardHistoryStore'
@@ -11,7 +12,7 @@ import DesignerPropertyPanel from './DesignerPropertyPanel.vue'
 import DesignerToolbar from './DesignerToolbar.vue'
 import { clampZoom } from './designerLayout'
 
-const LOCAL_DRAFT_NAME = 'Untitled Dashboard'
+const LOCAL_DRAFT_NAME = bigScreenText.dashboardList.untitled
 
 const route = useRoute()
 const designer = useDashboardDesignerStore()
@@ -35,7 +36,7 @@ function resetHistory() {
 }
 
 function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Something went wrong'
+  return error instanceof Error ? error.message : bigScreenText.designer.shell.somethingWrong
 }
 
 function isAbortError(error: unknown) {
@@ -115,12 +116,12 @@ onBeforeUnmount(() => {
 
     <section v-else-if="loadError" class="designer-shell__state designer-shell__state--error">
       <div class="designer-shell__error-card">
-        <p class="designer-shell__eyebrow">Load failed</p>
-        <h1>Dashboard unavailable</h1>
+        <p class="designer-shell__eyebrow">{{ bigScreenText.designer.shell.loadFailed }}</p>
+        <h1>{{ bigScreenText.designer.shell.loadUnavailable }}</h1>
         <p>{{ loadError }}</p>
         <div class="designer-shell__error-actions">
-          <button type="button" @click="retryLoad">Retry</button>
-          <button type="button" @click="createLocalDraft">Create local draft</button>
+          <button type="button" @click="retryLoad">{{ bigScreenText.common.actions.retry }}</button>
+          <button type="button" @click="createLocalDraft">{{ bigScreenText.common.actions.createLocalDraft }}</button>
         </div>
       </div>
     </section>

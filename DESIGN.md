@@ -194,6 +194,8 @@ Charts:
 - Chart colors must come from component style/theme, not random palettes.
 - Use ECharts renderer through the component registry.
 - If a chart type cannot consume the bound data shape, show a clear empty/error state.
+- Supported first-version chart types: line, area, bar, pie, radar, and funnel.
+- Area charts consume time-series data; radar and funnel charts consume category data.
 
 Tables:
 
@@ -257,6 +259,21 @@ When adding chart presets:
 - Add renderer/helper tests for supported data shapes.
 - Add property panel support only for controls that actually work.
 - Verify editor preview and runtime preview both render data.
+
+Current preset set:
+
+- AI Operations: workload, automation quality, and response health.
+- Business KPI: revenue, pipeline stages, and account health.
+- Customer Service: experience quality, contact mix, and escalations.
+- Data Quality Health: freshness, source errors, and remediation progress.
+
+Component-level chart presets:
+
+- Chart component presets are separate from full-screen presets.
+- Chart presets may update renderer props and visual style, but should not rewrite bindings or the component title.
+- Current chart preset families include smooth/stepped/minimal line, bold/soft/wire area, vertical/horizontal/compact bar, donut/rose/solid pie, filled/outline/compact radar, and standard/pipeline/minimal funnel.
+- Chart color themes are separate from chart type presets. They may update component `style.backgroundColor`, `style.fontColor`, `style.accentColor`, `style.borderColor`, and `style.seriesColors`, but should preserve layout, data binding, title, blur, and other non-color user edits.
+- Theme lists should stay compact and practical. Prefer a small set of high-contrast, display-safe palettes over many decorative options.
 
 ## 10. Motion and Interaction
 

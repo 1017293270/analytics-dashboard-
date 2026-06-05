@@ -11,6 +11,7 @@ const dataQueryBody = z.object({
   query: z.object({
     dimensions: z.array(queryField).max(20).optional(),
     metrics: z.array(queryField).max(20).optional(),
+    limit: z.number().int().min(1).max(1000).optional(),
   }),
 })
 

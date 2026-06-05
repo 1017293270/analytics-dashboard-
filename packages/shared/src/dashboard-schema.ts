@@ -3,8 +3,11 @@ import { z } from 'zod'
 export const componentTypeValidator = z.enum([
   'metric-card',
   'line-chart',
+  'area-chart',
   'bar-chart',
   'pie-chart',
+  'radar-chart',
+  'funnel-chart',
   'table',
   'text',
   'image',

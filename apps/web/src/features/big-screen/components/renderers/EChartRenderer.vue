@@ -1,15 +1,29 @@
 <script setup lang="ts">
 import type { DashboardComponent } from '@analytics/shared'
-import { BarChart, LineChart, PieChart } from 'echarts/charts'
-import { GridComponent, LegendComponent, TitleComponent, TooltipComponent } from 'echarts/components'
+import { BarChart, FunnelChart, LineChart, PieChart, RadarChart } from 'echarts/charts'
+import { GridComponent, LegendComponent, RadarComponent, TitleComponent, TooltipComponent } from 'echarts/components'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { computed, type PropType } from 'vue'
 import VChart from 'vue-echarts'
 import type { ComponentData } from '../../data-adapters/dataAdapter.types'
+import { bigScreenText } from '../../i18n/zh-CN'
 import { buildChartOption, getChartDataIssue } from './chartRenderer.helpers'
+import { buildBackdropBlurStyle } from './rendererStyle.helpers'
 
-use([CanvasRenderer, LineChart, BarChart, PieChart, GridComponent, LegendComponent, TitleComponent, TooltipComponent])
+use([
+  CanvasRenderer,
+  LineChart,
+  BarChart,
+  PieChart,
+  RadarChart,
+  FunnelChart,
+  GridComponent,
+  LegendComponent,
+  RadarComponent,
+  TitleComponent,
+  TooltipComponent,
+])
 
 const props = defineProps({
   component: { type: Object as PropType<DashboardComponent>, required: true },
@@ -23,6 +37,11 @@ function styleString(key: string, fallback: string): string {
   return typeof value === 'string' ? value : fallback
 }
 
+function styleStringArray(key: string): string[] {
+  const value = props.component.style[key]
+  return Array.isArray(value) && value.every((item): item is string => typeof item === 'string') ? value : []
+}
+
 function propString(key: string, fallback: string): string {
   const value = props.component.props[key]
   return typeof value === 'string' ? value : fallback
@@ -31,10 +50,13 @@ function propString(key: string, fallback: string): string {
 const title = computed(() => propString('title', props.component.name))
 const accentColor = computed(() => styleString('accentColor', '#38bdf8'))
 const fontColor = computed(() => styleString('fontColor', '#dbeafe'))
+const seriesColors = computed(() => styleStringArray('seriesColors'))
 const panelStyle = computed(() => ({
   backgroundColor: styleString('backgroundColor', 'rgba(15, 23, 42, 0.82)'),
+  borderColor: styleString('borderColor', 'color-mix(in srgb, var(--chart-accent) 26%, transparent)'),
   color: fontColor.value,
   '--chart-accent': accentColor.value,
+  ...buildBackdropBlurStyle(props.component.style),
 }))
 const chartIssue = computed(() => getChartDataIssue(props.component, props.data))
 
@@ -44,6 +66,7 @@ const chartOption = computed(() =>
         title: title.value,
         fontColor: fontColor.value,
         accentColor: accentColor.value,
+        seriesColors: seriesColors.value,
       })
     : {},
 )
@@ -63,7 +86,7 @@ const chartOption = computed(() =>
         <span class="echart-renderer__skeleton" />
         <span class="echart-renderer__skeleton echart-renderer__skeleton--short" />
       </div>
-      <p v-else-if="error" class="echart-renderer__state">Chart unavailable: {{ error }}</p>
+      <p v-else-if="error" class="echart-renderer__state">{{ bigScreenText.renderers.chartUnavailable(error) }}</p>
       <p v-else-if="chartIssue" class="echart-renderer__state">{{ chartIssue }}</p>
       <VChart v-else class="echart-renderer__chart" :option="chartOption" autoresize />
     </div>

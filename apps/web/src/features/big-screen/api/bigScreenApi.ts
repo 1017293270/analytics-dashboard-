@@ -1,4 +1,5 @@
 import type { ApiResponse, DashboardSchema } from '@analytics/shared'
+import { bigScreenText } from '../i18n/zh-CN'
 
 export type DashboardRecord = {
   id: string
@@ -85,12 +86,12 @@ export async function requestJson<T>(url: string, init?: RequestInit): Promise<T
     try {
       body = JSON.parse(text)
     } catch {
-      throw new Error('Invalid API response')
+      throw new Error(bigScreenText.common.errors.invalidApiResponse)
     }
   }
 
   if (!isApiResponse<T>(body)) {
-    throw new Error('Invalid API response')
+    throw new Error(bigScreenText.common.errors.invalidApiResponse)
   }
 
   if (!body.success) {
@@ -132,7 +133,7 @@ export const bigScreenApi = {
     return requestJson<DashboardRecord>(`/api/big-screens/${id}/publish`, {
       ...init,
       method: 'POST',
-      body: JSON.stringify({ publishNote: 'Published from designer' }),
+      body: JSON.stringify({ publishNote: bigScreenText.publishing.designerNote }),
     })
   },
   copyDashboard(id: string, init?: RequestInit) {

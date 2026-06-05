@@ -1,5 +1,6 @@
 import type { DashboardComponent } from '@analytics/shared'
 import { describe, expect, test } from 'vitest'
+import { bigScreenText } from '../i18n/zh-CN'
 import { createDefaultDashboardSchema } from '../schema/defaults'
 import { clampLayout, clampZoom, createDesignerComponent, parseBoundedNumber } from './designerLayout'
 
@@ -32,7 +33,7 @@ describe('designerLayout', () => {
     const component = createDesignerComponent('text', schema)
 
     expect(component.type).toBe('text')
-    expect(component.name).toBe('Text')
+    expect(component.name).toBe(bigScreenText.components.names.text)
     expect(component.layout).toMatchObject({ x: 100, y: 100, zIndex: 2, visible: true })
   })
 

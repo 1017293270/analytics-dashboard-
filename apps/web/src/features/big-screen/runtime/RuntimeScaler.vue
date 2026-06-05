@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { CSSProperties, PropType } from 'vue'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { bigScreenText } from '../i18n/zh-CN'
 import { calculateRuntimeScale, type RuntimeScaleMode } from './runtime-scale'
 
 type StyleValue = string | CSSProperties
@@ -73,7 +74,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="runtime-scaler" aria-label="Dashboard runtime">
+  <section class="runtime-scaler" :aria-label="bigScreenText.runtime.label">
     <div class="runtime-scaler__stage" :style="stageStyle">
       <div class="runtime-scaler__canvas" :style="canvasStyle">
         <slot />

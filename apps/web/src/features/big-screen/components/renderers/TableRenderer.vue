@@ -2,6 +2,8 @@
 import type { DashboardComponent } from '@analytics/shared'
 import { computed, type PropType } from 'vue'
 import type { ComponentData, TableData } from '../../data-adapters/dataAdapter.types'
+import { bigScreenText } from '../../i18n/zh-CN'
+import { buildBackdropBlurStyle } from './rendererStyle.helpers'
 
 const props = defineProps({
   component: { type: Object as PropType<DashboardComponent>, required: true },
@@ -27,6 +29,7 @@ const panelStyle = computed(() => ({
   backgroundColor: styleString('backgroundColor', 'rgba(15, 23, 42, 0.86)'),
   color: styleString('fontColor', '#e2e8f0'),
   '--table-accent': styleString('accentColor', '#38bdf8'),
+  ...buildBackdropBlurStyle(props.component.style),
 }))
 </script>
 
@@ -38,8 +41,8 @@ const panelStyle = computed(() => ({
       <span class="table-renderer__skeleton" />
       <span class="table-renderer__skeleton table-renderer__skeleton--short" />
     </div>
-    <p v-else-if="error" class="table-renderer__state">Table unavailable: {{ error }}</p>
-    <p v-else-if="!table || !hasRows" class="table-renderer__state">No table rows</p>
+    <p v-else-if="error" class="table-renderer__state">{{ bigScreenText.renderers.tableUnavailable(error) }}</p>
+    <p v-else-if="!table || !hasRows" class="table-renderer__state">{{ bigScreenText.renderers.tableEmpty }}</p>
     <div v-else class="table-renderer__scroll">
       <table>
         <thead>

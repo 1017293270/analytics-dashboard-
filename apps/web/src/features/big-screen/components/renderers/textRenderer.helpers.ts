@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'vue'
+import { buildBackdropBlurStyle } from './rendererStyle.helpers'
 
 const MIN_FONT_SIZE = 10
 const MAX_FONT_SIZE = 96
@@ -40,5 +41,6 @@ export function buildTextStyle(style: Record<string, unknown>): CSSProperties {
     color,
     fontSize: `${normalizeFontSize(style.fontSize)}px`,
     fontWeight: normalizeFontWeight(style.fontWeight),
+    ...buildBackdropBlurStyle(style),
   }
 }

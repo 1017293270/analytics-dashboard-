@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { DashboardComponent } from '@analytics/shared'
 import { computed, type PropType } from 'vue'
+import { buildBackdropBlurStyle } from './rendererStyle.helpers'
 
 const props = defineProps({
   component: { type: Object as PropType<DashboardComponent>, required: true },
@@ -15,6 +16,7 @@ const decorationStyle = computed(() => ({
   backgroundColor: styleString('backgroundColor', 'rgba(8, 13, 28, 0.32)'),
   borderColor: styleString('borderColor', 'rgba(56, 189, 248, 0.5)'),
   '--decoration-accent': styleString('accentColor', '#38bdf8'),
+  ...buildBackdropBlurStyle(props.component.style),
 }))
 </script>
 

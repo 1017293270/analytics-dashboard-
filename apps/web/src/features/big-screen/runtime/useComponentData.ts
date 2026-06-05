@@ -2,6 +2,7 @@ import type { DashboardComponent, DashboardSchema } from '@analytics/shared'
 import { computed, onBeforeUnmount, ref, toValue, watch, type MaybeRefOrGetter } from 'vue'
 import { mockDataAdapter } from '../data-adapters/mockDataAdapter'
 import type { ComponentData, DataLoadState } from '../data-adapters/dataAdapter.types'
+import { bigScreenText } from '../i18n/zh-CN'
 
 function stableSerialize(value: unknown): unknown {
   if (Array.isArray(value)) {
@@ -82,7 +83,7 @@ export function useComponentData(
       loadState.value = {
         status: 'error',
         data: previousData,
-        error: `Unsupported data source: ${currentBinding.sourceType}`,
+        error: bigScreenText.common.errors.unsupportedDataSource(currentBinding.sourceType),
       }
       return
     }
@@ -99,7 +100,7 @@ export function useComponentData(
     } catch (errorValue) {
       if (serial !== requestSerial) return
 
-      const message = errorValue instanceof Error ? errorValue.message : 'Data unavailable'
+      const message = errorValue instanceof Error ? errorValue.message : bigScreenText.renderers.dataUnavailable
       loadState.value = { status: 'error', data: previousData, error: message }
     }
   }

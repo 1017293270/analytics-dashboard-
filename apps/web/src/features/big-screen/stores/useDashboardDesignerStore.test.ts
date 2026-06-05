@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { bigScreenApi, type DashboardRecord } from '../api/bigScreenApi'
 import { aiOperationsPreset } from '../presets/presets'
 import { createDefaultDashboardSchema } from '../schema/defaults'
+import { bigScreenText } from '../i18n/zh-CN'
 import { useDashboardDesignerStore } from './useDashboardDesignerStore'
 import { useDashboardHistoryStore } from './useDashboardHistoryStore'
 
@@ -589,7 +590,7 @@ describe('useDashboardDesignerStore', () => {
 
     await store.saveDraft()
 
-    expect(store.error).toBe('Dashboard revision missing. Reload before saving.')
+    expect(store.error).toBe(bigScreenText.common.errors.missingDashboardRevision)
     expect(store.hasUnsavedChanges).toBe(true)
     expect(store.isSaving).toBe(false)
   })
@@ -761,7 +762,7 @@ describe('useDashboardDesignerStore', () => {
 
     await store.publish()
 
-    expect(store.error).toBe('Dashboard revision missing. Reload before saving.')
+    expect(store.error).toBe(bigScreenText.common.errors.missingDashboardRevision)
     expect(store.dashboardStatus).toBe('draft')
     expect(store.isSaving).toBe(false)
     expect(store.activeSaveIntent).toBeNull()

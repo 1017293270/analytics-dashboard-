@@ -2,6 +2,8 @@
 import type { DashboardComponent } from '@analytics/shared'
 import { computed, type PropType } from 'vue'
 import type { ComponentData, MetricData } from '../../data-adapters/dataAdapter.types'
+import { bigScreenText } from '../../i18n/zh-CN'
+import { buildBackdropBlurStyle } from './rendererStyle.helpers'
 
 const props = defineProps({
   component: { type: Object as PropType<DashboardComponent>, required: true },
@@ -47,6 +49,7 @@ const cardStyle = computed(() => ({
   backgroundColor: styleString('backgroundColor', 'rgba(15, 23, 42, 0.86)'),
   color: styleString('fontColor', '#e5f0ff'),
   '--metric-accent': styleString('accentColor', '#38bdf8'),
+  ...buildBackdropBlurStyle(props.component.style),
 }))
 </script>
 
@@ -58,7 +61,7 @@ const cardStyle = computed(() => ({
       <div class="metric-card-renderer__skeleton metric-card-renderer__skeleton--trend" />
     </template>
     <template v-else-if="error">
-      <p class="metric-card-renderer__label">Data unavailable</p>
+      <p class="metric-card-renderer__label">{{ bigScreenText.renderers.dataUnavailable }}</p>
       <p class="metric-card-renderer__state">{{ error }}</p>
     </template>
     <template v-else-if="metric">
@@ -68,7 +71,7 @@ const cardStyle = computed(() => ({
     </template>
     <template v-else>
       <p class="metric-card-renderer__label">{{ title }}</p>
-      <p class="metric-card-renderer__state">No metric data</p>
+      <p class="metric-card-renderer__state">{{ bigScreenText.renderers.metricEmpty }}</p>
     </template>
   </section>
 </template>

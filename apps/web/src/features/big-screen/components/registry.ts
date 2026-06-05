@@ -1,6 +1,7 @@
 import type { ComponentType, DashboardComponent } from '@analytics/shared'
 import { nanoid } from 'nanoid'
 import type { Component } from 'vue'
+import { bigScreenText } from '../i18n/zh-CN'
 import DecorationRenderer from './renderers/DecorationRenderer.vue'
 import EChartRenderer from './renderers/EChartRenderer.vue'
 import ImageRenderer from './renderers/ImageRenderer.vue'
@@ -25,9 +26,9 @@ export interface ComponentDefinition {
 export const componentRegistry: Record<ComponentType, ComponentDefinition> = {
   'metric-card': {
     type: 'metric-card',
-    title: 'Metric Card',
+    title: bigScreenText.components.names.metricCard,
     defaultLayout: { width: 320, height: 180 },
-    defaultProps: { title: 'Core Metric', valuePrefix: '', valueSuffix: '', precision: 0 },
+    defaultProps: { title: bigScreenText.components.defaults.coreMetric, valuePrefix: '', valueSuffix: '', precision: 0 },
     defaultStyle: {
       backgroundColor: 'rgba(15, 23, 42, 0.86)',
       fontColor: '#e5f0ff',
@@ -38,9 +39,9 @@ export const componentRegistry: Record<ComponentType, ComponentDefinition> = {
   },
   'line-chart': {
     type: 'line-chart',
-    title: 'Line Chart',
+    title: bigScreenText.components.names.lineChart,
     defaultLayout: { width: 560, height: 320 },
-    defaultProps: { title: 'Trend Overview', chartType: 'line' },
+    defaultProps: { title: bigScreenText.components.defaults.trendOverview, chartType: 'line', variant: 'line-smooth' },
     defaultStyle: {
       backgroundColor: 'rgba(15, 23, 42, 0.82)',
       fontColor: '#dbeafe',
@@ -49,11 +50,24 @@ export const componentRegistry: Record<ComponentType, ComponentDefinition> = {
     propertyGroups: ['basic', 'data', 'style', 'analysis'],
     renderer: EChartRenderer,
   },
+  'area-chart': {
+    type: 'area-chart',
+    title: bigScreenText.components.names.areaChart,
+    defaultLayout: { width: 620, height: 340 },
+    defaultProps: { title: bigScreenText.components.defaults.volumeTrend, chartType: 'area', variant: 'area-bold' },
+    defaultStyle: {
+      backgroundColor: 'rgba(15, 23, 42, 0.82)',
+      fontColor: '#dbeafe',
+      accentColor: '#2dd4bf',
+    },
+    propertyGroups: ['basic', 'data', 'style', 'analysis'],
+    renderer: EChartRenderer,
+  },
   'bar-chart': {
     type: 'bar-chart',
-    title: 'Bar Chart',
+    title: bigScreenText.components.names.barChart,
     defaultLayout: { width: 560, height: 320 },
-    defaultProps: { title: 'Category Breakdown', chartType: 'bar' },
+    defaultProps: { title: bigScreenText.components.defaults.categoryBreakdown, chartType: 'bar', variant: 'bar-vertical' },
     defaultStyle: {
       backgroundColor: 'rgba(15, 23, 42, 0.82)',
       fontColor: '#dbeafe',
@@ -64,9 +78,9 @@ export const componentRegistry: Record<ComponentType, ComponentDefinition> = {
   },
   'pie-chart': {
     type: 'pie-chart',
-    title: 'Pie Chart',
+    title: bigScreenText.components.names.pieChart,
     defaultLayout: { width: 420, height: 320 },
-    defaultProps: { title: 'Share of Work', chartType: 'pie' },
+    defaultProps: { title: bigScreenText.components.defaults.shareOfWork, chartType: 'pie', variant: 'pie-donut' },
     defaultStyle: {
       backgroundColor: 'rgba(15, 23, 42, 0.82)',
       fontColor: '#dbeafe',
@@ -75,11 +89,37 @@ export const componentRegistry: Record<ComponentType, ComponentDefinition> = {
     propertyGroups: ['basic', 'data', 'style', 'analysis'],
     renderer: EChartRenderer,
   },
+  'radar-chart': {
+    type: 'radar-chart',
+    title: bigScreenText.components.names.radarChart,
+    defaultLayout: { width: 500, height: 360 },
+    defaultProps: { title: bigScreenText.components.defaults.capabilityProfile, chartType: 'radar', variant: 'radar-filled' },
+    defaultStyle: {
+      backgroundColor: 'rgba(15, 23, 42, 0.82)',
+      fontColor: '#dbeafe',
+      accentColor: '#a78bfa',
+    },
+    propertyGroups: ['basic', 'data', 'style', 'analysis'],
+    renderer: EChartRenderer,
+  },
+  'funnel-chart': {
+    type: 'funnel-chart',
+    title: bigScreenText.components.names.funnelChart,
+    defaultLayout: { width: 500, height: 360 },
+    defaultProps: { title: bigScreenText.components.defaults.conversionFunnel, chartType: 'funnel', variant: 'funnel-standard' },
+    defaultStyle: {
+      backgroundColor: 'rgba(15, 23, 42, 0.82)',
+      fontColor: '#dbeafe',
+      accentColor: '#fb7185',
+    },
+    propertyGroups: ['basic', 'data', 'style', 'analysis'],
+    renderer: EChartRenderer,
+  },
   table: {
     type: 'table',
-    title: 'Data Table',
+    title: bigScreenText.components.names.dataTable,
     defaultLayout: { width: 620, height: 340 },
-    defaultProps: { title: 'Operational Queue' },
+    defaultProps: { title: bigScreenText.components.defaults.operationalQueue },
     defaultStyle: {
       backgroundColor: 'rgba(15, 23, 42, 0.86)',
       fontColor: '#e2e8f0',
@@ -90,9 +130,9 @@ export const componentRegistry: Record<ComponentType, ComponentDefinition> = {
   },
   text: {
     type: 'text',
-    title: 'Text',
+    title: bigScreenText.components.names.text,
     defaultLayout: { width: 360, height: 120 },
-    defaultProps: { text: 'AI Operations Command Center' },
+    defaultProps: { text: bigScreenText.components.defaults.textBlock },
     defaultStyle: {
       backgroundColor: 'transparent',
       fontColor: '#f8fafc',
@@ -104,7 +144,7 @@ export const componentRegistry: Record<ComponentType, ComponentDefinition> = {
   },
   image: {
     type: 'image',
-    title: 'Image',
+    title: bigScreenText.components.names.image,
     defaultLayout: { width: 360, height: 220 },
     defaultProps: { src: '', objectFit: 'cover' },
     defaultStyle: {
@@ -116,7 +156,7 @@ export const componentRegistry: Record<ComponentType, ComponentDefinition> = {
   },
   decoration: {
     type: 'decoration',
-    title: 'Decoration',
+    title: bigScreenText.components.names.decoration,
     defaultLayout: { width: 420, height: 120 },
     defaultProps: { variant: 'frame' },
     defaultStyle: {

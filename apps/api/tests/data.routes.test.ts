@@ -19,6 +19,37 @@ describe('mock data routes', () => {
     expect(response.body.data.rows.length).toBeGreaterThan(0)
   })
 
+  test('returns scenario-specific category and table mock data', async () => {
+    const app = createApp()
+
+    const categoryResponse = await request(app)
+      .post('/api/big-screens/data/query')
+      .send({
+        sourceType: 'mock',
+        query: { dimensions: ['category'], metrics: ['pipeline_stage'] },
+      })
+      .expect(200)
+
+    expect(categoryResponse.body.data).toMatchObject({
+      kind: 'category',
+      rows: expect.arrayContaining([expect.objectContaining({ category: 'Qualified' })]),
+    })
+
+    const tableResponse = await request(app)
+      .post('/api/big-screens/data/query')
+      .send({
+        sourceType: 'mock',
+        query: { dimensions: ['table'], metrics: ['account_health'], limit: 2 },
+      })
+      .expect(200)
+
+    expect(tableResponse.body.data).toMatchObject({
+      kind: 'table',
+      columns: ['account', 'arr', 'risk'],
+    })
+    expect(tableResponse.body.data.rows).toHaveLength(2)
+  })
+
   test('rejects malformed data query with stable fail shape', async () => {
     const app = createApp()
 

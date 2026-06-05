@@ -1,4 +1,5 @@
 import { requestJson } from '../api/bigScreenApi'
+import { bigScreenText } from '../i18n/zh-CN'
 import { isComponentData, type DataAdapter } from './dataAdapter.types'
 
 export const mockDataAdapter: DataAdapter = {
@@ -12,7 +13,7 @@ export const mockDataAdapter: DataAdapter = {
     })
 
     if (!isComponentData(data)) {
-      throw new Error('Invalid component data')
+      throw new Error(bigScreenText.common.errors.invalidComponentData)
     }
 
     return data
