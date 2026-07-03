@@ -70,6 +70,16 @@ Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif
 
 Add new tokens only when a value is reused across at least two smart education surfaces. Otherwise keep color values local to the component.
 
+## Component Library Rules
+
+New management UI must use Element Plus as the standard component library. Use Element Plus for menus, buttons, forms, filters, tables, tags, badges, cards, statistics, progress, dropdowns, dialogs, drawers, popovers, alerts, and empty states. Use `@element-plus/icons-vue` for icons.
+
+Native semantic elements are allowed for page landmarks and text structure, including `main`, `section`, `header`, `nav`, `h1`, `h2`, `p`, and `span`. Custom CSS is allowed for layout shells, spacing, role-aware surfaces, dark canvas areas, responsive behavior, and existing big-screen renderer internals.
+
+Do not hand-roll custom button, input, select, table, menu, dropdown, dialog, drawer, tag, badge, or tooltip components for new management pages when Element Plus provides the behavior.
+
+Element Plus theming must be bridged to the existing project tokens in `apps/web/src/styles/element-theme.css`. The visual result must still follow the smart education rules in this document: compact, calm, table-first, 8px radius or less, no marketing hero, no decorative gradient orbs, and no nested cards.
+
 ## Color Rules
 
 Primary colors:
