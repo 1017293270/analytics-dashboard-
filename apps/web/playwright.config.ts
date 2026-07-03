@@ -9,7 +9,7 @@ export default defineConfig({
   testDir: './e2e',
   reporter: [['html', { open: 'never' }]],
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: 'http://localhost:5174',
     trace: 'on-first-retry',
   },
   webServer: [
@@ -22,7 +22,7 @@ export default defineConfig({
     },
     {
       command: 'npm --workspace apps/web run dev',
-      url: 'http://localhost:5173',
+      url: 'http://localhost:5174',
       reuseExistingServer,
       timeout: 120_000,
       cwd: workspaceRoot,

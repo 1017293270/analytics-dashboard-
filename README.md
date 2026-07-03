@@ -15,7 +15,7 @@ npm --workspace apps/api run prisma:migrate
 npm run dev
 ```
 
-Web: http://localhost:5173
+Web: http://localhost:5174
 
 API health: http://localhost:4000/api/health
 
