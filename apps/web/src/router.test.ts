@@ -27,17 +27,26 @@ function createTestRouter() {
 describe('router guard', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
-    vi.clearAllMocks()
+    vi.resetAllMocks()
+    vi.mocked(authApi.getCurrentUser).mockRejectedValue(new Error('Authentication is required'))
   })
 
-  test('redirects anonymous users from protected routes to login', async () => {
-    vi.mocked(authApi.getCurrentUser).mockRejectedValue(new Error('Authentication is required'))
+  test('redirects anonymous users from protected shell routes to login', async () => {
     const router = createTestRouter()
 
-    await router.push('/big-screens')
+    await router.push('/overview')
 
-    expect(router.currentRoute.value.fullPath).toBe('/login?redirect=/big-screens')
+    expect(router.currentRoute.value.fullPath).toBe('/login?redirect=/overview')
     expect(authApi.getCurrentUser).toHaveBeenCalledTimes(1)
+  })
+
+  test('redirects authenticated users from root to overview', async () => {
+    vi.mocked(authApi.getCurrentUser).mockResolvedValue(adminUser)
+    const router = createTestRouter()
+
+    await router.push('/')
+
+    expect(router.currentRoute.value.fullPath).toBe('/overview')
   })
 
   test('redirects authenticated users away from the login route', async () => {
@@ -46,11 +55,25 @@ describe('router guard', () => {
 
     await router.push('/login')
 
-    expect(router.currentRoute.value.fullPath).toBe('/big-screens')
+    expect(router.currentRoute.value.fullPath).toBe('/overview')
   })
 
-  test('keeps share routes public without loading the current user', async () => {
+  test('keeps legacy big-screen management routes as workbench redirects', async () => {
+    vi.mocked(authApi.getCurrentUser).mockResolvedValue(adminUser)
     const router = createTestRouter()
+
+    await router.push('/big-screens')
+    expect(router.currentRoute.value.fullPath).toBe('/workbenches')
+
+    await router.push('/big-screens/dashboard-1')
+    expect(router.currentRoute.value.fullPath).toBe('/workbenches/dashboard-1')
+  })
+
+  test('keeps share and runtime presentation routes outside shell authorization loading', async () => {
+    const router = createTestRouter()
+
+    await router.push('/runtime/screen-1')
+    expect(router.currentRoute.value.fullPath).toBe('/runtime/screen-1')
 
     await router.push('/share/token-1')
 
@@ -59,13 +82,12 @@ describe('router guard', () => {
   })
 
   test('loads the current user once for repeated protected navigations', async () => {
-    vi.mocked(authApi.getCurrentUser).mockRejectedValue(new Error('Authentication is required'))
     const router = createTestRouter()
 
-    await router.push('/big-screens')
-    await router.push('/runtime/first')
+    await router.push('/overview')
+    await router.push('/workbenches')
 
     expect(authApi.getCurrentUser).toHaveBeenCalledTimes(1)
-    expect(router.currentRoute.value.fullPath).toBe('/login?redirect=/runtime/first')
+    expect(router.currentRoute.value.fullPath).toBe('/login?redirect=/workbenches')
   })
 })
