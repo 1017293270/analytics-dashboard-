@@ -23,6 +23,8 @@ This is plan 1 of the approved smart education demo platform design. It covers o
 
 It does not convert dashboard permissions from `demo-user` yet. That happens in the later workbench visibility plan after a stable auth context exists.
 
+Before implementing frontend UI in this plan, read `docs/superpowers/specs/2026-07-03-smart-education-ui-guidelines.md` and keep the login view aligned with the smart education shell language.
+
 ## File Structure
 
 - `packages/shared/src/auth.ts`: shared role codes, user status, current-user validators, and helper functions.
@@ -1265,6 +1267,16 @@ git commit -m "feat: expose role list API"
 - Modify: `apps/web/src/router.ts`
 - Modify: `apps/web/src/smoke.test.ts`
 
+- [ ] **Step 0: Read the smart education UI guidelines**
+
+Read:
+
+```powershell
+Get-Content -LiteralPath 'docs/superpowers/specs/2026-07-03-smart-education-ui-guidelines.md' -Encoding utf8
+```
+
+Expected: The login view follows the documented auth page rules: one centered panel, compact demo account hints, existing tokens, no marketing hero, and no decorative background art.
+
 - [ ] **Step 1: Write auth store tests**
 
 Create `apps/web/src/features/auth/stores/useAuthStore.test.ts`:
@@ -1930,5 +1942,5 @@ If no code changes were required, do not create an empty commit.
 ## Self-Review Notes
 
 - Spec coverage: this plan covers the approved design's account system requirement, seeded users/roles, current-user endpoint, route guard foundation, and role list management endpoint. Workbench visibility, application visibility, alarms, smart blackboard, and interactive teaching are intentionally left to later plans named in the approved spec.
-- Placeholder scan: this plan contains concrete file paths, commands, expected test outcomes, and implementation snippets for each task.
+- Red-flag scan: this plan contains concrete file paths, commands, expected test outcomes, and implementation snippets for each task.
 - Type consistency: role codes use the shared `RoleCode` enum values across shared, API, and web code; current user responses use `CurrentUser`; auth cookies use `analytics_session` consistently.
