@@ -89,6 +89,7 @@ describe('OverviewView', () => {
 
   test('marks completed alarm and application slices as demo-ready', () => {
     expect(Object.fromEntries(demoLaunchItems.map((item) => [item.label, item.status]))).toMatchObject({
+      数据看板: '可演示',
       应用中心: '可演示',
       告警管理: '可演示',
     })

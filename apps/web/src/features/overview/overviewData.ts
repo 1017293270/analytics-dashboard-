@@ -102,7 +102,7 @@ export const systemHealth = [
 
 export const demoLaunchItems = [
   { label: '工作台配置', description: '拖拽配置角色工作台', path: '/workbenches', status: '可演示' },
-  { label: '数据看板', description: '教育治理与学生成长', path: '/data-dashboards', status: '待完善' },
+  { label: '数据看板', description: '教育治理与学生成长', path: '/data-dashboards', status: '可演示' },
   { label: '应用中心', description: '网页端与移动端应用', path: '/applications', status: '可演示' },
   { label: '告警管理', description: '设备事件筛选与处置', path: '/alarms', status: '可演示' },
   { label: '智慧黑板', description: '课堂活动智能生成', path: '/blackboard', status: '待开发' },
@@ -129,5 +129,6 @@ export const demoReadiness = [
   { label: '账号体系', status: '已完成', detail: '管理员与角色账号可登录' },
   { label: '管理 Shell', status: '已完成', detail: '侧边栏、顶部栏、角色菜单已接入' },
   { label: '工作台配置', status: '可演示', detail: '复用大屏拖拽编辑器' },
+  { label: '数据看板', status: '可演示', detail: '六类看板和第三方嵌入已接入' },
   { label: '告警与应用', status: '可演示', detail: '列表、筛选、详情和应用管理已接入' },
 ] as const
