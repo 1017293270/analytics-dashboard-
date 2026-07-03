@@ -77,4 +77,22 @@ describe('TopBar', () => {
     expect(auth.user).toBeNull()
     expect(pushSpy).toHaveBeenCalledWith('/login')
   })
+
+  test('returns to the login route when the logout request fails', async () => {
+    vi.mocked(authApi.logout).mockRejectedValueOnce(new Error('network offline'))
+    const router = await createTestRouter()
+    const pushSpy = vi.spyOn(router, 'push')
+    const auth = setAdminUser()
+
+    const wrapper = mount(TopBar, {
+      props: { schoolName: '未来实验学校' },
+      global: { plugins: [ElementPlus, router] },
+    })
+
+    wrapper.findComponent({ name: 'ElDropdown' }).vm.$emit('command', 'logout')
+    await flushPromises()
+
+    expect(auth.user).toBeNull()
+    expect(pushSpy).toHaveBeenCalledWith('/login')
+  })
 })

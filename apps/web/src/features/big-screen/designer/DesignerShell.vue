@@ -141,8 +141,8 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   width: 100%;
-  height: 100vh;
-  min-height: 640px;
+  height: 100%;
+  min-height: 0;
   overflow: hidden;
   color: var(--color-text);
 }

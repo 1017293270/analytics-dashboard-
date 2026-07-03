@@ -5,7 +5,11 @@ const shellChildren: RouteRecordRaw[] = [
   { path: '', redirect: '/overview' },
   { path: 'overview', component: () => import('./features/overview/OverviewView.vue') },
   { path: 'workbenches', component: () => import('./features/big-screen/designer/DashboardList.vue') },
-  { path: 'workbenches/:id', component: () => import('./features/big-screen/designer/DesignerShell.vue') },
+  {
+    path: 'workbenches/:id',
+    component: () => import('./features/big-screen/designer/DesignerShell.vue'),
+    meta: { fullBleed: true },
+  },
   { path: 'data-dashboards', component: () => import('./features/overview/OverviewView.vue') },
   { path: 'applications', component: () => import('./features/overview/OverviewView.vue') },
   { path: 'alarms', component: () => import('./features/overview/OverviewView.vue') },

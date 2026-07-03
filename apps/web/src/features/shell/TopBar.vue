@@ -14,8 +14,13 @@ const auth = useAuthStore()
 const roleNames = computed(() => auth.user?.roles.map((role) => role.name).join(' / ') ?? '未登录')
 
 async function logout() {
-  await auth.logout()
-  await router.push('/login')
+  try {
+    await auth.logout()
+  } catch {
+    // The store clears local auth state in finally; keep the UI moving to login even if the request fails.
+  } finally {
+    await router.push('/login')
+  }
 }
 
 async function handleUserCommand(command: string) {

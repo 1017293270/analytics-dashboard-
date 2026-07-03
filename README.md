@@ -21,11 +21,15 @@ API health: http://localhost:4000/api/health
 
 ## Core Flows
 
-- Dashboard library: `/big-screens`
-- New designer draft: `/big-screens/new`
-- Existing designer: `/big-screens/:id`
+- Login: `/login`
+- Smart education overview: `/overview`
+- Workbench configuration: `/workbenches`
+- New workbench draft: `/workbenches/new`
+- Existing workbench designer: `/workbenches/:id`
 - Published runtime: `/runtime/:id`
 - Public share runtime: `/share/:token`
+
+Legacy management routes under `/big-screens` redirect to `/workbenches` for compatibility with the original big-screen designer slice.
 
 The first version uses mock data only. Real AI question, dataset, and SQL data adapters are reserved extension points and must add tenant-aware permission checks before querying source data.
 

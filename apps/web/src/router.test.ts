@@ -69,6 +69,15 @@ describe('router guard', () => {
     expect(router.currentRoute.value.fullPath).toBe('/workbenches/dashboard-1')
   })
 
+  test('marks workbench editor routes as full-bleed shell content', async () => {
+    vi.mocked(authApi.getCurrentUser).mockResolvedValue(adminUser)
+    const router = createTestRouter()
+
+    await router.push('/workbenches/dashboard-1')
+
+    expect(router.currentRoute.value.meta.fullBleed).toBe(true)
+  })
+
   test('keeps share and runtime presentation routes outside shell authorization loading', async () => {
     const router = createTestRouter()
 

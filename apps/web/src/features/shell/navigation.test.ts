@@ -1,6 +1,6 @@
 import type { CurrentUser } from '@analytics/shared'
 import { describe, expect, test } from 'vitest'
-import { getVisibleShellNavItems, shellNavItems } from './navigation'
+import { getActiveShellNavPath, getVisibleShellNavItems, shellNavItems } from './navigation'
 
 const adminUser: CurrentUser = {
   id: 'user-system-admin',
@@ -55,5 +55,11 @@ describe('shell navigation', () => {
       '/blackboard',
       '/teaching',
     ])
+  })
+
+  test('resolves nested management routes to their parent sidebar item', () => {
+    expect(getActiveShellNavPath(shellNavItems, '/workbenches/dashboard-1')).toBe('/workbenches')
+    expect(getActiveShellNavPath(shellNavItems, '/workbenches')).toBe('/workbenches')
+    expect(getActiveShellNavPath(shellNavItems, '/unknown')).toBe('/unknown')
   })
 })

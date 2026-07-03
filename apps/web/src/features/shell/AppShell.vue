@@ -2,13 +2,15 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '../auth/stores/useAuthStore'
-import { getVisibleShellNavItems } from './navigation'
+import { getActiveShellNavPath, getVisibleShellNavItems } from './navigation'
 import SidebarNav from './SidebarNav.vue'
 import TopBar from './TopBar.vue'
 
 const route = useRoute()
 const auth = useAuthStore()
 const navItems = computed(() => getVisibleShellNavItems(auth.user))
+const activeNavPath = computed(() => getActiveShellNavPath(navItems.value, route.path))
+const isFullBleed = computed(() => route.meta.fullBleed === true)
 </script>
 
 <template>
@@ -19,7 +21,7 @@ const navItems = computed(() => getVisibleShellNavItems(auth.user))
         <span>Smart Education Console</span>
       </div>
       <ElScrollbar>
-        <SidebarNav :nav-items="navItems" :active-path="route.path" />
+        <SidebarNav :nav-items="navItems" :active-path="activeNavPath" />
       </ElScrollbar>
     </ElAside>
 
@@ -27,7 +29,7 @@ const navItems = computed(() => getVisibleShellNavItems(auth.user))
       <ElHeader height="60px" class="app-shell__header">
         <TopBar school-name="未来实验学校" />
       </ElHeader>
-      <ElMain class="app-shell__main">
+      <ElMain class="app-shell__main" :class="{ 'app-shell__main--full-bleed': isFullBleed }">
         <RouterView />
       </ElMain>
     </ElContainer>
@@ -79,5 +81,11 @@ const navItems = computed(() => getVisibleShellNavItems(auth.user))
   min-height: 0;
   padding: 20px;
   overflow: auto;
+}
+
+.app-shell__main--full-bleed {
+  display: grid;
+  padding: 0;
+  overflow: hidden;
 }
 </style>

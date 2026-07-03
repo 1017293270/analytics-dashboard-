@@ -102,3 +102,11 @@ export function getVisibleShellNavItems(user: CurrentUser | null): ShellNavItem[
     (item) => item.allowedRoles === 'all' || item.allowedRoles.some((roleCode) => roleCodes.has(roleCode)),
   )
 }
+
+export function getActiveShellNavPath(navItems: ShellNavItem[], currentPath: string): string {
+  const matchingItem = [...navItems]
+    .sort((first, second) => second.path.length - first.path.length)
+    .find((item) => currentPath === item.path || currentPath.startsWith(`${item.path}/`))
+
+  return matchingItem?.path ?? currentPath
+}
