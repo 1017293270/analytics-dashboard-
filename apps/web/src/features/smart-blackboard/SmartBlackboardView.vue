@@ -33,20 +33,17 @@ function assignDraft(nextDraft: BlackboardActivityDraft) {
   Object.assign(draft, nextDraft)
 }
 
+function buildDraftForType(type: BlackboardActivityType) {
+  return parseBlackboardActivity({
+    sourceText: selectedSourceText.value,
+    requestedType: type,
+    removeFillers: removeFillers.value,
+  })
+}
+
 function setType(type: BlackboardActivityType) {
   requestedType.value = type
-  draft.type = type
-
-  if (type === 'judgement') {
-    draft.options = [
-      { id: 'option-true', label: 'A', text: '正确' },
-      { id: 'option-false', label: 'B', text: '错误' },
-    ]
-    if (!['option-true', 'option-false'].includes(draft.correctOptionId)) {
-      draft.correctOptionId = 'option-true'
-      draft.judgementAnswer = true
-    }
-  }
+  assignDraft(buildDraftForType(type))
 }
 
 function parseActivity() {
@@ -56,13 +53,7 @@ function parseActivity() {
     return
   }
 
-  assignDraft(
-    parseBlackboardActivity({
-      sourceText: selectedSourceText.value,
-      requestedType: requestedType.value,
-      removeFillers: removeFillers.value,
-    }),
-  )
+  assignDraft(buildDraftForType(requestedType.value))
 }
 
 function updateCorrectOption(optionId: string | number | boolean) {
@@ -126,6 +117,7 @@ function removeOption(optionId: string) {
             </template>
             <ElInput
               v-model="sourceText"
+              aria-label="课堂文本"
               data-testid="blackboard-source-input"
               type="textarea"
               :rows="9"
@@ -211,7 +203,7 @@ function removeOption(optionId: string) {
                   :data-option-id="option.id"
                 >
                   <ElRadio v-model="draft.correctOptionId" :value="option.id">{{ option.label }}</ElRadio>
-                  <ElInput v-model="option.text" />
+                  <ElInput v-model="option.text" :aria-label="`选项 ${option.label} 内容`" />
                   <ElButton
                     :data-testid="`blackboard-remove-${option.id}`"
                     text

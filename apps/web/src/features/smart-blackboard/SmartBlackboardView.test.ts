@@ -75,6 +75,36 @@ describe('SmartBlackboardView', () => {
     expect(wrapper.get('[data-testid="blackboard-preview"]').text()).toContain('错误')
   })
 
+  test('rebuilds options when switching from judgement back to choice', async () => {
+    const wrapper = await mountBlackboardView()
+
+    await wrapper.get('[data-testid="blackboard-type-judgement"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[data-testid="blackboard-preview"]').text()).toContain('正确')
+    expect(wrapper.get('[data-testid="blackboard-preview"]').text()).toContain('错误')
+
+    await wrapper.get('[data-testid="blackboard-type-choice"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="blackboard-preview"]').text()).toContain('指南针')
+    expect(wrapper.get('[data-testid="blackboard-preview"]').text()).not.toContain('错误')
+  })
+
+  test('rebuilds options when switching from judgement back to cloze', async () => {
+    const wrapper = await mountBlackboardView()
+
+    await wrapper.get('[data-testid="blackboard-type-judgement"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[data-testid="blackboard-preview"]').text()).toContain('错误')
+
+    await wrapper.get('[data-testid="blackboard-type-cloze"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="blackboard-preview"]').text()).toContain('指南针')
+    expect(wrapper.get('[data-testid="blackboard-preview"]').text()).toContain('____')
+    expect(wrapper.get('[data-testid="blackboard-preview"]').text()).not.toContain('错误')
+  })
+
   test('updates preview when the teacher edits the generated stem', async () => {
     const wrapper = await mountBlackboardView()
 
