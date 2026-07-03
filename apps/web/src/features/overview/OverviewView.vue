@@ -155,7 +155,7 @@ function refreshOverview() {
       <ElCard shadow="never" class="overview-view__panel overview-view__panel--alarms">
         <template #header>
           <div class="overview-view__panel-header">
-            <div>
+            <div class="overview-view__panel-title">
               <strong>告警优先级队列</strong>
               <p>按处置优先级展示当前需要关注的设备事件。</p>
             </div>
@@ -189,14 +189,14 @@ function refreshOverview() {
         </template>
 
         <ElTable v-if="filteredAlarms.length > 0" :data="filteredAlarms" size="small" class="overview-view__table">
-          <ElTableColumn label="级别" width="72">
+          <ElTableColumn label="级别" width="60">
             <template #default="{ row }">
               <ElTag :type="getAlarmSeverityType(row.severity)" size="small" effect="plain">
                 {{ row.severity }}
               </ElTag>
             </template>
           </ElTableColumn>
-          <ElTableColumn label="设备" min-width="170">
+          <ElTableColumn label="设备" min-width="150">
             <template #default="{ row }">
               <div class="overview-view__device-cell">
                 <strong>{{ row.deviceId }}</strong>
@@ -204,18 +204,18 @@ function refreshOverview() {
               </div>
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="location" label="发生位置" min-width="140" />
-          <ElTableColumn prop="owner" label="责任人" width="86" />
-          <ElTableColumn prop="trigger" label="触发方式" min-width="140" />
-          <ElTableColumn label="状态" width="94">
+          <ElTableColumn prop="location" label="发生位置" min-width="126" />
+          <ElTableColumn prop="owner" label="责任人" width="74" />
+          <ElTableColumn prop="trigger" label="触发方式" min-width="126" />
+          <ElTableColumn label="状态" width="86">
             <template #default="{ row }">
               <ElTag :type="getAlarmStatusType(row.status)" size="small" effect="plain">
                 {{ row.status }}
               </ElTag>
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="reportedAt" label="上报" width="76" />
-          <ElTableColumn label="操作" width="82" fixed="right">
+          <ElTableColumn prop="reportedAt" label="上报" width="64" />
+          <ElTableColumn label="操作" width="68">
             <ElButton link type="primary" size="small">查看</ElButton>
           </ElTableColumn>
         </ElTable>
@@ -233,7 +233,7 @@ function refreshOverview() {
       <ElCard shadow="never" class="overview-view__panel overview-view__panel--health">
         <template #header>
           <div class="overview-view__panel-header">
-            <div>
+            <div class="overview-view__panel-title">
               <strong>系统健康</strong>
               <p>核心服务状态与演示稳定性。</p>
             </div>
@@ -256,7 +256,7 @@ function refreshOverview() {
     <ElCard shadow="never" class="overview-view__panel">
       <template #header>
         <div class="overview-view__panel-header">
-          <div>
+          <div class="overview-view__panel-title">
             <strong>演示快捷入口</strong>
             <p>现场讲解时可从这里进入关键功能面。</p>
           </div>
@@ -280,7 +280,7 @@ function refreshOverview() {
       <ElCard shadow="never" class="overview-view__panel">
         <template #header>
           <div class="overview-view__panel-header">
-            <div>
+            <div class="overview-view__panel-title">
               <strong>数据看板覆盖</strong>
               <p>默认六类看板接入状态。</p>
             </div>
@@ -301,7 +301,7 @@ function refreshOverview() {
       <ElCard shadow="never" class="overview-view__panel">
         <template #header>
           <div class="overview-view__panel-header">
-            <div>
+            <div class="overview-view__panel-title">
               <strong>角色工作台发布</strong>
               <p>角色可见范围与发布状态。</p>
             </div>
@@ -323,7 +323,7 @@ function refreshOverview() {
       <ElCard shadow="never" class="overview-view__panel">
         <template #header>
           <div class="overview-view__panel-header">
-            <div>
+            <div class="overview-view__panel-title">
               <strong>演示准备进度</strong>
               <p>当前阶段可讲解能力。</p>
             </div>
@@ -445,6 +445,7 @@ function refreshOverview() {
 
 .overview-view__console-grid {
   display: grid;
+  align-items: start;
   grid-template-columns: minmax(0, 1.8fr) minmax(300px, 0.8fr);
   gap: 12px;
 }
@@ -474,7 +475,7 @@ function refreshOverview() {
   min-width: 0;
 }
 
-.overview-view__panel-header > div {
+.overview-view__panel-title {
   display: grid;
   gap: 4px;
   min-width: 0;
@@ -493,12 +494,7 @@ function refreshOverview() {
 }
 
 .overview-view__alarm-index {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
+  display: none;
 }
 
 .overview-view__health-list,
@@ -562,13 +558,13 @@ function refreshOverview() {
 
 .overview-view__launch-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
 .overview-view__launch-item {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 10px;
   min-width: 0;
@@ -642,12 +638,14 @@ function refreshOverview() {
 }
 
 @media (max-width: 1280px) {
-  .overview-view__launch-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .overview-view__bottom-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 1680px) {
+  .overview-view__launch-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 }
 
