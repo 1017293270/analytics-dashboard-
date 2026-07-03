@@ -82,7 +82,7 @@ function applyPresetFromSelect(event: Event) {
     <RouterLink
       class="designer-toolbar__icon-button designer-toolbar__back-link"
       data-testid="dashboard-library-link"
-      to="/big-screens"
+      to="/workbenches"
       :aria-label="bigScreenText.common.actions.backToLibrary"
       :title="bigScreenText.common.actions.backToLibrary"
     >

@@ -38,7 +38,7 @@ async function mountShellAt(path: string) {
   setActivePinia(pinia)
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: [{ path: '/big-screens/:id', component: DesignerShell }],
+    routes: [{ path: '/workbenches/:id', component: DesignerShell }],
   })
 
   await router.push(path)
@@ -74,9 +74,9 @@ describe('DesignerShell', () => {
 
       throw new Error(`Unexpected id ${id}`)
     })
-    const { router, store } = await mountShellAt('/big-screens/first')
+    const { router, store } = await mountShellAt('/workbenches/first')
 
-    await router.push('/big-screens/second')
+    await router.push('/workbenches/second')
     secondLoad.resolve(createRecord('second'))
     await flushPromises()
     expect(store.dashboardId).toBe('second')
@@ -102,7 +102,7 @@ describe('DesignerShell', () => {
     vi.spyOn(bigScreenApi, 'updateDashboard').mockResolvedValue(createRecord('first'))
     vi.spyOn(bigScreenApi, 'saveDraft').mockReturnValue(staleSave.promise)
 
-    const { router, store } = await mountShellAt('/big-screens/first')
+    const { router, store } = await mountShellAt('/workbenches/first')
 
     firstLoad.resolve(createRecord('first'))
     await flushPromises()
@@ -112,7 +112,7 @@ describe('DesignerShell', () => {
     await flushPromises()
     expect(store.isSaving).toBe(true)
 
-    await router.push('/big-screens/second')
+    await router.push('/workbenches/second')
     secondLoad.resolve(createRecord('second'))
     await flushPromises()
     expect(store.dashboardId).toBe('second')
@@ -129,7 +129,7 @@ describe('DesignerShell', () => {
   test('does not let an unmounted load clear a newer loading state', async () => {
     const load = createDeferred<DashboardRecord>()
     vi.spyOn(bigScreenApi, 'getDashboard').mockReturnValue(load.promise)
-    const { store, wrapper } = await mountShellAt('/big-screens/first')
+    const { store, wrapper } = await mountShellAt('/workbenches/first')
     expect(store.isLoading).toBe(true)
 
     wrapper.unmount()

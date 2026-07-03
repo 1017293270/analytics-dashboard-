@@ -78,12 +78,12 @@ async function mountList() {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/big-screens', component: DashboardList },
-      { path: '/big-screens/:id', component: { template: '<main />' } },
+      { path: '/workbenches', component: DashboardList },
+      { path: '/workbenches/:id', component: { template: '<main />' } },
     ],
   })
 
-  await router.push('/big-screens')
+  await router.push('/workbenches')
   await router.isReady()
   const wrapper = mount(DashboardList, { global: { plugins: [router] } })
 
@@ -145,7 +145,7 @@ describe('DashboardList', () => {
     await flushPromises()
 
     expect(bigScreenApi.createDashboard).toHaveBeenCalledWith({ name: bigScreenText.dashboardList.untitled })
-    expect(router.currentRoute.value.fullPath).toBe('/big-screens/created-1')
+    expect(router.currentRoute.value.fullPath).toBe('/workbenches/created-1')
   })
 
   test('archives after confirmation and removes the row from the list', async () => {

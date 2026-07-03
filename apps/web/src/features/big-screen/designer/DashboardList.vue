@@ -101,7 +101,7 @@ async function createDashboard() {
 
   try {
     const dashboard = await bigScreenApi.createDashboard({ name: bigScreenText.dashboardList.untitled })
-    await router.push(`/big-screens/${dashboard.id}`)
+    await router.push(`/workbenches/${dashboard.id}`)
   } catch (error) {
     errorMessage.value = getErrorMessage(error)
     listState.value = dashboards.value.length > 0 ? 'success' : 'error'
@@ -116,7 +116,7 @@ async function copyDashboard(dashboard: DashboardListItem) {
 
   try {
     const copied = await bigScreenApi.copyDashboard(dashboard.id)
-    await router.push(`/big-screens/${copied.id}`)
+    await router.push(`/workbenches/${copied.id}`)
   } catch (error) {
     errorMessage.value = getErrorMessage(error)
   } finally {
@@ -265,7 +265,7 @@ onMounted(() => {
           <template v-for="dashboard in dashboards" :key="dashboard.id">
             <tr>
               <td class="dashboard-list__name-cell">
-                <RouterLink class="dashboard-list__name-link" :to="`/big-screens/${dashboard.id}`">
+                <RouterLink class="dashboard-list__name-link" :to="`/workbenches/${dashboard.id}`">
                   {{ dashboard.name }}
                 </RouterLink>
                 <span v-if="dashboard.description" class="dashboard-list__description">
@@ -290,7 +290,7 @@ onMounted(() => {
               <td>{{ formatDate(dashboard.publishedAt) }}</td>
               <td>
                 <div class="dashboard-list__actions">
-                  <RouterLink class="dashboard-list__action" :to="`/big-screens/${dashboard.id}`">
+                  <RouterLink class="dashboard-list__action" :to="`/workbenches/${dashboard.id}`">
                     {{ bigScreenText.common.actions.edit }}
                   </RouterLink>
                   <a

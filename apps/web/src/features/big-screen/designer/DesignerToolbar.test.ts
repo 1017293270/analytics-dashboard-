@@ -33,7 +33,7 @@ describe('DesignerToolbar', () => {
     const { wrapper } = mountToolbar()
     const libraryLink = wrapper.get('[data-testid="dashboard-library-link"]')
 
-    expect(libraryLink.attributes('href')).toBe('/big-screens')
+    expect(libraryLink.attributes('href')).toBe('/workbenches')
     expect(libraryLink.attributes('aria-label')).toBe(bigScreenText.common.actions.backToLibrary)
     expect(libraryLink.attributes('title')).toBe(bigScreenText.common.actions.backToLibrary)
     expect(libraryLink.find('svg').exists()).toBe(true)
