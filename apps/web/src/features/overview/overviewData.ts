@@ -105,7 +105,7 @@ export const demoLaunchItems = [
   { label: '数据看板', description: '教育治理与学生成长', path: '/data-dashboards', status: '可演示' },
   { label: '应用中心', description: '网页端与移动端应用', path: '/applications', status: '可演示' },
   { label: '告警管理', description: '设备事件筛选与处置', path: '/alarms', status: '可演示' },
-  { label: '智慧黑板', description: '课堂活动智能生成', path: '/blackboard', status: '待开发' },
+  { label: '智慧黑板', description: '课堂活动智能生成', path: '/blackboard', status: '可演示' },
   { label: '互动教学', description: '远程白板与答题器', path: '/teaching', status: '待开发' },
 ] as const
 

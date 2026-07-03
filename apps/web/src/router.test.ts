@@ -2,6 +2,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { createMemoryHistory } from 'vue-router'
 import { authApi } from './features/auth/api/authApi'
+import SmartBlackboardView from './features/smart-blackboard/SmartBlackboardView.vue'
 import { createAppRouter } from './router'
 
 vi.mock('./features/auth/api/authApi', () => ({
@@ -76,6 +77,18 @@ describe('router guard', () => {
     await router.push('/workbenches/dashboard-1')
 
     expect(router.currentRoute.value.meta.fullBleed).toBe(true)
+  })
+
+  test('routes smart blackboard to the dedicated authoring page', async () => {
+    vi.mocked(authApi.getCurrentUser).mockResolvedValue(adminUser)
+    const router = createTestRouter()
+
+    await router.push('/blackboard')
+
+    const matchedComponent = router.currentRoute.value.matched.at(-1)?.components?.default
+
+    expect(router.currentRoute.value.fullPath).toBe('/blackboard')
+    expect(matchedComponent).toBe(SmartBlackboardView)
   })
 
   test('keeps share and runtime presentation routes outside shell authorization loading', async () => {

@@ -89,9 +89,11 @@ describe('OverviewView', () => {
 
   test('marks completed alarm and application slices as demo-ready', () => {
     expect(Object.fromEntries(demoLaunchItems.map((item) => [item.label, item.status]))).toMatchObject({
+      工作台配置: '可演示',
       数据看板: '可演示',
       应用中心: '可演示',
       告警管理: '可演示',
+      智慧黑板: '可演示',
     })
     expect(Object.fromEntries(dashboardCoverage.map((item) => [item.name, item.status]))).toMatchObject({
       教育治理: '已配置',
