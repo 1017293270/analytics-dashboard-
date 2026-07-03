@@ -1,0 +1,30 @@
+:root {
+  --el-color-primary: var(--color-accent);
+  --el-color-primary-light-9: var(--color-accent-soft);
+  --el-color-danger: var(--color-danger);
+  --el-color-success: var(--color-success);
+  --el-bg-color: var(--color-panel);
+  --el-bg-color-page: var(--color-page);
+  --el-bg-color-overlay: var(--color-panel);
+  --el-text-color-primary: var(--color-text);
+  --el-text-color-regular: var(--color-text);
+  --el-text-color-secondary: var(--color-text-muted);
+  --el-border-color: var(--color-border);
+  --el-border-color-light: var(--color-border);
+  --el-border-radius-base: 8px;
+  --el-border-radius-small: 6px;
+  --el-font-size-base: 14px;
+  --el-font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+}
+
+.el-card {
+  --el-card-border-radius: 8px;
+}
+
+.el-button {
+  font-weight: 800;
+}
+
+.el-menu {
+  border-right: 0;
+}
