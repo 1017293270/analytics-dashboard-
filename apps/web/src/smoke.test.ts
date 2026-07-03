@@ -7,6 +7,7 @@ describe('web smoke test', () => {
 
     expect(routePaths).toEqual(expect.arrayContaining([
       '/',
+      '/login',
       '/big-screens',
       '/big-screens/:id',
       '/runtime/:id',
