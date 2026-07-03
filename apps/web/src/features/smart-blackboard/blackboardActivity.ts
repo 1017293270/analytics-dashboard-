@@ -29,7 +29,9 @@ export const demoTranscriptText =
 
 const fillerWords = ['嗯', '啊', '呃', '这个', '那个', '然后', '就是', '对吧']
 const fallbackChoiceTexts = ['核心概念', '课堂观察', '拓展思考']
-const explicitAnswerPattern = /(?:正确答案|参考答案|答案)\s*[:：]\s*([A-Da-d]|正确|错误|对|错|[^。；;，,\n]+)/
+const explicitAnswerPattern = /(?:正确答案|参考答案|答案)\s*[:：]\s*([^。；;，,\n]+)/
+const letteredOptionPattern =
+  /([A-Da-d])[\.\、:：]\s*([\s\S]*?)(?=\s+[A-Da-d][\.\、:：]\s*|\s+(?:正确答案|参考答案|答案)\s*[:：]|$)/g
 const blankPattern = /____|_{2,}|（）|\(\s*\)|填空/
 
 export function normalizeSourceText(value: string): string {
@@ -47,7 +49,7 @@ export function extractExplicitAnswer(value: string): string {
 }
 
 export function extractLetteredOptions(value: string): BlackboardOption[] {
-  const matches = Array.from(value.matchAll(/([A-Da-d])[\.\、:：]\s*([^A-Da-d答案正确参考。；;\n]+)/g))
+  const matches = Array.from(value.matchAll(letteredOptionPattern))
 
   return matches
     .map((match) => ({
@@ -89,7 +91,7 @@ export function buildFallbackOptions(seedText: string, explicitAnswer = ''): Bla
 function stripOptionsAndAnswer(value: string): string {
   return normalizeSourceText(
     value
-      .replace(/[A-Da-d][\.\、:：]\s*[^A-Da-d答案正确参考。；;\n]+/g, '')
+      .replace(letteredOptionPattern, '')
       .replace(/(?:正确答案|参考答案|答案)\s*[:：]\s*([A-Da-d]|正确|错误|对|错|[^。；;，,\n]+)/g, ''),
   )
 }
@@ -212,11 +214,17 @@ export function parseBlackboardActivity(input: {
 
 export function validateBlackboardActivity(draft: BlackboardActivityDraft): string[] {
   const errors: string[] = []
+  const nonEmptyOptions = draft.options.filter((option) => option.text.trim())
+  const hasValidCorrectAnswer =
+    draft.type === 'judgement'
+      ? ['option-true', 'option-false'].includes(draft.correctOptionId)
+      : nonEmptyOptions.some((option) => option.id === draft.correctOptionId)
+
   if (!draft.stem.trim()) errors.push('题干不能为空')
-  if (draft.type !== 'judgement' && draft.options.filter((option) => option.text.trim()).length < 2) {
+  if (draft.type !== 'judgement' && nonEmptyOptions.length < 2) {
     errors.push('至少需要两个选项')
   }
-  if (!draft.correctOptionId) errors.push('请选择正确答案')
+  if (!hasValidCorrectAnswer) errors.push('请选择正确答案')
 
   return errors
 }

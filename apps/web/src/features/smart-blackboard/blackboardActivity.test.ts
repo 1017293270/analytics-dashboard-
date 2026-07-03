@@ -64,6 +64,17 @@ describe('blackboardActivity parser', () => {
     expect(draft.parseNotes).toContain('已识别显式答案：风能')
   })
 
+  test('keeps option text that contains letters or answer-related Chinese words', () => {
+    const draft = parseBlackboardActivity({
+      requestedType: 'choice',
+      removeFillers: false,
+      sourceText: '下列哪项是遗传物质？A. DNA B. 正确说法 C. 答案解析 答案：A',
+    })
+
+    expect(draft.options.map((option) => option.text)).toEqual(['DNA', '正确说法', '答案解析'])
+    expect(draft.correctOptionId).toBe('option-a')
+  })
+
   test('returns editable fallback output for ambiguous input', () => {
     const draft = parseBlackboardActivity({
       requestedType: 'choice',
@@ -89,5 +100,26 @@ describe('blackboardActivity parser', () => {
       '至少需要两个选项',
       '请选择正确答案',
     ])
+  })
+
+  test('rejects stale correct answers that no longer point to an editable option', () => {
+    const draft = parseBlackboardActivity({
+      requestedType: 'choice',
+      removeFillers: false,
+      sourceText: '下列哪一项属于可再生能源？A. 煤炭 B. 风能 C. 石油 正确答案：风能',
+    })
+
+    expect(validateBlackboardActivity({ ...draft, correctOptionId: 'missing-option' })).toContain('请选择正确答案')
+    expect(
+      validateBlackboardActivity({
+        ...draft,
+        type: 'judgement',
+        options: [
+          { id: 'option-true', label: 'A', text: '正确' },
+          { id: 'option-false', label: 'B', text: '错误' },
+        ],
+        correctOptionId: 'missing-option',
+      }),
+    ).toContain('请选择正确答案')
   })
 })
