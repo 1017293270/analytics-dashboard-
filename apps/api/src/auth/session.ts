@@ -1,3 +1,4 @@
+import { currentUserValidator, type CurrentUser } from '@analytics/shared'
 import { createHash } from 'node:crypto'
 import type { NextFunction, Request, RequestHandler, Response } from 'express'
 import { nanoid } from 'nanoid'
@@ -6,23 +7,6 @@ import { sendUnauthorized } from '../errors.js'
 
 export const SESSION_COOKIE_NAME = 'analytics_session'
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000
-
-type CurrentUser = {
-  id: string
-  username: string
-  displayName: string
-  status: 'active' | 'disabled'
-  roles: Array<{
-    id: string
-    code:
-      | 'system-admin'
-      | 'all-staff'
-      | 'electro-education-director'
-      | 'moral-education-director'
-      | 'teaching-research-director'
-    name: string
-  }>
-}
 
 export type AuthContext = {
   user: CurrentUser | null
@@ -46,18 +30,35 @@ function parseCookies(header: string | undefined) {
   for (const part of header?.split(';') ?? []) {
     const [rawName, ...rawValueParts] = part.trim().split('=')
     if (!rawName || rawValueParts.length === 0) continue
-    cookies.set(rawName, decodeURIComponent(rawValueParts.join('=')))
+    try {
+      cookies.set(rawName, decodeURIComponent(rawValueParts.join('=')))
+    } catch {
+      continue
+    }
   }
   return cookies
 }
 
-function serializeCookie(name: string, value: string, options: { maxAgeSeconds?: number } = {}) {
+function shouldUseSecureCookies() {
+  if (process.env.AUTH_COOKIE_SECURE === 'true') return true
+  if (process.env.AUTH_COOKIE_SECURE === 'false') return false
+  return process.env.NODE_ENV === 'production'
+}
+
+function serializeCookie(
+  name: string,
+  value: string,
+  options: { maxAgeSeconds?: number; secure?: boolean } = {},
+) {
   const parts = [
     `${name}=${encodeURIComponent(value)}`,
     'Path=/',
     'HttpOnly',
     'SameSite=Lax',
   ]
+  if (options.secure) {
+    parts.push('Secure')
+  }
   if (options.maxAgeSeconds !== undefined) {
     parts.push(`Max-Age=${options.maxAgeSeconds}`)
   }
@@ -71,17 +72,17 @@ function toCurrentUser(user: {
   status: string
   roles: Array<{ role: { id: string; code: string; name: string } }>
 }): CurrentUser {
-  return {
+  return currentUserValidator.parse({
     id: user.id,
     username: user.username,
     displayName: user.displayName,
     status: user.status === 'disabled' ? 'disabled' : 'active',
     roles: user.roles.map(({ role }) => ({
       id: role.id,
-      code: role.code as CurrentUser['roles'][number]['code'],
+      code: role.code,
       name: role.name,
     })),
-  }
+  })
 }
 
 export async function createSession(userId: string) {
@@ -104,11 +105,17 @@ export async function destroySession(token: string | null) {
 }
 
 export function setSessionCookie(res: Response, token: string) {
-  res.setHeader('Set-Cookie', serializeCookie(SESSION_COOKIE_NAME, token, { maxAgeSeconds: SESSION_TTL_MS / 1000 }))
+  res.setHeader('Set-Cookie', serializeCookie(SESSION_COOKIE_NAME, token, {
+    maxAgeSeconds: SESSION_TTL_MS / 1000,
+    secure: shouldUseSecureCookies(),
+  }))
 }
 
 export function clearSessionCookie(res: Response) {
-  res.setHeader('Set-Cookie', serializeCookie(SESSION_COOKIE_NAME, '', { maxAgeSeconds: 0 }))
+  res.setHeader('Set-Cookie', serializeCookie(SESSION_COOKIE_NAME, '', {
+    maxAgeSeconds: 0,
+    secure: shouldUseSecureCookies(),
+  }))
 }
 
 export function getSessionToken(req: Request) {

@@ -1,4 +1,4 @@
-import type { ApiResponse, CurrentUser } from '@analytics/shared'
+import { currentUserValidator, type ApiResponse } from '@analytics/shared'
 
 export type LoginInput = {
   username: string
@@ -43,9 +43,15 @@ async function requestAuthJson<T>(url: string, init?: RequestInit): Promise<T> {
   return body.data
 }
 
+async function requestCurrentUser(url: string, init?: RequestInit) {
+  const parsed = currentUserValidator.safeParse(await requestAuthJson<unknown>(url, init))
+  if (!parsed.success) throw new Error('Invalid current user response')
+  return parsed.data
+}
+
 export const authApi = {
   login(input: LoginInput, init?: RequestInit) {
-    return requestAuthJson<CurrentUser>('/api/auth/login', {
+    return requestCurrentUser('/api/auth/login', {
       ...init,
       method: 'POST',
       body: JSON.stringify(input),
@@ -59,6 +65,6 @@ export const authApi = {
     })
   },
   getCurrentUser(init?: RequestInit) {
-    return requestAuthJson<CurrentUser>('/api/auth/me', init)
+    return requestCurrentUser('/api/auth/me', init)
   },
 }

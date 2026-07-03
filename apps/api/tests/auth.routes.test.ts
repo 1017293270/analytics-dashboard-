@@ -1,5 +1,5 @@
 import request from 'supertest'
-import { beforeEach, describe, expect, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { createApp } from '../src/app.js'
 import { ensureDemoAuthSeed } from '../src/auth/auth.seed.js'
 import { prisma } from '../src/db.js'
@@ -19,6 +19,10 @@ function getSessionCookie(response: request.Response) {
 describe('auth routes', () => {
   beforeEach(async () => {
     await ensureDemoAuthSeed()
+  })
+
+  afterEach(() => {
+    delete process.env.AUTH_COOKIE_SECURE
   })
 
   test('logs in a seeded system admin and returns the current user', async () => {
@@ -65,6 +69,22 @@ describe('auth routes', () => {
     const response = await request(app).get('/api/auth/me').expect(401)
 
     expect(response.body.error.code).toBe('UNAUTHORIZED')
+  })
+
+  test('treats malformed session cookies as anonymous', async () => {
+    await request(app).get('/api/health').set('Cookie', 'analytics_session=%').expect(200)
+
+    const response = await request(app).get('/api/auth/me').set('Cookie', 'analytics_session=%').expect(401)
+
+    expect(response.body.error.code).toBe('UNAUTHORIZED')
+  })
+
+  test('marks session cookies as secure when secure cookies are enabled', async () => {
+    process.env.AUTH_COOKIE_SECURE = 'true'
+
+    const response = await login().expect(200)
+
+    expect(getSessionCookie(response)).toContain('Secure')
   })
 
   test('logs out by deleting the session and clearing the cookie', async () => {

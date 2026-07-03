@@ -12,6 +12,10 @@
 
 ## Permissions
 
+- Authenticated API sessions use an `analytics_session` cookie with `HttpOnly`, `SameSite=Lax`, and `Path=/`.
+- Session cookies are marked `Secure` when `AUTH_COOKIE_SECURE=true` or `NODE_ENV=production`; local HTTP development can set `AUTH_COOKIE_SECURE=false`.
+- Malformed session cookie values are treated as missing sessions rather than internal server errors.
+- Current-user responses are validated against the shared auth contract before crossing API and frontend auth boundaries.
 - `view` allows dashboard detail, versions list, and runtime access.
 - `edit` allows metadata, draft save, copy, and archive actions.
 - `owner` allows publish, unpublish, rollback, and share-link creation.
@@ -35,5 +39,5 @@
 - Replace the demo actor/workspace constants with authenticated actor and workspace context.
 - Add rate limits for public runtime tokens and high-cost data query endpoints.
 - Move images and other assets into managed asset records with URL allowlists or signed asset delivery.
-- Add CSRF protection or same-site session safeguards if cookie-based authentication is introduced.
+- Add explicit CSRF tokens for high-risk state-changing routes before production use; current demo sessions rely on `SameSite=Lax`.
 - Add observability for API latency, publish cost, runtime data refresh failures, and share-token access volume.

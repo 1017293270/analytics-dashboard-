@@ -94,7 +94,7 @@ export async function ensureDemoAuthSeed() {
   }
 
   for (const user of demoUsers) {
-    await prisma.user.upsert({
+    const seededUser = await prisma.user.upsert({
       where: { username: user.username },
       update: {
         displayName: user.displayName,
@@ -112,11 +112,11 @@ export async function ensureDemoAuthSeed() {
     for (const roleCode of user.roleCodes) {
       const role = await prisma.role.findUniqueOrThrow({ where: { code: roleCode } })
       await prisma.userRole.upsert({
-        where: { userId_roleId: { userId: user.id, roleId: role.id } },
+        where: { userId_roleId: { userId: seededUser.id, roleId: role.id } },
         update: {},
         create: {
-          id: `user-role-${user.id}-${role.id}`,
-          userId: user.id,
+          id: `user-role-${seededUser.id}-${role.id}`,
+          userId: seededUser.id,
           roleId: role.id,
         },
       })
