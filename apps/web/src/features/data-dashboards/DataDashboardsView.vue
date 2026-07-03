@@ -286,7 +286,7 @@ function toggleDashboardStatus(dashboard: ManagedDashboard) {
             </ElSelect>
           </ElFormItem>
           <ElFormItem label="来源类型">
-            <ElRadioGroup v-model="draft.source" :disabled="Boolean(editingId) && draft.source === '内置看板'">
+            <ElRadioGroup v-model="draft.source" :disabled="Boolean(editingId)">
               <ElRadioButton value="内置看板">内置看板</ElRadioButton>
               <ElRadioButton value="第三方嵌入">第三方嵌入</ElRadioButton>
             </ElRadioGroup>
@@ -308,7 +308,10 @@ function toggleDashboardStatus(dashboard: ManagedDashboard) {
             </p>
           </ElFormItem>
           <ElFormItem label="启用状态">
-            <ElSwitch v-model="draft.status" active-value="已启用" inactive-value="已停用" />
+            <div class="data-dashboards__status-control" data-testid="dashboard-status-control">
+              <ElSwitch v-model="draft.status" active-value="已启用" inactive-value="已停用" />
+              <ElTag :type="getStatusTagType(draft.status)" size="small" effect="plain">{{ draft.status }}</ElTag>
+            </div>
           </ElFormItem>
         </ElForm>
 
@@ -325,6 +328,7 @@ function toggleDashboardStatus(dashboard: ManagedDashboard) {
                 <strong>{{ draft.name || '第三方看板' }}</strong>
               </div>
               <span class="data-dashboards__single-line" :title="draft.url">{{ draft.url }}</span>
+              <ElButton :icon="Link" size="small" disabled>打开新页</ElButton>
               <small>演示环境使用稳定预览框展示融合效果，不依赖远程页面加载。</small>
             </template>
             <ElEmpty v-else description="请填写第三方看板链接后预览" :image-size="64" />
@@ -460,6 +464,12 @@ function toggleDashboardStatus(dashboard: ManagedDashboard) {
 .data-dashboards__preview {
   display: grid;
   gap: 12px;
+}
+
+.data-dashboards__status-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .data-dashboards__field-error {

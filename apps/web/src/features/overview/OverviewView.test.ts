@@ -2,7 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import ElementPlus from 'element-plus'
 import { describe, expect, test } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { demoLaunchItems, demoReadiness, priorityAlarms } from './overviewData'
+import { dashboardCoverage, demoLaunchItems, demoReadiness, priorityAlarms } from './overviewData'
 import OverviewView from './OverviewView.vue'
 
 async function mountOverview() {
@@ -92,6 +92,14 @@ describe('OverviewView', () => {
       数据看板: '可演示',
       应用中心: '可演示',
       告警管理: '可演示',
+    })
+    expect(Object.fromEntries(dashboardCoverage.map((item) => [item.name, item.status]))).toMatchObject({
+      教育治理: '已配置',
+      教师发展: '已配置',
+      学生成长: '已配置',
+      设备运维: '已配置',
+      告警态势: '已配置',
+      应用使用: '已配置',
     })
     expect(demoReadiness).toContainEqual({
       label: '告警与应用',

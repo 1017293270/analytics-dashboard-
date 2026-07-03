@@ -80,6 +80,11 @@ describe('dashboardData', () => {
       name: '第三方看板',
       url: 'javascript:alert(1)',
     }
+    const missingSlashesUrl: DashboardDraft = {
+      ...createDashboardDraft('第三方嵌入'),
+      name: '第三方看板',
+      url: 'https:demo.school.local/board',
+    }
     const validUrl: DashboardDraft = {
       ...createDashboardDraft('第三方嵌入'),
       name: '第三方看板',
@@ -90,6 +95,7 @@ describe('dashboardData', () => {
     expect(validateDashboardDraft(missingRole)).toContain('至少选择一个可见角色')
     expect(validateDashboardDraft(missingUrl)).toContain('第三方看板需要填写链接')
     expect(validateDashboardDraft(invalidUrl)).toContain('第三方看板链接必须以 http:// 或 https:// 开头')
+    expect(validateDashboardDraft(missingSlashesUrl)).toContain('第三方看板链接必须以 http:// 或 https:// 开头')
     expect(validateDashboardDraft(validUrl)).toEqual([])
   })
 })

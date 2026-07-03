@@ -109,6 +109,16 @@ describe('DataDashboardsView', () => {
     expect(dashboards.find((dashboard) => dashboard.id === 'dashboard-device')?.status).toBe('已停用')
   })
 
+  test('locks source type and shows status text for existing dashboards', async () => {
+    const wrapper = await mountDashboardView()
+
+    await wrapper.get('[data-testid="dashboard-preview-dashboard-alarm"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findComponent({ name: 'ElRadioGroup' }).props('disabled')).toBe(true)
+    expect(wrapper.get('[data-testid="dashboard-status-control"]').text()).toContain('已停用')
+  })
+
   test('validates and saves a third-party dashboard from the drawer', async () => {
     const wrapper = await mountDashboardView()
 

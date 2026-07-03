@@ -113,9 +113,9 @@ export const dashboardCoverage = [
   { name: '教育治理', owner: '校长室', status: '已配置', updatedAt: '09:10' },
   { name: '教师发展', owner: '教研主任', status: '已配置', updatedAt: '08:44' },
   { name: '学生成长', owner: '德育主任', status: '已配置', updatedAt: '08:12' },
-  { name: '设备运维', owner: '电教主任', status: '草稿', updatedAt: '昨天' },
-  { name: '告警态势', owner: '信息中心', status: '草稿', updatedAt: '昨天' },
-  { name: '应用使用', owner: '信息中心', status: '待接入', updatedAt: '未同步' },
+  { name: '设备运维', owner: '电教主任', status: '已配置', updatedAt: '09:05' },
+  { name: '告警态势', owner: '信息中心', status: '已配置', updatedAt: '08:58' },
+  { name: '应用使用', owner: '信息中心', status: '已配置', updatedAt: '08:45' },
 ] as const
 
 export const roleWorkbenches = [

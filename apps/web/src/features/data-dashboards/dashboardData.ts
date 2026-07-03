@@ -197,8 +197,11 @@ export function createDashboardDraft(source: DashboardSource = '内置看板'): 
 }
 
 export function isValidDashboardEmbedUrl(value: string): boolean {
+  const trimmedValue = value.trim()
+  if (!/^https?:\/\//i.test(trimmedValue)) return false
+
   try {
-    const url = new URL(value.trim())
+    const url = new URL(trimmedValue)
     return url.protocol === 'http:' || url.protocol === 'https:'
   } catch {
     return false
