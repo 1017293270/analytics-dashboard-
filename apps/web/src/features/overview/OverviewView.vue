@@ -12,6 +12,7 @@ import {
 } from '@element-plus/icons-vue'
 import { computed, ref } from 'vue'
 import type { Component } from 'vue'
+import { useRouter } from 'vue-router'
 import type { AlarmQueueStatus, OverviewStatus } from './overviewData'
 import {
   dashboardCoverage,
@@ -28,6 +29,7 @@ type AlarmFilter = 'all' | AlarmQueueStatus
 
 const alarmFilter = ref<AlarmFilter>('all')
 const refreshedAt = ref('09:46')
+const router = useRouter()
 
 const launchIcons: Record<string, Component> = {
   工作台配置: Grid,
@@ -117,6 +119,14 @@ function setAlarmFilter(value: AlarmFilter) {
 function refreshOverview() {
   refreshedAt.value = '刚刚'
 }
+
+async function openDemoMode() {
+  await router.push('/workbenches')
+}
+
+async function openAlarmDetail(deviceId: string) {
+  await router.push({ path: '/alarms', query: { device: deviceId } })
+}
 </script>
 
 <template>
@@ -133,7 +143,9 @@ function refreshOverview() {
 
       <div class="overview-view__header-actions">
         <ElButton :icon="Refresh" @click="refreshOverview">刷新数据</ElButton>
-        <ElButton type="primary" :icon="VideoPlay">进入演示模式</ElButton>
+        <ElButton data-testid="demo-mode-link" type="primary" :icon="VideoPlay" @click="openDemoMode">
+          进入演示模式
+        </ElButton>
       </div>
     </header>
 
@@ -164,6 +176,7 @@ function refreshOverview() {
                 data-testid="alarm-filter-all"
                 size="small"
                 :type="alarmFilter === 'all' ? 'primary' : 'default'"
+                :aria-pressed="alarmFilter === 'all'"
                 @click="setAlarmFilter('all')"
               >
                 全部
@@ -172,6 +185,7 @@ function refreshOverview() {
                 data-testid="alarm-filter-unhandled"
                 size="small"
                 :type="alarmFilter === '未处理' ? 'primary' : 'default'"
+                :aria-pressed="alarmFilter === '未处理'"
                 @click="setAlarmFilter('未处理')"
               >
                 未处理
@@ -180,6 +194,7 @@ function refreshOverview() {
                 data-testid="alarm-filter-processing"
                 size="small"
                 :type="alarmFilter === '处理中' ? 'primary' : 'default'"
+                :aria-pressed="alarmFilter === '处理中'"
                 @click="setAlarmFilter('处理中')"
               >
                 处理中
@@ -216,16 +231,40 @@ function refreshOverview() {
           </ElTableColumn>
           <ElTableColumn prop="reportedAt" label="上报" width="64" />
           <ElTableColumn label="操作" width="68">
-            <ElButton link type="primary" size="small">查看</ElButton>
+            <template #default="{ row }">
+              <ElButton
+                link
+                type="primary"
+                size="small"
+                :data-testid="`alarm-detail-link-${row.deviceId}`"
+                @click="openAlarmDetail(row.deviceId)"
+              >
+                查看
+              </ElButton>
+            </template>
           </ElTableColumn>
         </ElTable>
 
         <ElEmpty v-else description="当前筛选条件下暂无告警" :image-size="64" />
 
-        <div class="overview-view__alarm-index" aria-label="当前告警筛选结果">
-          <div v-for="alarm in filteredAlarms" :key="alarm.deviceId" class="overview-view__alarm-index-row">
-            <strong>{{ alarm.deviceId }}</strong>
-            <span>{{ alarm.status }}</span>
+        <div class="overview-view__alarm-compact-list" aria-label="移动端告警队列">
+          <div v-for="alarm in filteredAlarms" :key="alarm.deviceId" class="overview-view__alarm-compact-row">
+            <div>
+              <strong>{{ alarm.deviceId }}</strong>
+              <span>{{ alarm.deviceName }} · {{ alarm.location }}</span>
+            </div>
+            <ElTag :type="getAlarmStatusType(alarm.status)" size="small" effect="plain">
+              {{ alarm.status }}
+            </ElTag>
+            <ElButton
+              link
+              type="primary"
+              size="small"
+              :data-testid="`alarm-compact-detail-link-${alarm.deviceId}`"
+              @click="openAlarmDetail(alarm.deviceId)"
+            >
+              查看
+            </ElButton>
           </div>
         </div>
       </ElCard>
@@ -487,14 +526,14 @@ function refreshOverview() {
   font-size: 12px;
 }
 
+.overview-view__alarm-compact-list {
+  display: none;
+}
+
 .overview-view__device-cell {
   display: grid;
   gap: 2px;
   min-width: 0;
-}
-
-.overview-view__alarm-index {
-  display: none;
 }
 
 .overview-view__health-list,
@@ -675,6 +714,39 @@ function refreshOverview() {
 
   .overview-view__launch-grid {
     grid-template-columns: 1fr;
+  }
+
+  .overview-view__panel--alarms :deep(.el-table) {
+    display: none;
+  }
+
+  .overview-view__alarm-compact-list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .overview-view__alarm-compact-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-panel-muted);
+  }
+
+  .overview-view__alarm-compact-row div {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .overview-view__alarm-compact-row strong,
+  .overview-view__alarm-compact-row span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 </style>

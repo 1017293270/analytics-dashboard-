@@ -2,6 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import ElementPlus from 'element-plus'
 import { describe, expect, test } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
+import { priorityAlarms } from './overviewData'
 import OverviewView from './OverviewView.vue'
 
 async function mountOverview() {
@@ -52,16 +53,37 @@ describe('OverviewView', () => {
     expect(wrapper.text()).toContain('HB-3F-021')
     expect(wrapper.text()).toContain('IPANEL-104')
 
+    await wrapper.get('[data-testid="alarm-filter-unhandled"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="alarm-filter-unhandled"]').attributes('aria-pressed')).toBe('true')
+    expect(wrapper.findComponent({ name: 'ElTable' }).props('data')).toEqual([priorityAlarms[0]])
+
     await wrapper.get('[data-testid="alarm-filter-processing"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).not.toContain('HB-3F-021')
-    expect(wrapper.text()).toContain('IPANEL-104')
+    expect(wrapper.get('[data-testid="alarm-filter-processing"]').attributes('aria-pressed')).toBe('true')
+    expect(wrapper.findComponent({ name: 'ElTable' }).props('data')).toEqual([priorityAlarms[1]])
 
     await wrapper.get('[data-testid="alarm-filter-all"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('HB-3F-021')
-    expect(wrapper.text()).toContain('IPANEL-104')
+    expect(wrapper.get('[data-testid="alarm-filter-all"]').attributes('aria-pressed')).toBe('true')
+    expect(wrapper.findComponent({ name: 'ElTable' }).props('data')).toEqual(priorityAlarms)
+  })
+
+  test('wires visible overview actions to real routes', async () => {
+    const { wrapper, router } = await mountOverview()
+
+    await wrapper.get('[data-testid="demo-mode-link"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/workbenches')
+
+    await router.push('/overview')
+    await flushPromises()
+
+    await wrapper.get('[data-testid="alarm-compact-detail-link-HB-3F-021"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/alarms?device=HB-3F-021')
   })
 })

@@ -15,7 +15,7 @@ export const overviewKpis = [
   },
   {
     label: '未处理告警',
-    value: 3,
+    value: 1,
     precision: 0,
     suffix: '',
     trend: '高优先级 1 条',
