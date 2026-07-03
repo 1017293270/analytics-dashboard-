@@ -11,6 +11,10 @@ export function sendBadRequest(res: Response, code: string, message: string) {
   return res.status(400).json(fail(code, message))
 }
 
+export function sendUnauthorized(res: Response, message = 'Authentication is required') {
+  return res.status(401).json(fail('UNAUTHORIZED', message))
+}
+
 export function sendForbidden(res: Response, message = 'You do not have permission for this dashboard') {
   return res.status(403).json(fail('FORBIDDEN', message))
 }
