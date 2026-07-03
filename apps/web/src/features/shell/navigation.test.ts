@@ -28,12 +28,11 @@ describe('shell navigation', () => {
       '告警管理',
       '智慧黑板',
       '互动教学',
-      '账号权限',
-      '系统设置',
+      '账号与角色',
     ])
   })
 
-  test('shows every management item to system administrators', () => {
+  test('shows only demo-ready management entries to system administrators', () => {
     expect(getVisibleShellNavItems(adminUser).map((item) => item.path)).toEqual([
       '/overview',
       '/workbenches',
@@ -43,7 +42,6 @@ describe('shell navigation', () => {
       '/blackboard',
       '/teaching',
       '/accounts',
-      '/settings',
     ])
   })
 

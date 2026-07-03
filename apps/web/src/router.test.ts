@@ -2,6 +2,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { createMemoryHistory } from 'vue-router'
 import { authApi } from './features/auth/api/authApi'
+import AccountsView from './features/accounts/AccountsView.vue'
 import SmartBlackboardView from './features/smart-blackboard/SmartBlackboardView.vue'
 import { createAppRouter } from './router'
 
@@ -89,6 +90,18 @@ describe('router guard', () => {
 
     expect(router.currentRoute.value.fullPath).toBe('/blackboard')
     expect(matchedComponent).toBe(SmartBlackboardView)
+  })
+
+  test('routes account role management to the dedicated admin page', async () => {
+    vi.mocked(authApi.getCurrentUser).mockResolvedValue(adminUser)
+    const router = createTestRouter()
+
+    await router.push('/accounts')
+
+    const matchedComponent = router.currentRoute.value.matched.at(-1)?.components?.default
+
+    expect(router.currentRoute.value.fullPath).toBe('/accounts')
+    expect(matchedComponent).toBe(AccountsView)
   })
 
   test('keeps share and runtime presentation routes outside shell authorization loading', async () => {

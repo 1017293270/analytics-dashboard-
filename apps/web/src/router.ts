@@ -15,8 +15,7 @@ const shellChildren: RouteRecordRaw[] = [
   { path: 'alarms', component: () => import('./features/alarms/AlarmManagementView.vue') },
   { path: 'blackboard', component: () => import('./features/smart-blackboard/SmartBlackboardView.vue') },
   { path: 'teaching', component: () => import('./features/overview/OverviewView.vue') },
-  { path: 'accounts', component: () => import('./features/overview/OverviewView.vue') },
-  { path: 'settings', component: () => import('./features/overview/OverviewView.vue') },
+  { path: 'accounts', component: () => import('./features/accounts/AccountsView.vue') },
 ]
 
 export function createAppRouter(history: RouterHistory = createWebHistory()) {

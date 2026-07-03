@@ -17,7 +17,6 @@ describe('web smoke test', () => {
       '/blackboard',
       '/teaching',
       '/accounts',
-      '/settings',
       '/big-screens',
       '/big-screens/:id',
       '/runtime/:id',

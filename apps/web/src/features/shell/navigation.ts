@@ -7,9 +7,8 @@ import {
   Grid,
   HomeFilled,
   Monitor,
-  Setting,
   Tickets,
-  User,
+  UserFilled,
 } from '@element-plus/icons-vue'
 import type { Component } from 'vue'
 
@@ -79,16 +78,9 @@ export const shellNavItems: ShellNavItem[] = [
   },
   {
     key: 'accounts',
-    label: '账号权限',
+    label: '账号与角色',
     path: '/accounts',
-    icon: User,
-    allowedRoles: ['system-admin'],
-  },
-  {
-    key: 'settings',
-    label: '系统设置',
-    path: '/settings',
-    icon: Setting,
+    icon: UserFilled,
     allowedRoles: ['system-admin'],
   },
 ]
