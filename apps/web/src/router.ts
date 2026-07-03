@@ -10,7 +10,7 @@ const shellChildren: RouteRecordRaw[] = [
     component: () => import('./features/big-screen/designer/DesignerShell.vue'),
     meta: { fullBleed: true },
   },
-  { path: 'data-dashboards', component: () => import('./features/overview/OverviewView.vue') },
+  { path: 'data-dashboards', component: () => import('./features/data-dashboards/DataDashboardsView.vue') },
   { path: 'applications', component: () => import('./features/applications/ApplicationCenterView.vue') },
   { path: 'alarms', component: () => import('./features/alarms/AlarmManagementView.vue') },
   { path: 'blackboard', component: () => import('./features/overview/OverviewView.vue') },
