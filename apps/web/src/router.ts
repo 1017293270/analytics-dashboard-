@@ -12,7 +12,7 @@ const shellChildren: RouteRecordRaw[] = [
   },
   { path: 'data-dashboards', component: () => import('./features/overview/OverviewView.vue') },
   { path: 'applications', component: () => import('./features/overview/OverviewView.vue') },
-  { path: 'alarms', component: () => import('./features/overview/OverviewView.vue') },
+  { path: 'alarms', component: () => import('./features/alarms/AlarmManagementView.vue') },
   { path: 'blackboard', component: () => import('./features/overview/OverviewView.vue') },
   { path: 'teaching', component: () => import('./features/overview/OverviewView.vue') },
   { path: 'accounts', component: () => import('./features/overview/OverviewView.vue') },
