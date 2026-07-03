@@ -75,6 +75,17 @@ describe('blackboardActivity parser', () => {
     expect(draft.correctOptionId).toBe('option-a')
   })
 
+  test('parses compact lettered options without spaces', () => {
+    const draft = parseBlackboardActivity({
+      requestedType: 'cloze',
+      removeFillers: false,
+      sourceText: '中国古代四大发明包括造纸术、印刷术、火药和____。A.指南针B.地动仪C.浑天仪答案：A',
+    })
+
+    expect(draft.options.map((option) => option.text)).toEqual(['指南针', '地动仪', '浑天仪'])
+    expect(draft.correctOptionId).toBe('option-a')
+  })
+
   test('returns editable fallback output for ambiguous input', () => {
     const draft = parseBlackboardActivity({
       requestedType: 'choice',

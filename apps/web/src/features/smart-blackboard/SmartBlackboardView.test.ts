@@ -116,6 +116,16 @@ describe('SmartBlackboardView', () => {
     expect(wrapper.get('[data-testid="blackboard-preview"]').text()).toContain('中国第一长河是____。')
   })
 
+  test('keeps teacher edits when clicking the already selected activity type', async () => {
+    const wrapper = await mountBlackboardView()
+
+    await wrapper.get('[data-testid="blackboard-stem-input"]').setValue('老师手动修改后的题干。')
+    await wrapper.get('[data-testid="blackboard-type-cloze"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="blackboard-preview"]').text()).toContain('老师手动修改后的题干。')
+  })
+
   test('adds a unique option after removing one', async () => {
     const wrapper = await mountBlackboardView()
 

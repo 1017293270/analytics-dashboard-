@@ -42,6 +42,8 @@ function buildDraftForType(type: BlackboardActivityType) {
 }
 
 function setType(type: BlackboardActivityType) {
+  if (type === requestedType.value) return
+
   requestedType.value = type
   assignDraft(buildDraftForType(type))
 }
