@@ -36,6 +36,7 @@ const navItems = computed(() => getVisibleShellNavItems(auth.user))
 
 <style scoped>
 .app-shell {
+  height: 100vh;
   min-height: 100vh;
   background: var(--color-page);
 }
@@ -66,6 +67,7 @@ const navItems = computed(() => getVisibleShellNavItems(auth.user))
 
 .app-shell__body {
   min-width: 0;
+  min-height: 0;
 }
 
 .app-shell__header {
@@ -74,6 +76,8 @@ const navItems = computed(() => getVisibleShellNavItems(auth.user))
 
 .app-shell__main {
   min-width: 0;
+  min-height: 0;
   padding: 20px;
+  overflow: auto;
 }
 </style>
