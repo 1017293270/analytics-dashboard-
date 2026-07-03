@@ -40,6 +40,17 @@ describe('alarmData', () => {
     ).toHaveLength(seedAlarms.length)
   })
 
+  test('treats a cleared date range as no date filter', () => {
+    const filters = {
+      keyword: '',
+      status: '全部',
+      triggerMethod: '全部',
+      dateRange: null,
+    } as unknown as AlarmFilters
+
+    expect(applyAlarmFilters(seedAlarms, filters)).toHaveLength(seedAlarms.length)
+  })
+
   test('moves alarm status through valid demo transitions', () => {
     expect(getNextAlarmStatus('未处理', 'processing')).toBe('处理中')
     expect(getNextAlarmStatus('未处理', 'resolved')).toBe('已处理')

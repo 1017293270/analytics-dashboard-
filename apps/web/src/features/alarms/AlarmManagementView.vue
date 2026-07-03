@@ -206,7 +206,7 @@ watch(
         <section class="alarm-management__recording" aria-label="事件录音">
           <h2>事件录音</h2>
           <div class="alarm-management__audio">
-            <ElButton :icon="VideoPlay" circle aria-label="播放录音占位" />
+            <ElButton :icon="VideoPlay" circle disabled aria-label="播放录音占位" />
             <span>0:00 / {{ selectedAlarm.recordingDuration }}</span>
             <div class="alarm-management__audio-bar"><span /></div>
             <ElIcon><Bell /></ElIcon>

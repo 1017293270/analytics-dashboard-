@@ -30,7 +30,7 @@ export type AlarmFilters = {
   keyword: string
   status: AlarmStatusFilter
   triggerMethod: TriggerMethodFilter
-  dateRange: string[]
+  dateRange: string[] | null
 }
 
 export const defaultAlarmFilters: AlarmFilters = {
@@ -249,7 +249,7 @@ export function alarmSummary(alarms: AlarmEvent[]) {
 
 export function applyAlarmFilters(alarms: AlarmEvent[], filters: AlarmFilters): AlarmEvent[] {
   const keyword = filters.keyword.trim().toLowerCase()
-  const [start, end] = filters.dateRange
+  const [start, end] = Array.isArray(filters.dateRange) ? filters.dateRange : []
 
   return alarms.filter((alarm) => {
     const matchesKeyword =

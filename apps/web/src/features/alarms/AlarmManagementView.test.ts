@@ -89,6 +89,7 @@ describe('AlarmManagementView', () => {
     expect(wrapper.text()).toContain('138 0000 1201')
     expect(wrapper.text()).toContain('0:00 / 0:15')
     expect(wrapper.text()).toContain('处理记录')
+    expect(wrapper.get('[aria-label="播放录音占位"]').attributes('disabled')).toBeDefined()
 
     await wrapper.get('[data-testid="alarm-mark-processing"]').trigger('click')
     await flushPromises()

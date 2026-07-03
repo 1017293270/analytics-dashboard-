@@ -73,4 +73,29 @@ describe('applicationData', () => {
     expect(validateApplicationDraft(webDraft)).toContain('网页端应用需要填写访问地址')
     expect(validateApplicationDraft(mobileDraft)).toContain('移动端应用需要填写包标识')
   })
+
+  test('only accepts http and https URLs for web applications', () => {
+    const javascriptDraft: ApplicationDraft = {
+      ...createApplicationDraft(),
+      name: '危险链接',
+      platform: '网页端',
+      url: 'javascript:alert(1)',
+    }
+    const malformedDraft: ApplicationDraft = {
+      ...createApplicationDraft(),
+      name: '错误链接',
+      platform: '网页端',
+      url: 'demo.school.local/app',
+    }
+    const secureDraft: ApplicationDraft = {
+      ...createApplicationDraft(),
+      name: '安全链接',
+      platform: '网页端',
+      url: 'https://demo.school.local/app',
+    }
+
+    expect(validateApplicationDraft(javascriptDraft)).toContain('网页端应用访问地址必须以 http:// 或 https:// 开头')
+    expect(validateApplicationDraft(malformedDraft)).toContain('网页端应用访问地址必须以 http:// 或 https:// 开头')
+    expect(validateApplicationDraft(secureDraft)).not.toContain('网页端应用访问地址必须以 http:// 或 https:// 开头')
+  })
 })

@@ -1,7 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import ElementPlus from 'element-plus'
+import ElementPlus, { ElMessageBox } from 'element-plus'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { describe, expect, test, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import ApplicationCenterView from './ApplicationCenterView.vue'
 
 const elementStubs = {
@@ -30,7 +30,7 @@ vi.mock('element-plus', async () => {
   }
 })
 
-async function mountApplicationView() {
+async function mountApplicationView(options: { errorHandler?: (error: unknown) => void } = {}) {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [{ path: '/applications', component: ApplicationCenterView }],
@@ -42,6 +42,7 @@ async function mountApplicationView() {
     global: {
       plugins: [ElementPlus, router],
       stubs: elementStubs,
+      config: options.errorHandler ? { errorHandler: options.errorHandler } : undefined,
     },
   })
 
@@ -50,6 +51,13 @@ async function mountApplicationView() {
 }
 
 describe('ApplicationCenterView', () => {
+  beforeEach(() => {
+    vi.mocked(ElMessageBox.confirm).mockReset()
+    vi.mocked(ElMessageBox.confirm).mockResolvedValue(
+      'confirm' as unknown as Awaited<ReturnType<typeof ElMessageBox.confirm>>,
+    )
+  })
+
   test('renders summary, filters, required table columns, and seed applications', async () => {
     const wrapper = await mountApplicationView()
 
@@ -136,5 +144,21 @@ describe('ApplicationCenterView', () => {
 
     expect(wrapper.text()).toContain('智慧黑板工具')
     expect(wrapper.text()).toContain('已卸载')
+  })
+
+  test('keeps an application unchanged when uninstall is canceled', async () => {
+    const errorHandler = vi.fn()
+    const wrapper = await mountApplicationView({ errorHandler })
+    vi.mocked(ElMessageBox.confirm).mockRejectedValueOnce(new Error('cancel'))
+
+    await wrapper.get('[data-testid="application-uninstall-app-blackboard"]').trigger('click')
+    await flushPromises()
+
+    const applications = wrapper.findComponent({ name: 'ElTable' }).props('data') as Array<{
+      id: string
+      status: string
+    }>
+    expect(applications.find((app) => app.id === 'app-blackboard')?.status).toBe('已停用')
+    expect(errorHandler).not.toHaveBeenCalled()
   })
 })

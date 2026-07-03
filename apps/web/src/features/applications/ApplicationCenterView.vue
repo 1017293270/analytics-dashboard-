@@ -10,6 +10,7 @@ import {
   applyApplicationFilters,
   createApplicationDraft,
   defaultApplicationFilters,
+  isValidWebApplicationUrl,
   seedApplications,
   validateApplicationDraft,
   visibleRoleFilters,
@@ -53,7 +54,7 @@ const applicationIconOptions: Array<{ label: string; value: ApplicationIcon }> =
 const statusTagTypes: Record<ApplicationStatus, TagType> = {
   已启用: 'success',
   已停用: 'info',
-  已卸载: 'warning',
+  已卸载: 'info',
 }
 
 const filteredApplications = computed(() => applyApplicationFilters(applications.value, filters))
@@ -150,16 +151,21 @@ function toggleStatus(app: ManagedApplication) {
 async function uninstallApplication(app: ManagedApplication) {
   if (app.status === '已卸载') return
 
-  await ElMessageBox.confirm(`确认卸载 ${app.name}？`, '卸载应用', {
-    confirmButtonText: '卸载',
-    cancelButtonText: '取消',
-    type: 'warning',
-  })
+  try {
+    await ElMessageBox.confirm(`确认卸载 ${app.name}？`, '卸载应用', {
+      confirmButtonText: '卸载',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+  } catch {
+    return
+  }
+
   app.status = '已卸载'
 }
 
 function launchApplication(app: ManagedApplication) {
-  if (app.platform === '网页端' && app.url) {
+  if (app.platform === '网页端' && isValidWebApplicationUrl(app.url)) {
     window.open(app.url, '_blank', 'noopener,noreferrer')
   }
 }
@@ -299,7 +305,7 @@ function launchApplication(app: ManagedApplication) {
               type="primary"
               :icon="Link"
               size="small"
-              :disabled="row.platform !== '网页端' || row.status === '已卸载'"
+              :disabled="row.platform !== '网页端' || row.status === '已卸载' || !isValidWebApplicationUrl(row.url)"
               @click="launchApplication(row)"
             >
               打开

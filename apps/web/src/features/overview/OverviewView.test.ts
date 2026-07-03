@@ -2,7 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import ElementPlus from 'element-plus'
 import { describe, expect, test } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { priorityAlarms } from './overviewData'
+import { demoLaunchItems, demoReadiness, priorityAlarms } from './overviewData'
 import OverviewView from './OverviewView.vue'
 
 async function mountOverview() {
@@ -85,5 +85,17 @@ describe('OverviewView', () => {
     await wrapper.get('[data-testid="alarm-compact-detail-link-HB-3F-021"]').trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.fullPath).toBe('/alarms?device=HB-3F-021')
+  })
+
+  test('marks completed alarm and application slices as demo-ready', () => {
+    expect(Object.fromEntries(demoLaunchItems.map((item) => [item.label, item.status]))).toMatchObject({
+      应用中心: '可演示',
+      告警管理: '可演示',
+    })
+    expect(demoReadiness).toContainEqual({
+      label: '告警与应用',
+      status: '可演示',
+      detail: '列表、筛选、详情和应用管理已接入',
+    })
   })
 })

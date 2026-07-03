@@ -194,6 +194,15 @@ export function applyApplicationFilters(
     .sort((first, second) => first.sortOrder - second.sortOrder)
 }
 
+export function isValidWebApplicationUrl(value: string): boolean {
+  try {
+    const url = new URL(value.trim())
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 export function validateApplicationDraft(draft: ApplicationDraft): string[] {
   const errors: string[] = []
 
@@ -201,6 +210,9 @@ export function validateApplicationDraft(draft: ApplicationDraft): string[] {
   if (!draft.category) errors.push('应用分类不能为空')
   if (draft.visibleRoles.length === 0) errors.push('至少选择一个可见角色')
   if (draft.platform === '网页端' && !draft.url.trim()) errors.push('网页端应用需要填写访问地址')
+  if (draft.platform === '网页端' && draft.url.trim() && !isValidWebApplicationUrl(draft.url)) {
+    errors.push('网页端应用访问地址必须以 http:// 或 https:// 开头')
+  }
   if (draft.platform === '移动端' && !draft.packageId.trim()) errors.push('移动端应用需要填写包标识')
 
   return errors
