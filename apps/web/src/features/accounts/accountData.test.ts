@@ -1,24 +1,49 @@
+import type { AccountRow } from '@analytics/shared'
 import { describe, expect, test } from 'vitest'
 import { defaultWorkbenchMetadata } from '../big-screen/workbenches/workbenchMetadata'
 import { shellNavItems } from '../shell/navigation'
+import type { AccountRoleRow } from './accountApi'
 import {
+  accountRowToDemoAccount,
+  accountRowsToDemoAccounts,
+  accountStatusFromApi,
+  accountStatusToApi,
   buildAccountSummary,
+  buildCreateAccountInput,
   buildRoleInsights,
+  buildUpdateAccountInput,
   createAccountDraft,
-  createAccountFromDraft,
-  createDemoAccountState,
   demoAccountRows,
   demoRoleRows,
   getAccountsByRole,
+  getNextAccountStatus,
   getVisibleMenusForRole,
   getVisibleWorkbenchesForRole,
   roleNameByCode,
-  toggleAccountStatus,
+  roleRowToDemoRole,
+  roleRowsToDemoRoles,
   validateAccountDraft,
 } from './accountData'
 
-describe('account demo data', () => {
-  test('defines the five seeded tender-demo accounts and roles', () => {
+const backendAccount: AccountRow = {
+  id: 'user-system-admin',
+  username: 'admin',
+  displayName: '系统管理员',
+  phone: '13800000001',
+  roleCodes: ['system-admin'],
+  status: 'active',
+  lastLoginAt: '2026-07-03T09:18:00.000Z',
+}
+
+const backendRole: AccountRoleRow = {
+  id: 'role-system-admin',
+  code: 'system-admin',
+  name: '系统管理员',
+  description: '平台配置与演示管理账号',
+}
+
+describe('account data helpers', () => {
+  test('defines the five seeded tender-demo accounts and roles for previews', () => {
     expect(demoAccountRows.map((account) => account.username)).toEqual([
       'admin',
       'all_staff',
@@ -35,7 +60,30 @@ describe('account demo data', () => {
     ])
   })
 
-  test('derives account summary from current demo state', () => {
+  test('maps backend account and role rows into the existing Chinese UI model', () => {
+    expect(accountStatusFromApi('active')).toBe('已启用')
+    expect(accountStatusFromApi('disabled')).toBe('已停用')
+    expect(accountStatusToApi('已启用')).toBe('active')
+    expect(accountStatusToApi('已停用')).toBe('disabled')
+    expect(accountRowToDemoAccount(backendAccount)).toEqual({
+      id: 'user-system-admin',
+      username: 'admin',
+      displayName: '系统管理员',
+      phone: '13800000001',
+      roleCodes: ['system-admin'],
+      status: '已启用',
+      lastLogin: '2026-07-03 09:18',
+    })
+    expect(accountRowsToDemoAccounts([{ ...backendAccount, lastLoginAt: null }])[0].lastLogin).toBe('尚未登录')
+    expect(roleRowToDemoRole(backendRole)).toEqual({
+      ...backendRole,
+      name: '系统管理员',
+      status: '已启用',
+    })
+    expect(roleRowsToDemoRoles([backendRole])).toHaveLength(1)
+  })
+
+  test('derives account summary from current account and role state', () => {
     const summary = buildAccountSummary(demoAccountRows, demoRoleRows, defaultWorkbenchMetadata)
 
     expect(summary).toEqual({
@@ -82,7 +130,7 @@ describe('account demo data', () => {
     ])
   })
 
-  test('validates account drafts deterministically', () => {
+  test('validates account drafts deterministically before API calls', () => {
     const emptyDraft = createAccountDraft()
 
     expect(validateAccountDraft(emptyDraft, demoAccountRows)).toEqual([
@@ -101,28 +149,29 @@ describe('account demo data', () => {
     expect(validateAccountDraft(duplicateDraft, demoAccountRows)).toEqual(['账号已存在'])
   })
 
-  test('creates, toggles, and resets local demo account state', () => {
+  test('builds backend create and update inputs from the Chinese UI draft', () => {
     const draft = {
+      username: ' demo_teacher ',
+      displayName: ' 演示教师 ',
+      phone: ' 13800000006 ',
+      roleCodes: ['all-staff' as const],
+      status: '已停用' as const,
+    }
+
+    expect(buildCreateAccountInput(draft)).toEqual({
       username: 'demo_teacher',
       displayName: '演示教师',
       phone: '13800000006',
-      roleCodes: ['all-staff' as const],
-      status: '已启用' as const,
-    }
-    const created = createAccountFromDraft(draft, 6)
-    const disabled = toggleAccountStatus(created)
-    const reset = createDemoAccountState()
-
-    expect(created).toMatchObject({
-      id: 'user-demo-6',
-      username: 'demo_teacher',
-      displayName: '演示教师',
+      password: 'Demo@123',
       roleCodes: ['all-staff'],
-      lastLogin: '尚未登录',
     })
-    expect(disabled.status).toBe('已停用')
-    expect(reset.accounts).not.toBe(demoAccountRows)
-    expect(reset.roles).not.toBe(demoRoleRows)
+    expect(buildUpdateAccountInput(draft)).toEqual({
+      displayName: '演示教师',
+      phone: '13800000006',
+      roleCodes: ['all-staff'],
+      status: 'disabled',
+    })
+    expect(getNextAccountStatus('已启用')).toBe('已停用')
     expect(roleNameByCode['teaching-research-director']).toBe('教研主任')
   })
 })

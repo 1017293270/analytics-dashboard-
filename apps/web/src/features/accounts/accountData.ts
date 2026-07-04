@@ -1,14 +1,34 @@
-import type { CurrentUser, RoleCode } from '@analytics/shared'
+import type {
+  AccountRow,
+  CreateAccountInput,
+  CurrentUser,
+  RoleCode,
+  UpdateAccountInput,
+  UserStatus,
+} from '@analytics/shared'
 import {
   defaultWorkbenchMetadata,
   getVisibleWorkbenches,
   type WorkbenchMetadata,
 } from '../big-screen/workbenches/workbenchMetadata'
 import { getVisibleShellNavItems, shellNavItems, type ShellNavItem } from '../shell/navigation'
+import type { AccountRoleRow } from './accountApi'
 
 export type AccountStatus = '已启用' | '已停用'
 export type RoleName = '系统管理员' | '全员' | '电教主任' | '德育主任' | '教研主任'
 export type DemoRoleStatus = '已启用'
+
+export const defaultDemoPassword = 'Demo@123'
+
+const accountStatusByApiStatus: Record<UserStatus, AccountStatus> = {
+  active: '已启用',
+  disabled: '已停用',
+}
+
+const apiStatusByAccountStatus: Record<AccountStatus, UserStatus> = {
+  已启用: 'active',
+  已停用: 'disabled',
+}
 
 export type DemoRole = {
   id: string
@@ -65,6 +85,52 @@ export const roleNameByCode: Record<RoleCode, RoleName> = {
 export const roleCodeByName = Object.fromEntries(
   Object.entries(roleNameByCode).map(([code, name]) => [name, code]),
 ) as Record<RoleName, RoleCode>
+
+export function accountStatusFromApi(status: UserStatus): AccountStatus {
+  return accountStatusByApiStatus[status]
+}
+
+export function accountStatusToApi(status: AccountStatus): UserStatus {
+  return apiStatusByAccountStatus[status]
+}
+
+export function getNextAccountStatus(status: AccountStatus): AccountStatus {
+  return status === '已启用' ? '已停用' : '已启用'
+}
+
+function formatLastLogin(lastLoginAt: string | null): string {
+  return lastLoginAt ? lastLoginAt.replace('T', ' ').slice(0, 16) : '尚未登录'
+}
+
+export function accountRowToDemoAccount(row: AccountRow): DemoAccount {
+  return {
+    id: row.id,
+    username: row.username,
+    displayName: row.displayName,
+    phone: row.phone,
+    roleCodes: [...row.roleCodes],
+    status: accountStatusFromApi(row.status),
+    lastLogin: formatLastLogin(row.lastLoginAt),
+  }
+}
+
+export function accountRowsToDemoAccounts(rows: AccountRow[]): DemoAccount[] {
+  return rows.map(accountRowToDemoAccount)
+}
+
+export function roleRowToDemoRole(row: AccountRoleRow): DemoRole {
+  return {
+    id: row.id,
+    code: row.code,
+    name: (row.name || roleNameByCode[row.code]) as RoleName,
+    description: row.description,
+    status: '已启用',
+  }
+}
+
+export function roleRowsToDemoRoles(rows: AccountRoleRow[]): DemoRole[] {
+  return rows.map(roleRowToDemoRole)
+}
 
 export const demoRoleRows: DemoRole[] = [
   {
@@ -186,6 +252,25 @@ export function createAccountFromDraft(draft: AccountDraft, nextIndex: number): 
     roleCodes: [...draft.roleCodes],
     status: draft.status,
     lastLogin: '尚未登录',
+  }
+}
+
+export function buildCreateAccountInput(draft: AccountDraft): CreateAccountInput {
+  return {
+    username: draft.username.trim(),
+    displayName: draft.displayName.trim(),
+    phone: draft.phone.trim(),
+    password: defaultDemoPassword,
+    roleCodes: [...draft.roleCodes],
+  }
+}
+
+export function buildUpdateAccountInput(draft: AccountDraft): UpdateAccountInput {
+  return {
+    displayName: draft.displayName.trim(),
+    phone: draft.phone.trim(),
+    status: accountStatusToApi(draft.status),
+    roleCodes: [...draft.roleCodes],
   }
 }
 

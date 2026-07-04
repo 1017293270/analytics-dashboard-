@@ -2,28 +2,34 @@
 import type { RoleCode } from '@analytics/shared'
 import { Edit, Plus, Refresh, UserFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { computed, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import {
   defaultWorkbenchMetadata,
   type WorkbenchMetadata,
 } from '../big-screen/workbenches/workbenchMetadata'
 import {
   buildAccountSummary,
+  buildCreateAccountInput,
   buildRoleAccessNotes,
   buildRoleInsights,
+  buildUpdateAccountInput,
+  accountRowToDemoAccount,
+  accountRowsToDemoAccounts,
+  accountStatusToApi,
   createAccountDraft,
-  createAccountFromDraft,
-  createDemoAccountState,
+  defaultDemoPassword,
+  getNextAccountStatus,
   getVisibleMenusForRole,
   getVisibleWorkbenchesForRole,
   roleNameByCode,
-  toggleAccountStatus,
+  roleRowsToDemoRoles,
   validateAccountDraft,
   type AccountDraft,
   type AccountStatus,
   type DemoAccount,
   type DemoRole,
 } from './accountData'
+import { accountApi } from './accountApi'
 
 type TagType = 'primary' | 'success' | 'warning' | 'danger' | 'info'
 
@@ -33,10 +39,11 @@ type RoleDraft = {
   visibleWorkbenchIds: string[]
 }
 
-const seededState = createDemoAccountState()
-const accounts = ref<DemoAccount[]>(seededState.accounts)
-const roles = ref<DemoRole[]>(seededState.roles)
+const accounts = ref<DemoAccount[]>([])
+const roles = ref<DemoRole[]>([])
 const workbenches = ref<WorkbenchMetadata[]>(cloneWorkbenches(defaultWorkbenchMetadata))
+const isLoading = ref(false)
+const pageError = ref('')
 const activeTab = ref('accounts')
 const selectedRoleCode = ref<RoleCode>('system-admin')
 const drawerVisible = ref(false)
@@ -84,6 +91,47 @@ function cloneWorkbenches(items: WorkbenchMetadata[]): WorkbenchMetadata[] {
     visibleRoles: [...workbench.visibleRoles],
   }))
 }
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message ? error.message : fallback
+}
+
+function upsertAccount(account: DemoAccount) {
+  const index = accounts.value.findIndex((item) => item.id === account.id)
+  if (index === -1) {
+    accounts.value = [...accounts.value, account]
+    return
+  }
+
+  accounts.value[index] = account
+}
+
+async function loadAccountState(successMessage?: string) {
+  isLoading.value = true
+  pageError.value = ''
+
+  try {
+    const [accountRows, roleRows] = await Promise.all([accountApi.listAccounts(), accountApi.listRoles()])
+    accounts.value = accountRowsToDemoAccounts(accountRows)
+    roles.value = roleRowsToDemoRoles(roleRows)
+
+    if (!roles.value.some((role) => role.code === selectedRoleCode.value)) {
+      selectedRoleCode.value = roles.value[0]?.code ?? 'system-admin'
+    }
+
+    if (successMessage) ElMessage.success(successMessage)
+  } catch (error) {
+    const message = getErrorMessage(error, '账号数据加载失败')
+    pageError.value = message
+    ElMessage.error(message)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+onMounted(() => {
+  void loadAccountState()
+})
 
 function getStatusTagType(status: AccountStatus): TagType {
   return statusTagTypes[status]
@@ -150,7 +198,7 @@ function openEditDrawer(account: DemoAccount) {
   drawerVisible.value = true
 }
 
-function saveAccount() {
+async function saveAccount() {
   const errors = validateAccountDraft(draft, accounts.value, editingId.value)
 
   if (errors.length > 0) {
@@ -159,33 +207,39 @@ function saveAccount() {
     return
   }
 
-  if (editingId.value) {
-    const target = accounts.value.find((account) => account.id === editingId.value)
-    if (target) {
-      Object.assign(target, {
-        username: draft.username.trim(),
-        displayName: draft.displayName.trim(),
-        phone: draft.phone.trim(),
-        roleCodes: [...draft.roleCodes],
-        status: draft.status,
-      })
+  try {
+    if (editingId.value) {
+      const updated = await accountApi.updateAccount(editingId.value, buildUpdateAccountInput(draft))
+      upsertAccount(accountRowToDemoAccount(updated))
+      ElMessage.success('账号绑定已更新')
+    } else {
+      const created = await accountApi.createAccount(buildCreateAccountInput(draft))
+      upsertAccount(accountRowToDemoAccount(created))
+      ElMessage.success('账号已添加')
     }
-    ElMessage.success('账号绑定已更新')
-  } else {
-    accounts.value.push(createAccountFromDraft(draft, accounts.value.length + 1))
-    ElMessage.success('演示账号已添加')
-  }
 
-  resetFieldErrors()
-  drawerVisible.value = false
+    resetFieldErrors()
+    drawerVisible.value = false
+  } catch (error) {
+    const message = getErrorMessage(error, editingId.value ? '账号更新失败' : '账号创建失败')
+    pageError.value = message
+    ElMessage.error(message)
+  }
 }
 
-function toggleStatus(account: DemoAccount) {
-  const index = accounts.value.findIndex((item) => item.id === account.id)
-  if (index === -1) return
+async function toggleStatus(account: DemoAccount) {
+  const nextStatus = getNextAccountStatus(account.status)
 
-  accounts.value[index] = toggleAccountStatus(account)
-  ElMessage.success(accounts.value[index].status === '已启用' ? '演示账号已启用' : '演示账号已停用')
+  try {
+    const updated = await accountApi.updateAccount(account.id, { status: accountStatusToApi(nextStatus) })
+    const updatedAccount = accountRowToDemoAccount(updated)
+    upsertAccount(updatedAccount)
+    ElMessage.success(updatedAccount.status === '已启用' ? '账号已启用' : '账号已停用')
+  } catch (error) {
+    const message = getErrorMessage(error, '账号状态更新失败')
+    pageError.value = message
+    ElMessage.error(message)
+  }
 }
 
 async function resetPassword(account: DemoAccount) {
@@ -199,18 +253,22 @@ async function resetPassword(account: DemoAccount) {
     return
   }
 
-  ElMessage.success('已生成演示密码：Demo@123')
+  try {
+    const updated = await accountApi.resetPassword(account.id, { password: defaultDemoPassword })
+    upsertAccount(accountRowToDemoAccount(updated))
+    ElMessage.success(`密码已重置为 ${defaultDemoPassword}`)
+  } catch (error) {
+    const message = getErrorMessage(error, '密码重置失败')
+    pageError.value = message
+    ElMessage.error(message)
+  }
 }
 
-function resetDemoState() {
-  const nextState = createDemoAccountState()
-  accounts.value = nextState.accounts
-  roles.value = nextState.roles
-  workbenches.value = cloneWorkbenches(defaultWorkbenchMetadata)
+async function resetDemoState() {
   selectedRoleCode.value = 'system-admin'
   drawerVisible.value = false
   roleDrawerVisible.value = false
-  ElMessage.success('演示状态已重置')
+  await loadAccountState('演示状态已刷新')
 }
 
 function openRoleDrawer(role: DemoRole) {
@@ -270,7 +328,7 @@ function saveRole() {
   })
 
   roleDrawerVisible.value = false
-  ElMessage.success('角色绑定已更新')
+  ElMessage.success('角色预览已更新')
 }
 </script>
 
@@ -286,12 +344,23 @@ function saveRole() {
         <p>账号角色用于预览菜单与工作台可见范围，工作台发布策略在工作台配置页统一维护。</p>
       </div>
       <div class="accounts-view__actions">
-        <ElButton data-testid="accounts-reset-button" :icon="Refresh" @click="resetDemoState">重置演示状态</ElButton>
+        <ElButton data-testid="accounts-reset-button" :icon="Refresh" :loading="isLoading" @click="resetDemoState">
+          刷新演示状态
+        </ElButton>
         <ElButton data-testid="accounts-add-button" type="primary" :icon="Plus" @click="openAddDrawer">
           新增账号
         </ElButton>
       </div>
     </header>
+
+    <ElAlert
+      v-if="pageError"
+      data-testid="accounts-error"
+      :title="pageError"
+      type="error"
+      show-icon
+      :closable="false"
+    />
 
     <section class="accounts-view__summary" aria-label="账号统计">
       <ElCard shadow="never"><span>账号总数</span><strong>{{ summary.totalAccounts }}</strong></ElCard>
@@ -304,7 +373,7 @@ function saveRole() {
       <ElCard shadow="never" class="accounts-view__panel">
         <ElTabs v-model="activeTab">
           <ElTabPane label="账号列表" name="accounts">
-            <ElTable :data="accounts" class="accounts-view__table">
+            <ElTable v-loading="isLoading" :data="accounts" class="accounts-view__table">
               <ElTableColumn label="账号" min-width="150">
                 <template #default="{ row }">
                   <div class="accounts-view__account-cell">
@@ -390,7 +459,7 @@ function saveRole() {
           </ElTabPane>
 
           <ElTabPane label="角色管理" name="roles">
-            <ElTable :data="roleInsights" class="accounts-view__table">
+            <ElTable v-loading="isLoading" :data="roleInsights" class="accounts-view__table">
               <ElTableColumn prop="name" label="角色名称" width="108" />
               <ElTableColumn prop="code" label="角色编码" min-width="190" />
               <ElTableColumn prop="description" label="说明" min-width="210" />
@@ -525,7 +594,7 @@ function saveRole() {
             </ElCheckbox>
           </ElCheckboxGroup>
         </ElFormItem>
-        <ElAlert title="账号角色用于预览菜单与工作台可见范围，工作台发布策略在工作台配置页统一维护。" type="info" :closable="false" />
+        <ElAlert title="角色说明和工作台绑定仅用于本页前端预览。" type="info" :closable="false" />
       </ElForm>
       <template #footer>
         <ElButton @click="roleDrawerVisible = false">取消</ElButton>
