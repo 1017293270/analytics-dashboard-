@@ -32,7 +32,7 @@ const fallbackChoiceTexts = ['核心概念', '课堂观察', '拓展思考']
 const explicitAnswerPattern = /(?:正确答案|参考答案|答案)\s*[:：]\s*([^。；;，,\n]+)/
 const letteredOptionPattern =
   /([A-Da-d])[\.\、:：]\s*([\s\S]*?)(?=\s*[A-Da-d][\.\、:：]\s*|\s*(?:正确答案|参考答案|答案)\s*[:：]|$)/g
-const blankPattern = /____|_{2,}|（）|\(\s*\)|填空/
+const blankPattern = /____|_{2,}|（\s*）|\(\s*\)|\[\s*\]|【\s*】/
 
 export function normalizeSourceText(value: string): string {
   return value.replace(/\s+/g, ' ').trim()

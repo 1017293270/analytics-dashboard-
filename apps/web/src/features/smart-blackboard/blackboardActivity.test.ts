@@ -38,6 +38,40 @@ describe('blackboardActivity parser', () => {
     expect(draft.correctOptionId).toBe('option-a')
   })
 
+  test('does not treat a cloze activity label as an existing blank marker', () => {
+    const draft = parseBlackboardActivity({
+      requestedType: 'cloze',
+      removeFillers: false,
+      sourceText: '选词填空：指南针、造纸术、火药、印刷术是中国古代四大发明。答案：指南针',
+    })
+
+    expect(draft.stem).toContain('____、造纸术、火药、印刷术是中国古代四大发明。')
+    expect(draft.options[0]).toMatchObject({ id: 'option-a', label: 'A', text: '指南针' })
+    expect(draft.correctOptionId).toBe('option-a')
+  })
+
+  test('keeps common blank bracket markers instead of replacing the explicit answer elsewhere', () => {
+    const sources = [
+      '指南针是中国古代四大发明之一，请填写（ ）。答案：指南针',
+      '指南针是中国古代四大发明之一，请填写[]。答案：指南针',
+      '指南针是中国古代四大发明之一，请填写【】。答案：指南针',
+    ]
+
+    for (const sourceText of sources) {
+      const draft = parseBlackboardActivity({
+        requestedType: 'cloze',
+        removeFillers: false,
+        sourceText,
+      })
+
+      expect(draft.stem).toContain('指南针是中国古代四大发明之一')
+      expect(draft.stem).not.toContain('答案')
+      expect(draft.stem).not.toContain('____')
+      expect(draft.options[0]).toMatchObject({ id: 'option-a', label: 'A', text: '指南针' })
+      expect(draft.correctOptionId).toBe('option-a')
+    }
+  })
+
   test('detects judgement false intent from negative wording', () => {
     const draft = parseBlackboardActivity({
       requestedType: 'judgement',
