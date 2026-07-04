@@ -82,12 +82,17 @@ const roleWorkbenchCards = computed(() => {
 
   return roleWorkbenchFallbacks.map((fallback) => {
     const workbench = workbenchesById.get(fallback.id)
+    const isAccessible = Boolean(workbench) && workbench?.availability !== 'disabled'
+    const status = workbench?.availability === 'disabled'
+      ? '已停用'
+      : isAccessible
+        ? '可浏览'
+        : '当前角色不可浏览'
 
     return {
       ...fallback,
-      name: workbench?.name ?? fallback.name,
-      description: workbench?.description ?? fallback.description,
-      status: workbench?.availability === 'disabled' ? '已停用' : '可浏览',
+      isAccessible,
+      status,
       path: `/workbenches/${fallback.id}`,
     }
   })
@@ -344,12 +349,21 @@ onMounted(() => {
               <h4>{{ workbench.name }}</h4>
               <p>{{ workbench.description }}</p>
               <RouterLink
+                v-if="workbench.isAccessible"
                 class="data-dashboards__card-action"
                 :to="workbench.path"
                 :data-testid="`data-center-workbench-${workbench.id}`"
               >
                 浏览大屏
               </RouterLink>
+              <span
+                v-else
+                class="data-dashboards__card-action is-disabled"
+                aria-disabled="true"
+                :data-testid="`data-center-workbench-unavailable-${workbench.id}`"
+              >
+                {{ workbench.status }}
+              </span>
             </article>
           </div>
         </section>
@@ -820,8 +834,15 @@ onMounted(() => {
   text-decoration: none;
 }
 
-.data-dashboards__card-action:hover {
+.data-dashboards__card-action:hover:not(.is-disabled) {
   background: var(--color-accent-700);
+}
+
+.data-dashboards__card-action.is-disabled {
+  cursor: not-allowed;
+  border-color: var(--color-border);
+  background: var(--color-panel-muted);
+  color: var(--color-text-muted);
 }
 
 .data-dashboards__summary {

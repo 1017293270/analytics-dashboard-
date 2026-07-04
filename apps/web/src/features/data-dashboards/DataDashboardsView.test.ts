@@ -110,8 +110,8 @@ const demoDashboardRows: DataDashboardRow[] = [
 const demoWorkbenchRows: DashboardListItem[] = [
   {
     id: 'dashboard-all',
-    name: '未来实验学校数据总览',
-    description: '全员可查看的校级驾驶舱',
+    name: '全员工作台',
+    description: '工作台配置演示态',
     status: 'draft',
     updatedAt: '2026-07-09T10:30:00.000Z',
     publishedAt: null,
@@ -120,8 +120,8 @@ const demoWorkbenchRows: DashboardListItem[] = [
   },
   {
     id: 'dashboard-electro',
-    name: '电教主任设备运维工作台',
-    description: '设备在线、告警和应用巡检',
+    name: '电教主任工作台',
+    description: '工作台配置演示态',
     status: 'draft',
     updatedAt: '2026-07-09T10:22:00.000Z',
     publishedAt: null,
@@ -130,8 +130,8 @@ const demoWorkbenchRows: DashboardListItem[] = [
   },
   {
     id: 'dashboard-moral',
-    name: '德育主任学生成长工作台',
-    description: '学生成长、德育活动和预警跟进',
+    name: '德育主任工作台',
+    description: '工作台配置演示态',
     status: 'draft',
     updatedAt: '2026-07-09T10:18:00.000Z',
     publishedAt: null,
@@ -140,8 +140,8 @@ const demoWorkbenchRows: DashboardListItem[] = [
   },
   {
     id: 'dashboard-research',
-    name: '教研主任教师发展工作台',
-    description: '教研活动、教师发展和资源共建',
+    name: '教研主任工作台',
+    description: '工作台配置演示态',
     status: 'draft',
     updatedAt: '2026-07-09T10:12:00.000Z',
     publishedAt: null,
@@ -189,7 +189,10 @@ function jsonResponse(data: unknown, status = 200) {
   })
 }
 
-function createDashboardFetchMock(initialRows = demoDashboardRows) {
+function createDashboardFetchMock(
+  initialRows = demoDashboardRows,
+  workbenchRowsOrError: DashboardListItem[] | Error = demoWorkbenchRows,
+) {
   let rows = cloneDashboardRows(initialRows)
 
   return vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
@@ -217,7 +220,11 @@ function createDashboardFetchMock(initialRows = demoDashboardRows) {
     }
 
     if (parsedUrl.pathname === '/api/big-screens' && method === 'GET') {
-      return jsonResponse(demoWorkbenchRows)
+      if (workbenchRowsOrError instanceof Error) {
+        throw workbenchRowsOrError
+      }
+
+      return jsonResponse(workbenchRowsOrError)
     }
 
     if (parsedUrl.pathname === '/api/data-dashboards' && method === 'POST') {
@@ -330,6 +337,7 @@ describe('DataDashboardsView', () => {
     expect(wrapper.text()).toContain('电教主任设备运维工作台')
     expect(wrapper.text()).toContain('德育主任学生成长工作台')
     expect(wrapper.text()).toContain('教研主任教师发展工作台')
+    expect(wrapper.text()).not.toContain('工作台配置演示态')
     const workbenchHrefs = wrapper
       .findAll('[data-testid^="data-center-workbench-"]')
       .map((link) => link.attributes('href'))
@@ -343,6 +351,30 @@ describe('DataDashboardsView', () => {
     expect(wrapper.findAll('[data-testid^="data-center-dashboard-"]')).toHaveLength(5)
   })
 
+  test('disables omitted or failed role workbench links while keeping the overview visible', async () => {
+    const partialWorkbenchRows = [demoWorkbenchRows[0]]
+    const { wrapper } = await mountDashboardView(createDashboardFetchMock(demoDashboardRows, partialWorkbenchRows))
+
+    expect(wrapper.get('[data-testid="data-center-workbench-dashboard-all"]').attributes('href')).toBe(
+      '/workbenches/dashboard-all',
+    )
+    expect(wrapper.find('[data-testid="data-center-workbench-dashboard-electro"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="data-center-workbench-unavailable-dashboard-electro"]').text()).toContain(
+      '当前角色不可浏览',
+    )
+    expect(wrapper.text()).toContain('电教主任设备运维工作台')
+
+    const failed = await mountDashboardView(
+      createDashboardFetchMock(demoDashboardRows, new Error('workbench list unavailable')),
+    )
+    expect(failed.wrapper.text()).toContain('角色工作台暂用演示兜底数据')
+    expect(failed.wrapper.text()).toContain('未来实验学校数据总览')
+    expect(failed.wrapper.find('[data-testid="data-center-workbench-dashboard-all"]').exists()).toBe(false)
+    expect(failed.wrapper.get('[data-testid="data-center-workbench-unavailable-dashboard-all"]').text()).toContain(
+      '当前角色不可浏览',
+    )
+  })
+
   test('opens built-in and embedded dashboard previews from overview cards', async () => {
     const { wrapper } = await mountDashboardView()
 
@@ -350,12 +382,14 @@ describe('DataDashboardsView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('配置数据看板')
+    expect((wrapper.get('[data-testid="dashboard-name-input"]').element as HTMLInputElement).value).toBe('教育治理')
     expect(wrapper.text()).toContain('治理事项')
 
     await wrapper.get('[data-testid="data-center-dashboard-dashboard-alarm"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.text()).toContain('https://demo.school.local/alarm-bi')
+    expect((wrapper.get('[data-testid="dashboard-name-input"]').element as HTMLInputElement).value).toBe('告警态势')
     expect(wrapper.text()).toContain('今日告警')
   })
 
