@@ -1,7 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
-const WORKBENCH_AVAILABILITY_STORAGE_KEY = 'analytics-dashboard.workbench-availability.v1'
-
 const demoNavLabels = ['首页总览', '工作台配置', '数据看板', '应用中心', '告警管理', '智慧黑板', '互动教学', '账号与角色']
 
 function collectLocalBrowserErrors(page: Page) {
@@ -31,20 +29,6 @@ function collectLocalBrowserErrors(page: Page) {
 }
 
 async function loginAsAdmin(page: Page, redirect = '/overview') {
-  await page.addInitScript((storageKey) => {
-    try {
-      window.localStorage.removeItem(storageKey)
-    } catch {
-      // Cross-origin demo iframes can deny storage access; only same-origin storage matters for this gate.
-    }
-
-    try {
-      window.sessionStorage.removeItem(storageKey)
-    } catch {
-      // Cross-origin demo iframes can deny storage access; only same-origin storage matters for this gate.
-    }
-  }, WORKBENCH_AVAILABILITY_STORAGE_KEY)
-
   await page.goto(`/login?redirect=${encodeURIComponent(redirect)}`)
   await page.locator('input[name="username"]').fill('admin')
   await page.locator('input[name="password"]').fill('Admin@123')
