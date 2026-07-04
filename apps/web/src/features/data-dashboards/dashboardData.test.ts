@@ -1,3 +1,4 @@
+import type { DataDashboardRow } from '@analytics/shared'
 import { describe, expect, test } from 'vitest'
 import { alarmSummary, seedAlarms } from '../alarms/alarmData'
 import { seedApplications } from '../applications/applicationData'
@@ -5,11 +6,36 @@ import {
   applyDashboardFilters,
   createDashboardDraft,
   dashboardSummary,
+  mapDashboardDraftToCreateInput,
+  mapDashboardDraftToUpdateInput,
+  mapDashboardFiltersToQuery,
+  mapDataDashboardRow,
+  mapDataDashboardSummary,
   seedDashboards,
   validateDashboardDraft,
   type DashboardDraft,
   type DashboardFilters,
 } from './dashboardData'
+
+const apiDashboardRow: DataDashboardRow = {
+  id: 'dashboard-alarm',
+  name: '告警态势',
+  type: '告警态势',
+  source: 'embedded',
+  embedUrl: 'https://demo.school.local/alarm-bi',
+  isDefault: false,
+  visibleRoleCodes: [
+    'all-staff',
+    'electro-education-director',
+    'moral-education-director',
+    'teaching-research-director',
+    'system-admin',
+  ],
+  status: 'disabled',
+  metrics: [{ label: '今日告警', value: '8', trend: '未处理 4' }],
+  createdAt: '2026-07-09T08:58:00.000Z',
+  updatedAt: '2026-07-09T08:58:00.000Z',
+}
 
 describe('dashboardData', () => {
   test('summarizes total, enabled, default, and embedded dashboards', () => {
@@ -44,6 +70,80 @@ describe('dashboardData', () => {
         { label: '今日告警', value: String(summary.total), trend: `未处理 ${summary.unhandled}` },
       ]),
     )
+  })
+
+  test('maps API dashboard rows to Chinese UI labels and stable preview fields', () => {
+    expect(mapDataDashboardRow(apiDashboardRow)).toEqual({
+      id: 'dashboard-alarm',
+      name: '告警态势',
+      type: '告警态势',
+      source: '第三方嵌入',
+      url: 'https://demo.school.local/alarm-bi',
+      isDefault: false,
+      visibleRoles: ['全员', '电教主任', '德育主任', '教研主任', '系统管理员'],
+      status: '已停用',
+      updatedAt: '2026-07-09 08:58',
+      metrics: [{ label: '今日告警', value: '8', trend: '未处理 4' }],
+    })
+  })
+
+  test('maps Chinese draft values to API create and update inputs', () => {
+    const draft: DashboardDraft = {
+      ...createDashboardDraft('第三方嵌入'),
+      name: '资产态势',
+      type: '设备运维',
+      url: ' https://demo.school.local/assets ',
+      visibleRoles: ['电教主任', '教研主任'],
+      status: '已停用',
+    }
+
+    expect(mapDashboardDraftToCreateInput(draft)).toEqual({
+      name: '资产态势',
+      type: '设备运维',
+      source: 'embedded',
+      embedUrl: 'https://demo.school.local/assets',
+      isDefault: false,
+      visibleRoleCodes: ['electro-education-director', 'teaching-research-director'],
+      status: 'disabled',
+      metrics: [
+        { label: '外部指标', value: '已接入', trend: '第三方链接' },
+        { label: '刷新方式', value: '手动', trend: '按需刷新' },
+        { label: '融合状态', value: '正常', trend: '数据中心' },
+      ],
+    })
+    expect(mapDashboardDraftToUpdateInput(draft)).toEqual({
+      name: '资产态势',
+      type: '设备运维',
+      source: 'embedded',
+      embedUrl: 'https://demo.school.local/assets',
+      isDefault: false,
+      visibleRoleCodes: ['electro-education-director', 'teaching-research-director'],
+      status: 'disabled',
+    })
+  })
+
+  test('maps dashboard filters and API summary payloads without losing demo counts', () => {
+    const filters: DashboardFilters = {
+      keyword: ' 告警 ',
+      type: '告警态势',
+      visibleRole: '电教主任',
+      status: '已停用',
+      source: '第三方嵌入',
+    }
+
+    expect(mapDashboardFiltersToQuery(filters)).toEqual({
+      keyword: '告警',
+      type: '告警态势',
+      roleCode: 'electro-education-director',
+      status: 'disabled',
+      source: 'embedded',
+    })
+    expect(mapDataDashboardSummary({ total: 6, default: 3, embedded: 2 }, seedDashboards)).toEqual({
+      total: 6,
+      enabled: 5,
+      defaults: 3,
+      embedded: 2,
+    })
   })
 
   test('filters dashboards by keyword, type, role, status, and source', () => {

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { DataAnalysis, Edit, Link, Plus, Refresh, Search, View } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { computed, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { dashboardApi, type DataDashboardListPayload } from './dashboardApi'
 import {
   applyDashboardFilters,
   createDashboardDraft,
@@ -12,8 +13,13 @@ import {
   dashboardSummary,
   dashboardTypes,
   defaultDashboardFilters,
+  embeddedDashboardDraftPreviewMetrics,
   isValidDashboardEmbedUrl,
-  seedDashboards,
+  mapDashboardDraftToCreateInput,
+  mapDashboardDraftToUpdateInput,
+  mapDashboardFiltersToQuery,
+  mapDataDashboardRow,
+  mapDataDashboardSummary,
   validateDashboardDraft,
   type DashboardDraft,
   type DashboardSource,
@@ -23,18 +29,15 @@ import {
 
 type TagType = 'primary' | 'success' | 'warning' | 'danger' | 'info'
 
-const dashboards = ref<ManagedDashboard[]>(
-  seedDashboards.map((dashboard) => ({
-    ...dashboard,
-    visibleRoles: [...dashboard.visibleRoles],
-    metrics: dashboard.metrics.map((metric) => ({ ...metric })),
-  })),
-)
+const dashboards = ref<ManagedDashboard[]>([])
+const summary = ref(dashboardSummary([]))
 const filters = reactive({ ...defaultDashboardFilters })
 const drawerVisible = ref(false)
 const editingId = ref<string | null>(null)
 const draft = reactive<DashboardDraft>(createDashboardDraft())
 const previewMetrics = ref<ManagedDashboard['metrics']>([])
+const isLoading = ref(false)
+const isSaving = ref(false)
 const fieldErrors = reactive({
   name: '',
   url: '',
@@ -42,7 +45,6 @@ const fieldErrors = reactive({
 })
 
 const filteredDashboards = computed(() => applyDashboardFilters(dashboards.value, filters))
-const summary = computed(() => dashboardSummary(dashboards.value))
 const drawerTitle = computed(() => (editingId.value ? '配置数据看板' : '配置第三方看板'))
 
 function getStatusTagType(status: DashboardStatus): TagType {
@@ -53,8 +55,77 @@ function getSourceTagType(source: DashboardSource): TagType {
   return source === '第三方嵌入' ? 'primary' : 'info'
 }
 
-function resetFilters() {
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback
+}
+
+function applyDashboardPayload(payload: DataDashboardListPayload) {
+  dashboards.value = payload.items.map(mapDataDashboardRow)
+  summary.value = mapDataDashboardSummary(payload.summary, dashboards.value)
+}
+
+function updateSummaryFromDashboards() {
+  summary.value = dashboardSummary(dashboards.value)
+}
+
+function replaceDashboard(row: Parameters<typeof mapDataDashboardRow>[0]) {
+  const dashboard = mapDataDashboardRow(row)
+  const existingIndex = dashboards.value.findIndex((item) => item.id === dashboard.id)
+
+  if (existingIndex >= 0) {
+    dashboards.value.splice(existingIndex, 1, dashboard)
+  } else {
+    dashboards.value.push(dashboard)
+  }
+
+  updateSummaryFromDashboards()
+}
+
+async function loadDashboards() {
+  isLoading.value = true
+
+  try {
+    applyDashboardPayload(await dashboardApi.listDashboards())
+  } catch (error) {
+    ElMessage.error(errorMessage(error, '数据看板加载失败'))
+  } finally {
+    isLoading.value = false
+  }
+}
+
+async function resetDemoDashboards() {
+  isLoading.value = true
+  drawerVisible.value = false
+  editingId.value = null
+  Object.assign(draft, createDashboardDraft())
+  previewMetrics.value = []
+  resetFieldErrors()
+
+  try {
+    applyDashboardPayload(await dashboardApi.resetDemoDashboards())
+    ElMessage.success('已恢复默认数据看板')
+  } catch (error) {
+    ElMessage.error(errorMessage(error, '恢复默认数据看板失败'))
+  } finally {
+    isLoading.value = false
+  }
+}
+
+async function searchDashboards() {
+  isLoading.value = true
+
+  try {
+    applyDashboardPayload(await dashboardApi.listDashboards(mapDashboardFiltersToQuery(filters)))
+  } catch (error) {
+    ElMessage.error(errorMessage(error, '数据看板查询失败'))
+  } finally {
+    isLoading.value = false
+  }
+}
+
+async function resetFilters() {
   Object.assign(filters, { ...defaultDashboardFilters })
+  await loadDashboards()
 }
 
 function resetFieldErrors() {
@@ -93,17 +164,13 @@ function openPreview(dashboard: ManagedDashboard) {
 
 function openEmbedDrawer() {
   Object.assign(draft, createDashboardDraft('第三方嵌入'))
-  previewMetrics.value = [
-    { label: '外部指标', value: '--', trend: '等待链接' },
-    { label: '刷新方式', value: '手动', trend: '演示模式' },
-    { label: '融合状态', value: '待配置', trend: '未嵌入' },
-  ]
+  previewMetrics.value = embeddedDashboardDraftPreviewMetrics.map((metric) => ({ ...metric }))
   resetFieldErrors()
   editingId.value = null
   drawerVisible.value = true
 }
 
-function saveDashboard() {
+async function saveDashboard() {
   const errors = validateDashboardDraft(draft)
 
   if (errors.length > 0) {
@@ -112,35 +179,39 @@ function saveDashboard() {
     return
   }
 
-  if (editingId.value) {
-    const target = dashboards.value.find((dashboard) => dashboard.id === editingId.value)
-    if (target) {
-      Object.assign(target, {
-        ...draft,
-        visibleRoles: [...draft.visibleRoles],
-      })
+  isSaving.value = true
+
+  try {
+    if (editingId.value) {
+      replaceDashboard(await dashboardApi.updateDashboard(editingId.value, mapDashboardDraftToUpdateInput(draft)))
+    } else {
+      replaceDashboard(await dashboardApi.createDashboard(mapDashboardDraftToCreateInput(draft)))
     }
-  } else {
-    dashboards.value.push({
-      id: `dashboard-${Date.now()}`,
-      ...draft,
-      visibleRoles: [...draft.visibleRoles],
-      updatedAt: '2026-07-09 10:36',
-      metrics: [
-        { label: '外部指标', value: '已接入', trend: '第三方链接' },
-        { label: '刷新方式', value: '手动', trend: '演示模式' },
-        { label: '融合状态', value: '正常', trend: '数据中心' },
-      ],
-    })
+
+    resetFieldErrors()
+    drawerVisible.value = false
+  } catch (error) {
+    ElMessage.error(errorMessage(error, '数据看板保存失败'))
+  } finally {
+    isSaving.value = false
   }
-
-  resetFieldErrors()
-  drawerVisible.value = false
 }
 
-function toggleDashboardStatus(dashboard: ManagedDashboard) {
-  dashboard.status = dashboard.status === '已启用' ? '已停用' : '已启用'
+async function toggleDashboardStatus(dashboard: ManagedDashboard) {
+  try {
+    replaceDashboard(
+      await dashboardApi.updateDashboard(dashboard.id, {
+        status: dashboard.status === '已启用' ? 'disabled' : 'enabled',
+      }),
+    )
+  } catch (error) {
+    ElMessage.error(errorMessage(error, '数据看板状态更新失败'))
+  }
 }
+
+onMounted(() => {
+  void loadDashboards()
+})
 </script>
 
 <template>
@@ -154,19 +225,25 @@ function toggleDashboardStatus(dashboard: ManagedDashboard) {
         <h1>数据看板</h1>
         <p>统一管理校级数据看板、角色可见范围和第三方看板嵌入。</p>
       </div>
-      <ElButton data-testid="dashboard-add-embed-button" type="primary" :icon="Plus" @click="openEmbedDrawer">
-        配置第三方看板
-      </ElButton>
+      <div class="data-dashboards__actions">
+        <ElButton data-testid="dashboard-refresh-button" :icon="Refresh" @click="loadDashboards">刷新</ElButton>
+        <ElButton data-testid="dashboard-demo-reset-button" :icon="Refresh" @click="resetDemoDashboards">
+          恢复演示数据
+        </ElButton>
+        <ElButton data-testid="dashboard-add-embed-button" type="primary" :icon="Plus" @click="openEmbedDrawer">
+          配置第三方看板
+        </ElButton>
+      </div>
     </header>
 
     <section class="data-dashboards__summary" aria-label="数据看板统计">
-      <ElCard shadow="never"><span>看板总数</span><strong>{{ summary.total }}</strong></ElCard>
+      <ElCard shadow="never"><span>看板总数</span><strong data-testid="dashboard-summary-total">{{ summary.total }}</strong></ElCard>
       <ElCard shadow="never"><span>已启用</span><strong>{{ summary.enabled }}</strong></ElCard>
-      <ElCard shadow="never"><span>默认看板</span><strong>{{ summary.defaults }}</strong></ElCard>
-      <ElCard shadow="never"><span>第三方嵌入</span><strong>{{ summary.embedded }}</strong></ElCard>
+      <ElCard shadow="never"><span>默认看板</span><strong data-testid="dashboard-summary-defaults">{{ summary.defaults }}</strong></ElCard>
+      <ElCard shadow="never"><span>第三方嵌入</span><strong data-testid="dashboard-summary-embedded">{{ summary.embedded }}</strong></ElCard>
     </section>
 
-    <ElCard shadow="never" class="data-dashboards__panel">
+    <ElCard v-loading="isLoading" shadow="never" class="data-dashboards__panel">
       <ElForm class="data-dashboards__filters" label-position="top">
         <ElFormItem label="看板名称">
           <ElInput
@@ -200,7 +277,9 @@ function toggleDashboardStatus(dashboard: ManagedDashboard) {
         <ElFormItem label="操作">
           <ElButtonGroup>
             <ElButton data-testid="dashboard-reset-button" :icon="Refresh" @click="resetFilters">重置</ElButton>
-            <ElButton data-testid="dashboard-search-button" type="primary" :icon="Search">查询</ElButton>
+            <ElButton data-testid="dashboard-search-button" type="primary" :icon="Search" @click="searchDashboards">
+              查询
+            </ElButton>
           </ElButtonGroup>
         </ElFormItem>
       </ElForm>
@@ -353,7 +432,9 @@ function toggleDashboardStatus(dashboard: ManagedDashboard) {
 
       <template #footer>
         <ElButton @click="drawerVisible = false">取消</ElButton>
-        <ElButton data-testid="dashboard-save-button" type="primary" @click="saveDashboard">保存</ElButton>
+        <ElButton data-testid="dashboard-save-button" type="primary" :loading="isSaving" @click="saveDashboard">
+          保存
+        </ElButton>
       </template>
     </ElDrawer>
   </main>
@@ -367,6 +448,7 @@ function toggleDashboardStatus(dashboard: ManagedDashboard) {
 }
 
 .data-dashboards__header,
+.data-dashboards__actions,
 .data-dashboards__eyebrow,
 .data-dashboards__name-cell,
 .data-dashboards__role-tags,
@@ -379,6 +461,11 @@ function toggleDashboardStatus(dashboard: ManagedDashboard) {
 
 .data-dashboards__header {
   justify-content: space-between;
+}
+
+.data-dashboards__actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .data-dashboards__header h1,

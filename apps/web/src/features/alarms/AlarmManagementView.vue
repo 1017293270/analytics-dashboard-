@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import { Bell, Refresh, Search, VideoPause, VideoPlay, WarningFilled } from '@element-plus/icons-vue'
-import { computed, nextTick, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { alarmApi, type AlarmListPayload, type AlarmSummaryPayload } from './alarmApi'
 import {
   alarmStatusOptions,
-  alarmSummary,
-  applyAlarmFilters,
-  createDisposalRecord,
+  buildAlarmListQuery,
   defaultAlarmFilters,
   getNextAlarmStatus,
-  seedAlarms,
+  mapAlarmDetailToEvent,
   triggerMethodOptions,
   type AlarmAction,
   type AlarmEvent,
@@ -19,15 +18,13 @@ import {
 type TagType = 'primary' | 'success' | 'warning' | 'danger' | 'info'
 
 const route = useRoute()
-const alarms = ref<AlarmEvent[]>(
-  seedAlarms.map((alarm) => ({
-    ...alarm,
-    disposalRecords: alarm.disposalRecords.map((record) => ({ ...record })),
-  })),
-)
+const alarms = ref<AlarmEvent[]>([])
 const filters = reactive({ ...defaultAlarmFilters })
-const selectedAlarmId = ref<string | null>(null)
+const selectedAlarm = ref<AlarmEvent | null>(null)
+const summary = ref<AlarmSummaryPayload>({ total: 0, unhandled: 0, processing: 0, resolved: 0 })
 const detailVisible = ref(false)
+const isLoading = ref(false)
+const loadError = ref('')
 const playingRecordingId = ref<string | null>(null)
 
 const statusTagTypes: Record<AlarmStatus, TagType> = {
@@ -36,41 +33,119 @@ const statusTagTypes: Record<AlarmStatus, TagType> = {
   已处理: 'success',
 }
 
-const filteredAlarms = computed(() => applyAlarmFilters(alarms.value, filters))
-const summary = computed(() => alarmSummary(alarms.value))
-const selectedAlarm = computed(() => alarms.value.find((alarm) => alarm.id === selectedAlarmId.value) ?? null)
+const filteredAlarms = computed(() => alarms.value)
 const isSelectedRecordingPlaying = computed(() => selectedAlarm.value?.id === playingRecordingId.value)
 
 function getStatusTagType(status: AlarmStatus): TagType {
   return statusTagTypes[status]
 }
 
-function searchAlarms() {
-  selectedAlarmId.value = null
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : '告警接口请求失败'
 }
 
-function resetFilters() {
+function applyListPayload(payload: AlarmListPayload) {
+  alarms.value = payload.items.map(mapAlarmDetailToEvent)
+  summary.value = payload.summary
+}
+
+function upsertAlarm(alarm: AlarmEvent) {
+  const index = alarms.value.findIndex((item) => item.id === alarm.id)
+  if (index >= 0) {
+    alarms.value.splice(index, 1, alarm)
+  } else {
+    alarms.value = [alarm, ...alarms.value]
+  }
+}
+
+async function loadAlarms() {
+  isLoading.value = true
+  loadError.value = ''
+
+  try {
+    applyListPayload(await alarmApi.listAlarms(buildAlarmListQuery(filters)))
+  } catch (error) {
+    loadError.value = getErrorMessage(error)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+async function searchAlarms() {
+  selectedAlarm.value = null
+  detailVisible.value = false
+  await loadAlarms()
+}
+
+async function refreshAlarms() {
+  await loadAlarms()
+}
+
+async function resetDemoAlarms() {
   Object.assign(filters, { ...defaultAlarmFilters, dateRange: [] })
+  selectedAlarm.value = null
+  detailVisible.value = false
+  playingRecordingId.value = null
+  loadError.value = ''
+
+  try {
+    applyListPayload(await alarmApi.resetDemoAlarms())
+  } catch (error) {
+    loadError.value = getErrorMessage(error)
+  }
 }
 
-function openAlarm(alarm: AlarmEvent) {
-  selectedAlarmId.value = alarm.id
+async function openAlarm(alarm: AlarmEvent) {
+  selectedAlarm.value = alarm
   detailVisible.value = true
+  playingRecordingId.value = null
+  loadError.value = ''
+
+  try {
+    const detail = mapAlarmDetailToEvent(await alarmApi.getAlarm(alarm.id))
+    selectedAlarm.value = detail
+    upsertAlarm(detail)
+  } catch (error) {
+    loadError.value = getErrorMessage(error)
+  }
 }
 
-function applyStatusAction(action: AlarmAction) {
+async function applyStatusAction(action: AlarmAction) {
   if (!selectedAlarm.value) return
 
   const nextStatus = getNextAlarmStatus(selectedAlarm.value.status, action)
   if (nextStatus === selectedAlarm.value.status) return
 
-  const record =
-    action === 'processing'
-      ? createDisposalRecord('系统管理员', '标记为处理中', '已接收告警，正在确认现场情况。')
-      : createDisposalRecord('系统管理员', '标记为已处理', '已通知责任人完成处置，事件结束。')
+  loadError.value = ''
 
-  selectedAlarm.value.status = nextStatus
-  selectedAlarm.value.disposalRecords.push(record)
+  try {
+    const updatedAlarm = mapAlarmDetailToEvent(await alarmApi.updateAlarmStatus(selectedAlarm.value.id, { action }))
+    selectedAlarm.value = updatedAlarm
+    upsertAlarm(updatedAlarm)
+    await loadAlarms()
+    selectedAlarm.value = updatedAlarm
+  } catch (error) {
+    loadError.value = getErrorMessage(error)
+  }
+}
+
+async function addFalsePositiveRecord() {
+  if (!selectedAlarm.value) return
+
+  loadError.value = ''
+
+  try {
+    const updatedAlarm = mapAlarmDetailToEvent(
+      await alarmApi.createDisposalRecord(selectedAlarm.value.id, {
+        action: '误报反馈',
+        note: '已记录误报反馈，待复核告警规则。',
+      }),
+    )
+    selectedAlarm.value = updatedAlarm
+    upsertAlarm(updatedAlarm)
+  } catch (error) {
+    loadError.value = getErrorMessage(error)
+  }
 }
 
 function toggleSelectedRecording() {
@@ -79,23 +154,27 @@ function toggleSelectedRecording() {
   playingRecordingId.value = isSelectedRecordingPlaying.value ? null : selectedAlarm.value.id
 }
 
-function syncQueryDevice() {
+async function syncQueryDevice() {
   const device = typeof route.query.device === 'string' ? route.query.device : ''
   if (!device) return
 
   const matchedAlarm = alarms.value.find((alarm) => alarm.deviceIdentifier === device)
   if (matchedAlarm) {
-    openAlarm(matchedAlarm)
+    await openAlarm(matchedAlarm)
   }
 }
 
 watch(
   () => route.query.device,
   () => {
-    void nextTick(syncQueryDevice)
+    void syncQueryDevice()
   },
-  { immediate: true },
 )
+
+onMounted(async () => {
+  await loadAlarms()
+  await syncQueryDevice()
+})
 </script>
 
 <template>
@@ -109,7 +188,7 @@ watch(
         <h1>告警管理</h1>
         <p>按设备、位置、状态和触发方式筛选学校设备事件，并完成处置演示。</p>
       </div>
-      <ElButton :icon="Refresh" @click="resetFilters">刷新列表</ElButton>
+      <ElButton :icon="Refresh" @click="refreshAlarms">刷新列表</ElButton>
     </header>
 
     <section class="alarm-management__summary" aria-label="告警统计">
@@ -119,7 +198,9 @@ watch(
       <ElCard shadow="never"><span>已处理</span><strong>{{ summary.resolved }}</strong></ElCard>
     </section>
 
-    <ElCard shadow="never" class="alarm-management__panel">
+    <ElAlert v-if="loadError" :title="loadError" type="error" show-icon :closable="false" />
+
+    <ElCard v-loading="isLoading" shadow="never" class="alarm-management__panel">
       <ElForm class="alarm-management__filters" label-position="top">
         <ElFormItem label="时间范围">
           <ElDatePicker
@@ -152,7 +233,7 @@ watch(
         </ElFormItem>
         <ElFormItem label="操作">
           <ElButtonGroup>
-            <ElButton data-testid="alarm-reset-button" @click="resetFilters">重置</ElButton>
+            <ElButton data-testid="alarm-reset-button" @click="resetDemoAlarms">重置</ElButton>
             <ElButton data-testid="alarm-search-button" type="primary" :icon="Search" @click="searchAlarms">
               查询
             </ElButton>
@@ -188,7 +269,7 @@ watch(
       </ElTable>
 
       <ElEmpty v-else description="当前筛选条件下暂无告警">
-        <ElButton @click="resetFilters">重置筛选</ElButton>
+        <ElButton @click="resetDemoAlarms">重置筛选</ElButton>
       </ElEmpty>
     </ElCard>
 
@@ -262,7 +343,9 @@ watch(
           >
             标记为已处理
           </ElButton>
-          <ElButton :icon="WarningFilled">误报反馈</ElButton>
+          <ElButton data-testid="alarm-false-positive" :icon="WarningFilled" @click="addFalsePositiveRecord">
+            误报反馈
+          </ElButton>
         </footer>
       </div>
     </ElDrawer>

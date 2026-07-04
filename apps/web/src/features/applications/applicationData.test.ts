@@ -1,8 +1,12 @@
 import { describe, expect, test } from 'vitest'
+import type { ApplicationRow } from '@analytics/shared'
 import {
+  applicationDraftToCreateInput,
+  applicationDraftToUpdateInput,
   applicationSummary,
   applyApplicationFilters,
   createApplicationDraft,
+  mapApplicationRow,
   seedApplications,
   validateApplicationDraft,
   type ApplicationDraft,
@@ -10,6 +14,22 @@ import {
 } from './applicationData'
 
 describe('applicationData', () => {
+  const apiRow: ApplicationRow = {
+    id: 'app-notice',
+    name: '校园通知发布系统',
+    categoryId: 'management-tools',
+    categoryName: '管理工具',
+    platform: 'web',
+    url: 'https://demo.school.local/notice',
+    packageId: '',
+    icon: 'notice',
+    visibleRoleCodes: ['all-staff', 'moral-education-director'],
+    status: 'enabled',
+    sortOrder: 1,
+    createdAt: '2026-07-04T08:00:00.000Z',
+    updatedAt: '2026-07-04T08:00:00.000Z',
+  }
+
   test('summarizes platform and enabled counts from seed records', () => {
     expect(applicationSummary(seedApplications)).toEqual({
       total: 8,
@@ -46,6 +66,7 @@ describe('applicationData', () => {
   test('returns default draft values for adding an application', () => {
     expect(createApplicationDraft()).toMatchObject({
       name: '',
+      categoryId: 'management-tools',
       category: '管理工具',
       platform: '网页端',
       url: '',
@@ -53,6 +74,52 @@ describe('applicationData', () => {
       icon: 'notice',
       visibleRoles: ['全员'],
       status: '已启用',
+    })
+  })
+
+  test('maps API rows to Chinese UI labels while preserving persistence identifiers', () => {
+    expect(mapApplicationRow(apiRow)).toMatchObject({
+      id: 'app-notice',
+      categoryId: 'management-tools',
+      category: '管理工具',
+      platform: '网页端',
+      status: '已启用',
+      visibleRoleCodes: ['all-staff', 'moral-education-director'],
+      visibleRoles: ['全员', '德育主任'],
+    })
+  })
+
+  test('converts Chinese form drafts to API create and update payloads', () => {
+    const draft: ApplicationDraft = {
+      ...createApplicationDraft(),
+      name: '访客预约系统',
+      categoryId: 'data-dashboard',
+      category: '数据看板',
+      platform: '网页端',
+      url: 'https://demo.school.local/visitor',
+      visibleRoles: ['全员', '电教主任'],
+      status: '已启用',
+    }
+
+    expect(applicationDraftToCreateInput(draft)).toEqual({
+      name: '访客预约系统',
+      categoryId: 'data-dashboard',
+      platform: 'web',
+      url: 'https://demo.school.local/visitor',
+      packageId: '',
+      icon: 'notice',
+      visibleRoleCodes: ['all-staff', 'electro-education-director'],
+      status: 'enabled',
+    })
+    expect(applicationDraftToUpdateInput({ ...draft, status: '已停用' })).toEqual({
+      name: '访客预约系统',
+      categoryId: 'data-dashboard',
+      platform: 'web',
+      url: 'https://demo.school.local/visitor',
+      packageId: '',
+      icon: 'notice',
+      visibleRoleCodes: ['all-staff', 'electro-education-director'],
+      status: 'disabled',
     })
   })
 

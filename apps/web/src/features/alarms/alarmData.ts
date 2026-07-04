@@ -1,3 +1,9 @@
+import type {
+  AlarmDetail as ApiAlarmDetail,
+  AlarmListQuery,
+  AlarmStatus as ApiAlarmStatus,
+} from '@analytics/shared'
+
 export type AlarmStatus = '未处理' | '处理中' | '已处理'
 export type AlarmStatusFilter = AlarmStatus | '全部'
 export type TriggerMethodFilter = '全部' | 'AI识别' | '设备离线' | '阈值告警' | '刷卡失败' | '手动上报' | '移动侦测' | '市电异常'
@@ -51,6 +57,77 @@ export const triggerMethodOptions: TriggerMethodFilter[] = [
   '移动侦测',
   '市电异常',
 ]
+
+const uiStatusByApiStatus: Record<ApiAlarmStatus, AlarmStatus> = {
+  unhandled: '未处理',
+  processing: '处理中',
+  resolved: '已处理',
+}
+
+const apiStatusByUiStatus: Record<AlarmStatus, ApiAlarmStatus> = {
+  未处理: 'unhandled',
+  处理中: 'processing',
+  已处理: 'resolved',
+}
+
+export function toUiAlarmStatus(status: ApiAlarmStatus): AlarmStatus {
+  return uiStatusByApiStatus[status]
+}
+
+export function toApiAlarmStatus(status: AlarmStatus): ApiAlarmStatus {
+  return apiStatusByUiStatus[status]
+}
+
+function formatApiDateTime(value: string) {
+  const match = value.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/)
+  if (match) return `${match[1]} ${match[2]}`
+
+  return value.replace('T', ' ').replace(/\.\d{3}Z$/, '').replace(/Z$/, '')
+}
+
+function toApiDateTime(value: string) {
+  const trimmed = value.trim()
+  if (trimmed.length === 0) return ''
+  if (trimmed.includes('T')) return trimmed
+
+  const normalized = trimmed.replace(' ', 'T')
+  const withSeconds = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(normalized) ? `${normalized}:00` : normalized
+  return `${withSeconds.replace(/\.\d+$/, '')}.000Z`
+}
+
+export function mapAlarmDetailToEvent(alarm: ApiAlarmDetail): AlarmEvent {
+  return {
+    id: alarm.id,
+    deviceIdentifier: alarm.deviceIdentifier,
+    deviceName: alarm.deviceName,
+    location: alarm.location,
+    responsibleName: alarm.responsibleName,
+    responsiblePhone: alarm.responsiblePhone,
+    triggerMethod: alarm.triggerMethod as Exclude<TriggerMethodFilter, '全部'>,
+    eventType: alarm.eventType,
+    status: toUiAlarmStatus(alarm.status),
+    reportedAt: formatApiDateTime(alarm.reportedAt),
+    recordingDuration: alarm.recording.duration,
+    disposalRecords: alarm.disposalRecords.map((record) => ({
+      ...record,
+      createdAt: formatApiDateTime(record.createdAt),
+    })),
+  }
+}
+
+export function buildAlarmListQuery(filters: AlarmFilters): Partial<AlarmListQuery> {
+  const query: Partial<AlarmListQuery> = {}
+  const keyword = filters.keyword.trim()
+  const [reportedFrom, reportedTo] = Array.isArray(filters.dateRange) ? filters.dateRange : []
+
+  if (keyword.length > 0) query.keyword = keyword
+  if (filters.status !== '全部') query.status = toApiAlarmStatus(filters.status)
+  if (filters.triggerMethod !== '全部') query.triggerMethod = filters.triggerMethod
+  if (reportedFrom) query.reportedFrom = toApiDateTime(reportedFrom)
+  if (reportedTo) query.reportedTo = toApiDateTime(reportedTo)
+
+  return query
+}
 
 export const seedAlarms: AlarmEvent[] = [
   {

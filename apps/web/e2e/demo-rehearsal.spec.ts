@@ -137,6 +137,8 @@ test('passes the July 9 smart education demo route gates', async ({ page }) => {
   await expect(page.getByTestId('application-uninstall-app-blackboard')).toBeVisible()
 
   await gotoRoute(page, '/alarms', '告警管理')
+  await page.getByTestId('alarm-reset-button').click()
+  await expectMetricCard(page.locator('section[aria-label="告警统计"] .el-card').filter({ hasText: '未处理' }), '4')
   await page.getByPlaceholder('请输入设备编号/名称/位置').fill('HB-3F-021')
   await page.getByTestId('alarm-search-button').click()
   await expect(page.getByText('HB-3F-021')).toBeVisible()

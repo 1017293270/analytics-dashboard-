@@ -1,10 +1,21 @@
+import type {
+  CreateDataDashboardInput,
+  DataDashboardListQuery,
+  DataDashboardRow,
+  DataDashboardSource,
+  DataDashboardStatus,
+  RoleCode,
+  UpdateDataDashboardInput,
+} from '@analytics/shared'
+import type { DataDashboardListSummary } from './dashboardApi'
+
 export type DashboardType = '治理分析' | '教师发展' | '学生成长' | '设备运维' | '告警态势' | '应用使用'
 export type DashboardTypeFilter = DashboardType | '全部'
 export type DashboardSource = '内置看板' | '第三方嵌入'
 export type DashboardSourceFilter = DashboardSource | '全部'
 export type DashboardStatus = '已启用' | '已停用'
 export type DashboardStatusFilter = DashboardStatus | '全部'
-export type DashboardRole = '全员' | '电教主任' | '德育主任' | '教研主任'
+export type DashboardRole = '全员' | '电教主任' | '德育主任' | '教研主任' | '系统管理员'
 export type DashboardRoleFilter = DashboardRole | '全部'
 
 export type DashboardMetric = {
@@ -47,8 +58,20 @@ export const dashboardTypes: DashboardTypeFilter[] = [
 ]
 export const dashboardSources: DashboardSourceFilter[] = ['全部', '内置看板', '第三方嵌入']
 export const dashboardStatuses: DashboardStatusFilter[] = ['全部', '已启用', '已停用']
-export const dashboardRoles: DashboardRole[] = ['全员', '电教主任', '德育主任', '教研主任']
+export const dashboardRoles: DashboardRole[] = ['全员', '电教主任', '德育主任', '教研主任', '系统管理员']
 export const dashboardRoleFilters: DashboardRoleFilter[] = ['全部', ...dashboardRoles]
+
+export const defaultEmbeddedDashboardMetrics: DashboardMetric[] = [
+  { label: '外部指标', value: '已接入', trend: '第三方链接' },
+  { label: '刷新方式', value: '手动', trend: '按需刷新' },
+  { label: '融合状态', value: '正常', trend: '数据中心' },
+]
+
+export const embeddedDashboardDraftPreviewMetrics: DashboardMetric[] = [
+  { label: '外部指标', value: '--', trend: '等待链接' },
+  { label: '刷新方式', value: '手动', trend: '按需刷新' },
+  { label: '融合状态', value: '待配置', trend: '未嵌入' },
+]
 
 export const defaultDashboardFilters: DashboardFilters = {
   keyword: '',
@@ -163,6 +186,114 @@ export function dashboardSummary(dashboards: ManagedDashboard[]) {
     enabled: dashboards.filter((dashboard) => dashboard.status === '已启用').length,
     defaults: dashboards.filter((dashboard) => dashboard.isDefault).length,
     embedded: dashboards.filter((dashboard) => dashboard.source === '第三方嵌入').length,
+  }
+}
+
+const sourceLabelByCode: Record<DataDashboardSource, DashboardSource> = {
+  builtin: '内置看板',
+  embedded: '第三方嵌入',
+}
+
+const sourceCodeByLabel: Record<DashboardSource, DataDashboardSource> = {
+  内置看板: 'builtin',
+  第三方嵌入: 'embedded',
+}
+
+const statusLabelByCode: Record<DataDashboardStatus, DashboardStatus> = {
+  enabled: '已启用',
+  disabled: '已停用',
+}
+
+const statusCodeByLabel: Record<DashboardStatus, DataDashboardStatus> = {
+  已启用: 'enabled',
+  已停用: 'disabled',
+}
+
+const roleLabelByCode: Record<RoleCode, DashboardRole> = {
+  'all-staff': '全员',
+  'electro-education-director': '电教主任',
+  'moral-education-director': '德育主任',
+  'teaching-research-director': '教研主任',
+  'system-admin': '系统管理员',
+}
+
+const roleCodeByLabel: Record<DashboardRole, RoleCode> = {
+  全员: 'all-staff',
+  电教主任: 'electro-education-director',
+  德育主任: 'moral-education-director',
+  教研主任: 'teaching-research-director',
+  系统管理员: 'system-admin',
+}
+
+function formatDashboardDateTime(value: string) {
+  return value.includes('T') ? value.slice(0, 16).replace('T', ' ') : value
+}
+
+function cloneMetrics(metrics: DashboardMetric[]) {
+  return metrics.map((metric) => ({ ...metric }))
+}
+
+export function mapDataDashboardRow(row: DataDashboardRow): ManagedDashboard {
+  return {
+    id: row.id,
+    name: row.name,
+    type: row.type as DashboardType,
+    source: sourceLabelByCode[row.source],
+    url: row.embedUrl,
+    isDefault: row.isDefault,
+    visibleRoles: row.visibleRoleCodes.map((roleCode) => roleLabelByCode[roleCode]),
+    status: statusLabelByCode[row.status],
+    updatedAt: formatDashboardDateTime(row.updatedAt),
+    metrics: cloneMetrics(row.metrics),
+  }
+}
+
+export function mapDashboardDraftToCreateInput(draft: DashboardDraft): CreateDataDashboardInput {
+  const source = sourceCodeByLabel[draft.source]
+  return {
+    name: draft.name.trim(),
+    type: draft.type,
+    source,
+    embedUrl: source === 'embedded' ? draft.url.trim() : '',
+    isDefault: draft.isDefault,
+    visibleRoleCodes: draft.visibleRoles.map((role) => roleCodeByLabel[role]),
+    status: statusCodeByLabel[draft.status],
+    metrics: source === 'embedded' ? cloneMetrics(defaultEmbeddedDashboardMetrics) : [],
+  }
+}
+
+export function mapDashboardDraftToUpdateInput(draft: DashboardDraft): UpdateDataDashboardInput {
+  const source = sourceCodeByLabel[draft.source]
+  return {
+    name: draft.name.trim(),
+    type: draft.type,
+    source,
+    embedUrl: source === 'embedded' ? draft.url.trim() : '',
+    isDefault: draft.isDefault,
+    visibleRoleCodes: draft.visibleRoles.map((role) => roleCodeByLabel[role]),
+    status: statusCodeByLabel[draft.status],
+  }
+}
+
+export function mapDashboardFiltersToQuery(filters: DashboardFilters): Partial<DataDashboardListQuery> {
+  return {
+    keyword: filters.keyword.trim(),
+    ...(filters.type !== '全部' ? { type: filters.type } : {}),
+    ...(filters.visibleRole !== '全部' ? { roleCode: roleCodeByLabel[filters.visibleRole] } : {}),
+    ...(filters.status !== '全部' ? { status: statusCodeByLabel[filters.status] } : {}),
+    ...(filters.source !== '全部' ? { source: sourceCodeByLabel[filters.source] } : {}),
+  }
+}
+
+export function mapDataDashboardSummary(
+  summary: DataDashboardListSummary,
+  dashboards: ManagedDashboard[],
+) {
+  return {
+    total: summary.total,
+    enabled: dashboards.filter((dashboard) => dashboard.status === '已启用').length,
+    defaults: summary.default,
+    embedded: summary.embedded,
   }
 }
 

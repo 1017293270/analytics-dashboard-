@@ -1,17 +1,22 @@
 <script setup lang="ts">
+import type { ApplicationCategoryRow, ApplicationRow } from '@analytics/shared'
 import { Collection, Edit, Link, Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { computed, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { applicationApi, type ApplicationListPayload, type ApplicationSummary } from './applicationApi'
 import {
+  applicationDraftToCreateInput,
+  applicationDraftToUpdateInput,
   applicationCategories,
   applicationPlatforms,
   applicationStatuses,
   applicationSummary,
   applyApplicationFilters,
   createApplicationDraft,
+  defaultApplicationCategoryOptions,
   defaultApplicationFilters,
   isValidWebApplicationUrl,
-  seedApplications,
+  mapApplicationRow,
   validateApplicationDraft,
   visibleRoleFilters,
   visibleRoles,
@@ -23,16 +28,15 @@ import {
 
 type TagType = 'primary' | 'success' | 'warning' | 'danger' | 'info'
 
-const applications = ref<ManagedApplication[]>(
-  seedApplications.map((app) => ({
-    ...app,
-    visibleRoles: [...app.visibleRoles],
-  })),
-)
+const applications = ref<ManagedApplication[]>([])
+const categories = ref<ApplicationCategoryRow[]>([])
+const summary = ref<ApplicationSummary>(applicationSummary([]))
 const filters = reactive({ ...defaultApplicationFilters })
 const drawerVisible = ref(false)
 const editingId = ref<string | null>(null)
 const draft = reactive<ApplicationDraft>(createApplicationDraft())
+const isLoading = ref(false)
+const isSaving = ref(false)
 const fieldErrors = reactive({
   name: '',
   url: '',
@@ -58,11 +62,84 @@ const statusTagTypes: Record<ApplicationStatus, TagType> = {
 }
 
 const filteredApplications = computed(() => applyApplicationFilters(applications.value, filters))
-const summary = computed(() => applicationSummary(applications.value))
+const categoryOptions = computed(() => (categories.value.length > 0 ? categories.value : defaultApplicationCategoryOptions))
+const applicationCategoryFilters = computed(() =>
+  categoryOptions.value.length > 0 ? (['全部', ...categoryOptions.value.map((category) => category.name)] as const) : applicationCategories,
+)
 const drawerTitle = computed(() => (editingId.value ? '编辑应用' : '添加应用'))
 
 function getStatusTagType(status: ApplicationStatus): TagType {
   return statusTagTypes[status]
+}
+
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback
+}
+
+function defaultDraftCategory() {
+  return categoryOptions.value.find((category) => category.id === 'management-tools') ?? categoryOptions.value[0]
+}
+
+function categoryNameForId(categoryId: string) {
+  return categoryOptions.value.find((category) => category.id === categoryId)?.name ?? ''
+}
+
+function applyApplicationPayload(payload: ApplicationListPayload) {
+  applications.value = payload.items.map(mapApplicationRow)
+  summary.value = payload.summary
+}
+
+function updateSummaryFromApplications() {
+  summary.value = applicationSummary(applications.value)
+}
+
+function replaceApplication(row: ApplicationRow) {
+  const application = mapApplicationRow(row)
+  const existingIndex = applications.value.findIndex((item) => item.id === application.id)
+
+  if (existingIndex >= 0) {
+    applications.value.splice(existingIndex, 1, application)
+  } else {
+    applications.value.push(application)
+  }
+
+  applications.value.sort((first, second) => first.sortOrder - second.sortOrder)
+  updateSummaryFromApplications()
+}
+
+async function loadApplicationCenter() {
+  isLoading.value = true
+
+  try {
+    const [applicationPayload, categoryRows] = await Promise.all([
+      applicationApi.listApplications(),
+      applicationApi.listCategories(),
+    ])
+    categories.value = categoryRows
+    applyApplicationPayload(applicationPayload)
+  } catch (error) {
+    ElMessage.error(errorMessage(error, '应用列表加载失败'))
+  } finally {
+    isLoading.value = false
+  }
+}
+
+async function resetDemoApplications() {
+  isLoading.value = true
+
+  try {
+    const [applicationPayload, categoryRows] = await Promise.all([
+      applicationApi.resetDemoApplications(),
+      applicationApi.listCategories(),
+    ])
+    categories.value = categoryRows
+    applyApplicationPayload(applicationPayload)
+    ElMessage.success('已恢复默认应用数据')
+  } catch (error) {
+    ElMessage.error(errorMessage(error, '恢复默认应用数据失败'))
+  } finally {
+    isLoading.value = false
+  }
 }
 
 function resetFilters() {
@@ -90,7 +167,8 @@ function setFieldErrors(errors: string[]) {
 }
 
 function openAddDrawer() {
-  Object.assign(draft, createApplicationDraft())
+  const category = defaultDraftCategory()
+  Object.assign(draft, createApplicationDraft(category?.id, category?.name))
   resetFieldErrors()
   editingId.value = null
   drawerVisible.value = true
@@ -99,6 +177,7 @@ function openAddDrawer() {
 function openEditDrawer(app: ManagedApplication) {
   Object.assign(draft, {
     name: app.name,
+    categoryId: app.categoryId,
     category: app.category,
     platform: app.platform,
     url: app.url,
@@ -112,7 +191,8 @@ function openEditDrawer(app: ManagedApplication) {
   drawerVisible.value = true
 }
 
-function saveApplication() {
+async function saveApplication() {
+  draft.category = categoryNameForId(draft.categoryId) || draft.category
   const errors = validateApplicationDraft(draft)
 
   if (errors.length > 0) {
@@ -121,31 +201,36 @@ function saveApplication() {
     return
   }
 
-  if (editingId.value) {
-    const target = applications.value.find((app) => app.id === editingId.value)
-    if (target) {
-      Object.assign(target, {
-        ...draft,
-        visibleRoles: [...draft.visibleRoles],
-      })
-    }
-  } else {
-    applications.value.push({
-      id: `app-${Date.now()}`,
-      ...draft,
-      visibleRoles: [...draft.visibleRoles],
-      sortOrder: applications.value.length + 1,
-    })
-  }
+  isSaving.value = true
 
-  resetFieldErrors()
-  drawerVisible.value = false
+  try {
+    if (editingId.value) {
+      replaceApplication(await applicationApi.updateApplication(editingId.value, applicationDraftToUpdateInput(draft)))
+    } else {
+      replaceApplication(await applicationApi.createApplication(applicationDraftToCreateInput(draft)))
+    }
+
+    resetFieldErrors()
+    drawerVisible.value = false
+  } catch (error) {
+    ElMessage.error(errorMessage(error, '应用保存失败'))
+  } finally {
+    isSaving.value = false
+  }
 }
 
-function toggleStatus(app: ManagedApplication) {
+async function toggleStatus(app: ManagedApplication) {
   if (app.status === '已卸载') return
 
-  app.status = app.status === '已启用' ? '已停用' : '已启用'
+  try {
+    replaceApplication(
+      await applicationApi.updateApplication(app.id, {
+        status: app.status === '已启用' ? 'disabled' : 'enabled',
+      }),
+    )
+  } catch (error) {
+    ElMessage.error(errorMessage(error, '应用状态更新失败'))
+  }
 }
 
 async function uninstallApplication(app: ManagedApplication) {
@@ -161,7 +246,11 @@ async function uninstallApplication(app: ManagedApplication) {
     return
   }
 
-  app.status = '已卸载'
+  try {
+    replaceApplication(await applicationApi.uninstallApplication(app.id))
+  } catch (error) {
+    ElMessage.error(errorMessage(error, '应用卸载失败'))
+  }
 }
 
 function launchApplication(app: ManagedApplication) {
@@ -169,6 +258,10 @@ function launchApplication(app: ManagedApplication) {
     window.open(app.url, '_blank', 'noopener,noreferrer')
   }
 }
+
+onMounted(() => {
+  void loadApplicationCenter()
+})
 </script>
 
 <template>
@@ -182,9 +275,17 @@ function launchApplication(app: ManagedApplication) {
         <h1>应用中心</h1>
         <p>统一管理网页端与移动端应用，配置分类、可见范围与启停状态。</p>
       </div>
-      <ElButton data-testid="application-add-button" type="primary" :icon="Plus" @click="openAddDrawer">
-        添加应用
-      </ElButton>
+      <div class="application-center__actions">
+        <ElButton data-testid="application-refresh-button" :icon="Refresh" :loading="isLoading" @click="loadApplicationCenter">
+          刷新
+        </ElButton>
+        <ElButton data-testid="application-demo-reset-button" :icon="Refresh" :loading="isLoading" @click="resetDemoApplications">
+          恢复默认
+        </ElButton>
+        <ElButton data-testid="application-add-button" type="primary" :icon="Plus" @click="openAddDrawer">
+          添加应用
+        </ElButton>
+      </div>
     </header>
 
     <section class="application-center__summary" aria-label="应用统计">
@@ -207,7 +308,7 @@ function launchApplication(app: ManagedApplication) {
         </ElFormItem>
         <ElFormItem label="应用分类">
           <ElSelect v-model="filters.category">
-            <ElOption v-for="category in applicationCategories" :key="category" :label="category" :value="category" />
+            <ElOption v-for="category in applicationCategoryFilters" :key="category" :label="category" :value="category" />
           </ElSelect>
         </ElFormItem>
         <ElFormItem label="端类型">
@@ -235,6 +336,7 @@ function launchApplication(app: ManagedApplication) {
 
       <ElTable
         v-if="filteredApplications.length > 0"
+        v-loading="isLoading"
         :data="filteredApplications"
         class="application-center__table"
       >
@@ -325,12 +427,12 @@ function launchApplication(app: ManagedApplication) {
           <p v-if="fieldErrors.name" class="application-center__field-error" role="alert">{{ fieldErrors.name }}</p>
         </ElFormItem>
         <ElFormItem label="应用分类" required>
-          <ElSelect v-model="draft.category">
+          <ElSelect v-model="draft.categoryId" data-testid="application-category-select">
             <ElOption
-              v-for="category in applicationCategories.filter((item) => item !== '全部')"
-              :key="category"
-              :label="category"
-              :value="category"
+              v-for="category in categoryOptions"
+              :key="category.id"
+              :label="category.name"
+              :value="category.id"
             />
           </ElSelect>
         </ElFormItem>
@@ -374,7 +476,9 @@ function launchApplication(app: ManagedApplication) {
       </ElForm>
       <template #footer>
         <ElButton @click="drawerVisible = false">取消</ElButton>
-        <ElButton data-testid="application-save-button" type="primary" @click="saveApplication">保存</ElButton>
+        <ElButton data-testid="application-save-button" type="primary" :loading="isSaving" @click="saveApplication">
+          保存
+        </ElButton>
       </template>
     </ElDrawer>
   </main>
@@ -389,6 +493,7 @@ function launchApplication(app: ManagedApplication) {
 
 .application-center__header,
 .application-center__eyebrow,
+.application-center__actions,
 .application-center__app-cell,
 .application-center__role-tags {
   display: flex;
