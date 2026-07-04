@@ -14,7 +14,7 @@ const shellChildren: RouteRecordRaw[] = [
   { path: 'applications', component: () => import('./features/applications/ApplicationCenterView.vue') },
   { path: 'alarms', component: () => import('./features/alarms/AlarmManagementView.vue') },
   { path: 'blackboard', component: () => import('./features/smart-blackboard/SmartBlackboardView.vue') },
-  { path: 'teaching', component: () => import('./features/overview/OverviewView.vue') },
+  { path: 'teaching', component: () => import('./features/interactive-teaching/InteractiveTeachingView.vue') },
   { path: 'accounts', component: () => import('./features/accounts/AccountsView.vue') },
 ]
 
