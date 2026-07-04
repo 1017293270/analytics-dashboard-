@@ -1,20 +1,22 @@
 import { dashboardSchemaValidator, ok } from '@analytics/shared'
 import { Prisma } from '@prisma/client'
-import { Router, type Response } from 'express'
+import { Router, type Request, type Response } from 'express'
 import { nanoid } from 'nanoid'
 import { z } from 'zod'
 import { recordAudit } from '../audit/audit.js'
+import { requireAuth } from '../auth/session.js'
 import { prisma } from '../db.js'
 import { asyncHandler, sendBadRequest, sendConflict, sendForbidden, sendNotFound } from '../errors.js'
 import {
+  type DashboardActor,
   getDashboardPermission,
+  getDashboardPermissionSubjects,
   hasEditPermission,
   hasPublishPermission,
   hasViewPermission,
 } from './dashboard.permissions.js'
 import {
   createDashboard,
-  DEFAULT_ACTOR_ID,
   DEFAULT_WORKSPACE_ID,
   ensureDefaultWorkbenchDashboards,
   isDefaultWorkbenchDashboardId,
@@ -85,6 +87,20 @@ function isActiveDashboard<T extends { workspaceId: string; status: string }>(da
   return Boolean(dashboard && dashboard.workspaceId === DEFAULT_WORKSPACE_ID && dashboard.status !== 'archived')
 }
 
+function getRequestDashboardActor(req: Request): DashboardActor {
+  const user = req.auth?.user
+  if (!user) {
+    throw new Error('Authenticated dashboard route reached without a user')
+  }
+
+  const roleCodes = user.roles.map((role) => role.code)
+  return {
+    actorId: user.id,
+    roleCodes,
+    isSystemAdmin: roleCodes.includes('system-admin'),
+  }
+}
+
 async function findActiveDashboard(id: string) {
   if (isDefaultWorkbenchDashboardId(id)) {
     await ensureDefaultWorkbenchDashboards()
@@ -104,7 +120,7 @@ function sendDashboardConflict(res: Response) {
   return sendConflict(res, 'DASHBOARD_CONFLICT', 'Dashboard changed. Reload before saving.')
 }
 
-async function sendExistingReservation(res: Response, dashboardId: string) {
+async function sendExistingReservation(res: Response, dashboardId: string, actor: DashboardActor) {
   const dashboard = await prisma.dashboard.findUnique({ where: { id: dashboardId } })
   if (!dashboard) return null
   if (!isActiveDashboard(dashboard)) {
@@ -112,7 +128,7 @@ async function sendExistingReservation(res: Response, dashboardId: string) {
     return true
   }
 
-  const permission = await getDashboardPermission(dashboard.id)
+  const permission = await getDashboardPermission(dashboard.id, actor)
   if (!hasEditPermission(permission)) {
     sendForbidden(res)
     return true
@@ -121,63 +137,6 @@ async function sendExistingReservation(res: Response, dashboardId: string) {
   res.json(ok(serializeDashboard(dashboard)))
   return true
 }
-
-dashboardRoutes.get('/big-screens', asyncHandler(async (_req, res) => {
-  await ensureDefaultWorkbenchDashboards()
-
-  const dashboards = await prisma.dashboard.findMany({
-    where: {
-      workspaceId: DEFAULT_WORKSPACE_ID,
-      status: { not: 'archived' },
-      permissions: {
-        some: {
-          subjectType: 'user',
-          subjectId: DEFAULT_ACTOR_ID,
-          permission: { in: VALID_DASHBOARD_PERMISSIONS },
-        },
-      },
-    },
-    orderBy: { updatedAt: 'desc' },
-  })
-
-  res.json(
-    ok(
-      dashboards.map((dashboard) => ({
-        id: dashboard.id,
-        name: dashboard.name,
-        description: dashboard.description,
-        status: dashboard.status,
-        ownerId: dashboard.ownerId,
-        createdAt: dashboard.createdAt,
-        updatedAt: dashboard.updatedAt,
-        publishedAt: dashboard.publishedAt,
-      })),
-    ),
-  )
-}))
-
-dashboardRoutes.post('/big-screens', asyncHandler(async (req, res) => {
-  const body = createDashboardBody.safeParse(req.body)
-  if (!body.success) return sendBadRequest(res, 'REQUEST_INVALID', 'Dashboard name is required')
-
-  const reservationId = body.data.clientReservationId
-  if (reservationId) {
-    const handled = await sendExistingReservation(res, reservationId)
-    if (handled) return
-  }
-
-  try {
-    const dashboard = await createDashboard({ ...body.data, id: reservationId })
-    res.status(201).json(ok(dashboard))
-  } catch (error) {
-    if (reservationId && isUniqueConstraintError(error)) {
-      const handled = await sendExistingReservation(res, reservationId)
-      if (handled) return
-    }
-
-    throw error
-  }
-}))
 
 dashboardRoutes.get('/public/big-screens/:shareToken', asyncHandler(async (req, res) => {
   const params = shareTokenParams.safeParse(req.params)
@@ -199,14 +158,80 @@ dashboardRoutes.get('/public/big-screens/:shareToken', asyncHandler(async (req, 
   res.json(ok(serializeRuntime({ ...dashboard, publishedSchema: dashboard.publishedSchema })))
 }))
 
+dashboardRoutes.use(requireAuth)
+
+dashboardRoutes.get('/big-screens', asyncHandler(async (req, res) => {
+  const actor = getRequestDashboardActor(req)
+  await ensureDefaultWorkbenchDashboards()
+
+  const where: Prisma.DashboardWhereInput = {
+    workspaceId: DEFAULT_WORKSPACE_ID,
+    status: { not: 'archived' },
+  }
+
+  if (!actor.isSystemAdmin) {
+    where.permissions = {
+      some: {
+        OR: getDashboardPermissionSubjects(actor),
+        permission: { in: VALID_DASHBOARD_PERMISSIONS },
+      },
+    }
+  }
+
+  const dashboards = await prisma.dashboard.findMany({
+    where,
+    orderBy: { updatedAt: 'desc' },
+  })
+
+  res.json(
+    ok(
+      dashboards.map((dashboard) => ({
+        id: dashboard.id,
+        name: dashboard.name,
+        description: dashboard.description,
+        status: dashboard.status,
+        ownerId: dashboard.ownerId,
+        createdAt: dashboard.createdAt,
+        updatedAt: dashboard.updatedAt,
+        publishedAt: dashboard.publishedAt,
+      })),
+    ),
+  )
+}))
+
+dashboardRoutes.post('/big-screens', asyncHandler(async (req, res) => {
+  const actor = getRequestDashboardActor(req)
+  const body = createDashboardBody.safeParse(req.body)
+  if (!body.success) return sendBadRequest(res, 'REQUEST_INVALID', 'Dashboard name is required')
+
+  const reservationId = body.data.clientReservationId
+  if (reservationId) {
+    const handled = await sendExistingReservation(res, reservationId, actor)
+    if (handled) return
+  }
+
+  try {
+    const dashboard = await createDashboard({ ...body.data, id: reservationId, actorId: actor.actorId })
+    res.status(201).json(ok(dashboard))
+  } catch (error) {
+    if (reservationId && isUniqueConstraintError(error)) {
+      const handled = await sendExistingReservation(res, reservationId, actor)
+      if (handled) return
+    }
+
+    throw error
+  }
+}))
+
 dashboardRoutes.post('/big-screens/:id/copy', asyncHandler(async (req, res) => {
+  const actor = getRequestDashboardActor(req)
   const params = dashboardIdParams.safeParse(req.params)
   if (!params.success) return sendBadRequest(res, 'REQUEST_INVALID', 'Dashboard id is invalid')
 
   const dashboard = await findActiveDashboard(params.data.id)
   if (!dashboard) return sendNotFound(res)
 
-  const permission = await getDashboardPermission(dashboard.id)
+  const permission = await getDashboardPermission(dashboard.id, actor)
   if (!hasEditPermission(permission)) return sendForbidden(res)
 
   const copyId = nanoid()
@@ -216,17 +241,17 @@ dashboardRoutes.post('/big-screens/:id/copy', asyncHandler(async (req, res) => {
         id: copyId,
         name: `Copy of ${dashboard.name}`.slice(0, 120),
         description: dashboard.description,
-        ownerId: DEFAULT_ACTOR_ID,
+        ownerId: actor.actorId,
         workspaceId: dashboard.workspaceId,
         status: 'draft',
         draftSchema: dashboard.draftSchema,
         publishedSchema: null,
         permissions: {
-          create: { id: nanoid(), subjectType: 'user', subjectId: DEFAULT_ACTOR_ID, permission: 'owner' },
+          create: { id: nanoid(), subjectType: 'user', subjectId: actor.actorId, permission: 'owner' },
         },
       },
     })
-    await recordAudit('dashboard.copied', copiedDashboard.id, DEFAULT_ACTOR_ID, { sourceId: dashboard.id }, tx)
+    await recordAudit('dashboard.copied', copiedDashboard.id, actor.actorId, { sourceId: dashboard.id }, tx)
     return copiedDashboard
   })
 
@@ -234,13 +259,14 @@ dashboardRoutes.post('/big-screens/:id/copy', asyncHandler(async (req, res) => {
 }))
 
 dashboardRoutes.delete('/big-screens/:id', asyncHandler(async (req, res) => {
+  const actor = getRequestDashboardActor(req)
   const params = dashboardIdParams.safeParse(req.params)
   if (!params.success) return sendBadRequest(res, 'REQUEST_INVALID', 'Dashboard id is invalid')
 
   const dashboard = await findActiveDashboard(params.data.id)
   if (!dashboard) return sendNotFound(res)
 
-  const permission = await getDashboardPermission(dashboard.id)
+  const permission = await getDashboardPermission(dashboard.id, actor)
   if (!hasEditPermission(permission)) return sendForbidden(res)
 
   const archived = await prisma.$transaction(async (tx) => {
@@ -249,7 +275,7 @@ dashboardRoutes.delete('/big-screens/:id', asyncHandler(async (req, res) => {
       data: { status: 'archived', publishedSchema: null, publishedAt: null },
     })
     await tx.dashboardShareLink.updateMany({ where: { dashboardId: dashboard.id }, data: { isEnabled: false } })
-    await recordAudit('dashboard.archived', dashboard.id, DEFAULT_ACTOR_ID, { previousStatus: dashboard.status }, tx)
+    await recordAudit('dashboard.archived', dashboard.id, actor.actorId, { previousStatus: dashboard.status }, tx)
     return archivedDashboard
   })
 
@@ -257,13 +283,14 @@ dashboardRoutes.delete('/big-screens/:id', asyncHandler(async (req, res) => {
 }))
 
 dashboardRoutes.post('/big-screens/:id/unpublish', asyncHandler(async (req, res) => {
+  const actor = getRequestDashboardActor(req)
   const params = dashboardIdParams.safeParse(req.params)
   if (!params.success) return sendBadRequest(res, 'REQUEST_INVALID', 'Dashboard id is invalid')
 
   const dashboard = await findActiveDashboard(params.data.id)
   if (!dashboard) return sendNotFound(res)
 
-  const permission = await getDashboardPermission(dashboard.id)
+  const permission = await getDashboardPermission(dashboard.id, actor)
   if (!hasPublishPermission(permission)) return sendForbidden(res)
 
   const updated = await prisma.$transaction(async (tx) => {
@@ -272,7 +299,7 @@ dashboardRoutes.post('/big-screens/:id/unpublish', asyncHandler(async (req, res)
       data: { status: 'draft', publishedSchema: null, publishedAt: null },
     })
     await tx.dashboardShareLink.updateMany({ where: { dashboardId: dashboard.id }, data: { isEnabled: false } })
-    await recordAudit('dashboard.unpublished', dashboard.id, DEFAULT_ACTOR_ID, { previousStatus: dashboard.status }, tx)
+    await recordAudit('dashboard.unpublished', dashboard.id, actor.actorId, { previousStatus: dashboard.status }, tx)
     return unpublishedDashboard
   })
 
@@ -280,6 +307,7 @@ dashboardRoutes.post('/big-screens/:id/unpublish', asyncHandler(async (req, res)
 }))
 
 dashboardRoutes.get('/big-screens/:id/versions', asyncHandler(async (req, res) => {
+  const actor = getRequestDashboardActor(req)
   const params = dashboardIdParams.safeParse(req.params)
   if (!params.success) return sendBadRequest(res, 'REQUEST_INVALID', 'Dashboard id is invalid')
 
@@ -289,7 +317,7 @@ dashboardRoutes.get('/big-screens/:id/versions', asyncHandler(async (req, res) =
   })
   if (!isActiveDashboard(dashboard)) return sendNotFound(res)
 
-  const permission = await getDashboardPermission(dashboard.id)
+  const permission = await getDashboardPermission(dashboard.id, actor)
   if (!hasViewPermission(permission)) return sendForbidden(res)
 
   res.json(
@@ -307,13 +335,14 @@ dashboardRoutes.get('/big-screens/:id/versions', asyncHandler(async (req, res) =
 }))
 
 dashboardRoutes.post('/big-screens/:id/versions/:version/rollback', asyncHandler(async (req, res) => {
+  const actor = getRequestDashboardActor(req)
   const params = versionParams.safeParse(req.params)
   if (!params.success) return sendBadRequest(res, 'REQUEST_INVALID', 'Dashboard version is invalid')
 
   const dashboard = await findActiveDashboard(params.data.id)
   if (!dashboard) return sendNotFound(res)
 
-  const permission = await getDashboardPermission(dashboard.id)
+  const permission = await getDashboardPermission(dashboard.id, actor)
   if (!hasPublishPermission(permission)) return sendForbidden(res)
 
   const version = await prisma.dashboardVersion.findUnique({
@@ -333,7 +362,7 @@ dashboardRoutes.post('/big-screens/:id/versions/:version/rollback', asyncHandler
         publishedAt,
       },
     })
-    await recordAudit('dashboard.version.rolled_back', dashboard.id, DEFAULT_ACTOR_ID, { version: version.version }, tx)
+    await recordAudit('dashboard.version.rolled_back', dashboard.id, actor.actorId, { version: version.version }, tx)
     return rolledBackDashboard
   })
 
@@ -341,13 +370,14 @@ dashboardRoutes.post('/big-screens/:id/versions/:version/rollback', asyncHandler
 }))
 
 dashboardRoutes.post('/big-screens/:id/share-links', asyncHandler(async (req, res) => {
+  const actor = getRequestDashboardActor(req)
   const params = dashboardIdParams.safeParse(req.params)
   if (!params.success) return sendBadRequest(res, 'REQUEST_INVALID', 'Dashboard id is invalid')
 
   const dashboard = await findActiveDashboard(params.data.id)
   if (!dashboard) return sendNotFound(res)
 
-  const permission = await getDashboardPermission(dashboard.id)
+  const permission = await getDashboardPermission(dashboard.id, actor)
   if (!hasPublishPermission(permission)) return sendForbidden(res)
   if (dashboard.status !== 'published' || !dashboard.publishedSchema) {
     return sendBadRequest(res, 'NOT_PUBLISHED', 'Dashboard is not published')
@@ -364,7 +394,7 @@ dashboardRoutes.post('/big-screens/:id/share-links', asyncHandler(async (req, re
         isEnabled: true,
       },
     })
-    await recordAudit('dashboard.share.created', dashboard.id, DEFAULT_ACTOR_ID, { shareLinkId: shareLink.id }, tx)
+    await recordAudit('dashboard.share.created', dashboard.id, actor.actorId, { shareLinkId: shareLink.id }, tx)
     return shareLink
   })
 
@@ -381,19 +411,21 @@ dashboardRoutes.post('/big-screens/:id/share-links', asyncHandler(async (req, re
 }))
 
 dashboardRoutes.get('/big-screens/:id', asyncHandler(async (req, res) => {
+  const actor = getRequestDashboardActor(req)
   const params = dashboardIdParams.safeParse(req.params)
   if (!params.success) return sendBadRequest(res, 'REQUEST_INVALID', 'Dashboard id is invalid')
 
   const dashboard = await findActiveDashboard(params.data.id)
   if (!dashboard) return sendNotFound(res)
 
-  const permission = await getDashboardPermission(dashboard.id)
+  const permission = await getDashboardPermission(dashboard.id, actor)
   if (!hasViewPermission(permission)) return sendForbidden(res)
 
   res.json(ok(serializeDashboard(dashboard)))
 }))
 
 dashboardRoutes.patch('/big-screens/:id', asyncHandler(async (req, res) => {
+  const actor = getRequestDashboardActor(req)
   const params = dashboardIdParams.safeParse(req.params)
   if (!params.success) return sendBadRequest(res, 'REQUEST_INVALID', 'Dashboard id is invalid')
 
@@ -403,7 +435,7 @@ dashboardRoutes.patch('/big-screens/:id', asyncHandler(async (req, res) => {
   const dashboard = await findActiveDashboard(params.data.id)
   if (!dashboard) return sendNotFound(res)
 
-  const permission = await getDashboardPermission(dashboard.id)
+  const permission = await getDashboardPermission(dashboard.id, actor)
   if (!hasEditPermission(permission)) return sendForbidden(res)
   const expectedRevision = parseExpectedRevision(body.data.expectedUpdatedAt)
   if (!expectedRevision) return sendDashboardConflict(res)
@@ -420,7 +452,7 @@ dashboardRoutes.patch('/big-screens/:id', asyncHandler(async (req, res) => {
     })
     if (updateResult.count !== 1) return null
     const updatedDashboard = await tx.dashboard.findUniqueOrThrow({ where: { id: dashboard.id } })
-    await recordAudit('dashboard.metadata.updated', dashboard.id, DEFAULT_ACTOR_ID, { name: body.data.name }, tx)
+    await recordAudit('dashboard.metadata.updated', dashboard.id, actor.actorId, { name: body.data.name }, tx)
     return updatedDashboard
   })
   if (!updated) return sendDashboardConflict(res)
@@ -434,6 +466,7 @@ dashboardRoutes.patch('/big-screens/:id', asyncHandler(async (req, res) => {
 }))
 
 dashboardRoutes.patch('/big-screens/:id/draft', asyncHandler(async (req, res) => {
+  const actor = getRequestDashboardActor(req)
   const params = dashboardIdParams.safeParse(req.params)
   if (!params.success) return sendBadRequest(res, 'REQUEST_INVALID', 'Dashboard id is invalid')
 
@@ -443,7 +476,7 @@ dashboardRoutes.patch('/big-screens/:id/draft', asyncHandler(async (req, res) =>
   const dashboard = await findActiveDashboard(params.data.id)
   if (!dashboard) return sendNotFound(res)
 
-  const permission = await getDashboardPermission(dashboard.id)
+  const permission = await getDashboardPermission(dashboard.id, actor)
   if (!hasEditPermission(permission)) return sendForbidden(res)
   const expectedRevision = parseExpectedRevision(body.data.expectedUpdatedAt)
   if (!expectedRevision) return sendDashboardConflict(res)
@@ -463,7 +496,7 @@ dashboardRoutes.patch('/big-screens/:id/draft', asyncHandler(async (req, res) =>
     })
     if (updateResult.count !== 1) return null
     const updatedDashboard = await tx.dashboard.findUniqueOrThrow({ where: { id: dashboard.id } })
-    await recordAudit('dashboard.draft.updated', dashboard.id, DEFAULT_ACTOR_ID, { name: dashboard.name }, tx)
+    await recordAudit('dashboard.draft.updated', dashboard.id, actor.actorId, { name: dashboard.name }, tx)
     return updatedDashboard
   })
   if (!updated) return sendDashboardConflict(res)
@@ -478,6 +511,7 @@ dashboardRoutes.patch('/big-screens/:id/draft', asyncHandler(async (req, res) =>
 }))
 
 dashboardRoutes.post('/big-screens/:id/publish', asyncHandler(async (req, res) => {
+  const actor = getRequestDashboardActor(req)
   const params = dashboardIdParams.safeParse(req.params)
   if (!params.success) return sendBadRequest(res, 'REQUEST_INVALID', 'Dashboard id is invalid')
 
@@ -487,7 +521,7 @@ dashboardRoutes.post('/big-screens/:id/publish', asyncHandler(async (req, res) =
   const dashboard = await prisma.dashboard.findUnique({ where: { id: params.data.id } })
   if (!isActiveDashboard(dashboard)) return sendNotFound(res)
 
-  const permission = await getDashboardPermission(dashboard.id)
+  const permission = await getDashboardPermission(dashboard.id, actor)
   if (!hasPublishPermission(permission)) return sendForbidden(res)
 
   const draftSchema = parseSchema(dashboard.draftSchema)
@@ -516,10 +550,10 @@ dashboardRoutes.post('/big-screens/:id/publish', asyncHandler(async (req, res) =
           version: nextVersion,
           schema: JSON.stringify(draftSchema),
           publishNote: body.data.publishNote ?? null,
-          createdBy: DEFAULT_ACTOR_ID,
+          createdBy: actor.actorId,
         },
       })
-      await recordAudit('dashboard.published', dashboard.id, DEFAULT_ACTOR_ID, { version: nextVersion }, tx)
+      await recordAudit('dashboard.published', dashboard.id, actor.actorId, { version: nextVersion }, tx)
       return updatedDashboard
     })
   } catch (error) {
@@ -540,13 +574,14 @@ dashboardRoutes.post('/big-screens/:id/publish', asyncHandler(async (req, res) =
 }))
 
 dashboardRoutes.get('/big-screens/:id/runtime', asyncHandler(async (req, res) => {
+  const actor = getRequestDashboardActor(req)
   const params = dashboardIdParams.safeParse(req.params)
   if (!params.success) return sendBadRequest(res, 'REQUEST_INVALID', 'Dashboard id is invalid')
 
   const dashboard = await findActiveDashboard(params.data.id)
   if (!dashboard) return sendNotFound(res)
 
-  const permission = await getDashboardPermission(dashboard.id)
+  const permission = await getDashboardPermission(dashboard.id, actor)
   if (!hasViewPermission(permission)) return sendForbidden(res)
   if (!dashboard.publishedSchema) return sendBadRequest(res, 'NOT_PUBLISHED', 'Dashboard is not published')
 

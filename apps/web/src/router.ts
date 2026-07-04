@@ -40,7 +40,6 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
       {
         path: '/runtime/:id',
         component: () => import('./features/big-screen/runtime/RuntimeScreen.vue'),
-        meta: { public: true },
       },
       {
         path: '/share/:token',

@@ -4,11 +4,29 @@ import { describe, expect, test, vi } from 'vitest'
 import { prisma } from '../src/db.js'
 import { createApp } from '../src/app.js'
 
+type TestApp = ReturnType<typeof createApp>
+type TestAgent = ReturnType<typeof request.agent>
+
+async function loginAs(app: TestApp, username = 'admin', password = 'Admin@123'): Promise<TestAgent> {
+  const agent = request.agent(app)
+  await agent.post('/api/auth/login').send({ username, password }).expect(200)
+  return agent
+}
+
 describe('dashboard routes', () => {
-  test('seeds the four default role workbenches as editable dashboard records', async () => {
+  test('requires authentication for private dashboard list', async () => {
     const app = createApp()
 
-    const listed = await request(app).get('/api/big-screens').expect(200)
+    const response = await request(app).get('/api/big-screens').expect(401)
+
+    expect(response.body.error.code).toBe('UNAUTHORIZED')
+  })
+
+  test('admin can list the four default role workbenches', async () => {
+    const app = createApp()
+    const admin = await loginAs(app)
+
+    const listed = await admin.get('/api/big-screens').expect(200)
 
     expect(listed.body.success).toBe(true)
     expect(listed.body.data.map((dashboard: { id: string; name: string }) => [dashboard.id, dashboard.name])).toEqual(
@@ -21,17 +39,36 @@ describe('dashboard routes', () => {
     )
 
     for (const id of ['dashboard-all', 'dashboard-electro', 'dashboard-moral', 'dashboard-research']) {
-      const fetched = await request(app).get(`/api/big-screens/${id}`).expect(200)
+      const fetched = await admin.get(`/api/big-screens/${id}`).expect(200)
 
       expect(fetched.body.data.id).toBe(id)
       expect(fetched.body.data.draftSchema.version).toBe('1.0')
     }
   })
 
+  test('all staff sees only all-staff visible default workbenches', async () => {
+    const app = createApp()
+    const allStaff = await loginAs(app, 'all_staff', 'Demo@123')
+
+    const listed = await allStaff.get('/api/big-screens').expect(200)
+
+    expect(listed.body.data.map((dashboard: { id: string }) => dashboard.id)).toEqual(['dashboard-all'])
+  })
+
+  test('all staff cannot fetch the electro director workbench directly', async () => {
+    const app = createApp()
+    const allStaff = await loginAs(app, 'all_staff', 'Demo@123')
+
+    const response = await allStaff.get('/api/big-screens/dashboard-electro').expect(403)
+
+    expect(response.body.error.code).toBe('FORBIDDEN')
+  })
+
   test('creates and fetches a dashboard draft', async () => {
     const app = createApp()
+    const admin = await loginAs(app)
 
-    const created = await request(app)
+    const created = await admin
       .post('/api/big-screens')
       .send({ name: 'Operations Overview', description: 'AI Q&A operations' })
       .expect(201)
@@ -39,7 +76,7 @@ describe('dashboard routes', () => {
     expect(created.body.success).toBe(true)
     expect(created.body.data.name).toBe('Operations Overview')
 
-    const fetched = await request(app)
+    const fetched = await admin
       .get(`/api/big-screens/${created.body.data.id}`)
       .expect(200)
 
@@ -49,13 +86,14 @@ describe('dashboard routes', () => {
 
   test('rejects invalid draft schema', async () => {
     const app = createApp()
+    const admin = await loginAs(app)
 
-    const created = await request(app)
+    const created = await admin
       .post('/api/big-screens')
       .send({ name: 'Invalid Schema Screen' })
       .expect(201)
 
-    const response = await request(app)
+    const response = await admin
       .patch(`/api/big-screens/${created.body.data.id}/draft`)
       .send({ draftSchema: { version: 'bad' }, expectedUpdatedAt: created.body.data.updatedAt })
       .expect(400)
@@ -66,8 +104,9 @@ describe('dashboard routes', () => {
 
   test('rejects invalid create body with stable fail shape', async () => {
     const app = createApp()
+    const admin = await loginAs(app)
 
-    const response = await request(app).post('/api/big-screens').send({ name: '' }).expect(400)
+    const response = await admin.post('/api/big-screens').send({ name: '' }).expect(400)
 
     expect(response.body).toEqual({
       success: false,
@@ -78,13 +117,14 @@ describe('dashboard routes', () => {
 
   test('reuses a client reservation id for repeated local draft creates', async () => {
     const app = createApp()
+    const admin = await loginAs(app)
     const clientReservationId = 'local-draft-repeatable-create'
 
-    const first = await request(app)
+    const first = await admin
       .post('/api/big-screens')
       .send({ name: 'First Draft', clientReservationId })
       .expect(201)
-    const second = await request(app)
+    const second = await admin
       .post('/api/big-screens')
       .send({ name: 'Second Draft', clientReservationId })
       .expect(200)
@@ -99,8 +139,9 @@ describe('dashboard routes', () => {
 
   test('rejects invalid local create reservation ids', async () => {
     const app = createApp()
+    const admin = await loginAs(app)
 
-    const response = await request(app)
+    const response = await admin
       .post('/api/big-screens')
       .send({ name: 'Invalid Reservation', clientReservationId: 'dashboard-1' })
       .expect(400)
@@ -114,12 +155,13 @@ describe('dashboard routes', () => {
 
   test('rejects local create reservation reuse without edit permission', async () => {
     const app = createApp()
+    const admin = await loginAs(app)
+    const allStaff = await loginAs(app, 'all_staff', 'Demo@123')
     const clientReservationId = 'local-draft-forbidden-reuse'
 
-    await request(app).post('/api/big-screens').send({ name: 'Reserved Draft', clientReservationId }).expect(201)
-    await prisma.dashboardPermission.deleteMany({ where: { dashboardId: clientReservationId } })
+    await admin.post('/api/big-screens').send({ name: 'Reserved Draft', clientReservationId }).expect(201)
 
-    const response = await request(app)
+    const response = await allStaff
       .post('/api/big-screens')
       .send({ name: 'Forbidden Draft', clientReservationId })
       .expect(403)
@@ -129,12 +171,13 @@ describe('dashboard routes', () => {
 
   test('rejects archived local reservation reuse with stable not found envelope', async () => {
     const app = createApp()
+    const admin = await loginAs(app)
     const clientReservationId = 'local-draft-archived-reuse'
 
-    await request(app).post('/api/big-screens').send({ name: 'Archived Reservation', clientReservationId }).expect(201)
-    await request(app).delete(`/api/big-screens/${clientReservationId}`).expect(200)
+    await admin.post('/api/big-screens').send({ name: 'Archived Reservation', clientReservationId }).expect(201)
+    await admin.delete(`/api/big-screens/${clientReservationId}`).expect(200)
 
-    const response = await request(app)
+    const response = await admin
       .post('/api/big-screens')
       .send({ name: 'Should Not Resurrect', clientReservationId })
       .expect(404)
@@ -153,15 +196,16 @@ describe('dashboard routes', () => {
 
   test('rejects cross-workspace local reservation reuse with stable not found envelope', async () => {
     const app = createApp()
+    const admin = await loginAs(app)
     const clientReservationId = 'local-draft-cross-workspace-reuse'
 
-    await request(app).post('/api/big-screens').send({ name: 'Cross Workspace Reservation', clientReservationId }).expect(201)
+    await admin.post('/api/big-screens').send({ name: 'Cross Workspace Reservation', clientReservationId }).expect(201)
     await prisma.dashboard.update({
       where: { id: clientReservationId },
       data: { workspaceId: 'other-workspace' },
     })
 
-    const response = await request(app)
+    const response = await admin
       .post('/api/big-screens')
       .send({ name: 'Should Not Duplicate', clientReservationId })
       .expect(404)
@@ -180,10 +224,11 @@ describe('dashboard routes', () => {
 
   test('updates dashboard metadata with edit permission', async () => {
     const app = createApp()
+    const admin = await loginAs(app)
 
-    const created = await request(app).post('/api/big-screens').send({ name: 'Old Name' }).expect(201)
+    const created = await admin.post('/api/big-screens').send({ name: 'Old Name' }).expect(201)
 
-    const updated = await request(app)
+    const updated = await admin
       .patch(`/api/big-screens/${created.body.data.id}`)
       .send({ name: 'Renamed Dashboard', expectedUpdatedAt: created.body.data.updatedAt })
       .expect(200)
@@ -192,7 +237,7 @@ describe('dashboard routes', () => {
     expect(updated.body.data.name).toBe('Renamed Dashboard')
     expect(updated.body.data.draftSchema.version).toBe('1.0')
 
-    const fetched = await request(app).get(`/api/big-screens/${created.body.data.id}`).expect(200)
+    const fetched = await admin.get(`/api/big-screens/${created.body.data.id}`).expect(200)
     expect(fetched.body.data.name).toBe('Renamed Dashboard')
 
     const audit = await prisma.auditLog.findFirst({
@@ -203,9 +248,10 @@ describe('dashboard routes', () => {
 
   test('rejects invalid dashboard metadata updates', async () => {
     const app = createApp()
+    const admin = await loginAs(app)
 
-    const created = await request(app).post('/api/big-screens').send({ name: 'Metadata Invalid' }).expect(201)
-    const response = await request(app).patch(`/api/big-screens/${created.body.data.id}`).send({ name: '' }).expect(400)
+    const created = await admin.post('/api/big-screens').send({ name: 'Metadata Invalid' }).expect(201)
+    const response = await admin.patch(`/api/big-screens/${created.body.data.id}`).send({ name: '' }).expect(400)
 
     expect(response.body).toEqual({
       success: false,
@@ -216,14 +262,15 @@ describe('dashboard routes', () => {
 
   test('rejects stale dashboard metadata revisions with a stable conflict shape', async () => {
     const app = createApp()
+    const admin = await loginAs(app)
 
-    const created = await request(app).post('/api/big-screens').send({ name: 'Stale Metadata' }).expect(201)
+    const created = await admin.post('/api/big-screens').send({ name: 'Stale Metadata' }).expect(201)
     await prisma.dashboard.update({
       where: { id: created.body.data.id },
       data: { name: 'Changed Elsewhere' },
     })
 
-    const response = await request(app)
+    const response = await admin
       .patch(`/api/big-screens/${created.body.data.id}`)
       .send({ name: 'Stale Rename', expectedUpdatedAt: created.body.data.updatedAt })
       .expect(409)
@@ -237,14 +284,15 @@ describe('dashboard routes', () => {
 
   test('rejects duplicate dashboard metadata revisions after the first write commits', async () => {
     const app = createApp()
+    const admin = await loginAs(app)
 
-    const created = await request(app).post('/api/big-screens').send({ name: 'Duplicate Metadata' }).expect(201)
-    await request(app)
+    const created = await admin.post('/api/big-screens').send({ name: 'Duplicate Metadata' }).expect(201)
+    await admin
       .patch(`/api/big-screens/${created.body.data.id}`)
       .send({ name: 'First Rename', expectedUpdatedAt: created.body.data.updatedAt })
       .expect(200)
 
-    const response = await request(app)
+    const response = await admin
       .patch(`/api/big-screens/${created.body.data.id}`)
       .send({ name: 'Second Rename', expectedUpdatedAt: created.body.data.updatedAt })
       .expect(409)
@@ -254,11 +302,12 @@ describe('dashboard routes', () => {
 
   test('rejects dashboard metadata updates without edit permission', async () => {
     const app = createApp()
+    const admin = await loginAs(app)
+    const allStaff = await loginAs(app, 'all_staff', 'Demo@123')
 
-    const created = await request(app).post('/api/big-screens').send({ name: 'Metadata Forbidden' }).expect(201)
-    await prisma.dashboardPermission.deleteMany({ where: { dashboardId: created.body.data.id } })
+    const created = await admin.post('/api/big-screens').send({ name: 'Metadata Forbidden' }).expect(201)
 
-    const response = await request(app)
+    const response = await allStaff
       .patch(`/api/big-screens/${created.body.data.id}`)
       .send({ name: 'Forbidden Rename', expectedUpdatedAt: created.body.data.updatedAt })
       .expect(403)
@@ -268,31 +317,39 @@ describe('dashboard routes', () => {
 
   test('invalid dashboard permission is treated as no permission and does not appear in list', async () => {
     const app = createApp()
+    const admin = await loginAs(app)
+    const allStaff = await loginAs(app, 'all_staff', 'Demo@123')
 
-    const created = await request(app).post('/api/big-screens').send({ name: 'Bad Permission' }).expect(201)
-    await prisma.dashboardPermission.updateMany({
-      where: { dashboardId: created.body.data.id, subjectId: 'demo-user' },
-      data: { permission: 'admin' },
+    const created = await admin.post('/api/big-screens').send({ name: 'Bad Permission' }).expect(201)
+    await prisma.dashboardPermission.create({
+      data: {
+        id: `permission-${created.body.data.id}-all-staff-invalid`,
+        dashboardId: created.body.data.id,
+        subjectType: 'role',
+        subjectId: 'all-staff',
+        permission: 'admin',
+      },
     })
 
-    const fetched = await request(app).get(`/api/big-screens/${created.body.data.id}`).expect(403)
+    const fetched = await allStaff.get(`/api/big-screens/${created.body.data.id}`).expect(403)
     expect(fetched.body.error.code).toBe('FORBIDDEN')
 
-    const update = await request(app)
+    const update = await allStaff
       .patch(`/api/big-screens/${created.body.data.id}`)
       .send({ name: 'Should Not Rename', expectedUpdatedAt: created.body.data.updatedAt })
       .expect(403)
     expect(update.body.error.code).toBe('FORBIDDEN')
 
-    const list = await request(app).get('/api/big-screens').expect(200)
+    const list = await allStaff.get('/api/big-screens').expect(200)
     expect(list.body.data.map((dashboard: { id: string }) => dashboard.id)).not.toContain(created.body.data.id)
   })
 
   test('runtime before publish returns not published fail shape', async () => {
     const app = createApp()
+    const admin = await loginAs(app)
 
-    const created = await request(app).post('/api/big-screens').send({ name: 'Draft Runtime' }).expect(201)
-    const response = await request(app).get(`/api/big-screens/${created.body.data.id}/runtime`).expect(400)
+    const created = await admin.post('/api/big-screens').send({ name: 'Draft Runtime' }).expect(201)
+    const response = await admin.get(`/api/big-screens/${created.body.data.id}/runtime`).expect(400)
 
     expect(response.body).toEqual({
       success: false,
@@ -303,14 +360,15 @@ describe('dashboard routes', () => {
 
   test('rejects stale draft revisions with a stable conflict shape', async () => {
     const app = createApp()
+    const admin = await loginAs(app)
 
-    const created = await request(app).post('/api/big-screens').send({ name: 'Stale Draft' }).expect(201)
+    const created = await admin.post('/api/big-screens').send({ name: 'Stale Draft' }).expect(201)
     await prisma.dashboard.update({
       where: { id: created.body.data.id },
       data: { name: 'Changed Before Draft Save' },
     })
 
-    const response = await request(app)
+    const response = await admin
       .patch(`/api/big-screens/${created.body.data.id}/draft`)
       .send({ draftSchema: created.body.data.draftSchema, expectedUpdatedAt: created.body.data.updatedAt })
       .expect(409)
@@ -324,8 +382,9 @@ describe('dashboard routes', () => {
 
   test('rejects duplicate draft revisions after the first write commits', async () => {
     const app = createApp()
+    const admin = await loginAs(app)
 
-    const created = await request(app).post('/api/big-screens').send({ name: 'Duplicate Draft' }).expect(201)
+    const created = await admin.post('/api/big-screens').send({ name: 'Duplicate Draft' }).expect(201)
     const draftSchema = {
       ...created.body.data.draftSchema,
       canvas: {
@@ -333,12 +392,12 @@ describe('dashboard routes', () => {
         background: { type: 'color', value: '#111827' },
       },
     }
-    await request(app)
+    await admin
       .patch(`/api/big-screens/${created.body.data.id}/draft`)
       .send({ draftSchema, expectedUpdatedAt: created.body.data.updatedAt })
       .expect(200)
 
-    const response = await request(app)
+    const response = await admin
       .patch(`/api/big-screens/${created.body.data.id}/draft`)
       .send({ draftSchema: created.body.data.draftSchema, expectedUpdatedAt: created.body.data.updatedAt })
       .expect(409)
@@ -348,15 +407,16 @@ describe('dashboard routes', () => {
 
   test('publishes a dashboard and returns runtime schema', async () => {
     const app = createApp()
+    const admin = await loginAs(app)
 
-    const created = await request(app).post('/api/big-screens').send({ name: 'Published Runtime' }).expect(201)
-    const published = await request(app).post(`/api/big-screens/${created.body.data.id}/publish`).send({}).expect(200)
+    const created = await admin.post('/api/big-screens').send({ name: 'Published Runtime' }).expect(201)
+    const published = await admin.post(`/api/big-screens/${created.body.data.id}/publish`).send({}).expect(200)
 
     expect(published.body.success).toBe(true)
     expect(published.body.data.status).toBe('published')
     expect(published.body.data.publishedSchema.version).toBe('1.0')
 
-    const runtime = await request(app).get(`/api/big-screens/${created.body.data.id}/runtime`).expect(200)
+    const runtime = await admin.get(`/api/big-screens/${created.body.data.id}/runtime`).expect(200)
 
     expect(runtime.body.success).toBe(true)
     expect(runtime.body.data.schema.version).toBe('1.0')
@@ -364,8 +424,9 @@ describe('dashboard routes', () => {
 
   test('returns a stable conflict when publish version creation races', async () => {
     const app = createApp()
+    const admin = await loginAs(app)
 
-    const created = await request(app).post('/api/big-screens').send({ name: 'Publish Conflict' }).expect(201)
+    const created = await admin.post('/api/big-screens').send({ name: 'Publish Conflict' }).expect(201)
     const conflict = new Prisma.PrismaClientKnownRequestError('Unique constraint failed on dashboard version', {
       code: 'P2002',
       clientVersion: 'test',
@@ -373,7 +434,7 @@ describe('dashboard routes', () => {
     })
     const transactionSpy = vi.spyOn(prisma, '$transaction').mockRejectedValueOnce(conflict)
 
-    const response = await request(app).post(`/api/big-screens/${created.body.data.id}/publish`).send({}).expect(409)
+    const response = await admin.post(`/api/big-screens/${created.body.data.id}/publish`).send({}).expect(409)
 
     expect(response.body).toEqual({
       success: false,
@@ -390,14 +451,15 @@ describe('dashboard routes', () => {
 
   test('corrupt stored schema returns stable internal error shape', async () => {
     const app = createApp()
+    const admin = await loginAs(app)
 
-    const created = await request(app).post('/api/big-screens').send({ name: 'Corrupt Stored Schema' }).expect(201)
+    const created = await admin.post('/api/big-screens').send({ name: 'Corrupt Stored Schema' }).expect(201)
     await prisma.dashboard.update({
       where: { id: created.body.data.id },
       data: { draftSchema: '{"version":"bad"}' },
     })
 
-    const response = await request(app).get(`/api/big-screens/${created.body.data.id}`).expect(500)
+    const response = await admin.get(`/api/big-screens/${created.body.data.id}`).expect(500)
 
     expect(response.body).toEqual({
       success: false,

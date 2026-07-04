@@ -117,12 +117,14 @@ describe('router guard', () => {
     expect(matchedComponent).toBe(AccountsView)
   })
 
-  test('keeps share and runtime presentation routes outside shell authorization loading', async () => {
+  test('requires login for internal runtime route while keeping share route public', async () => {
     const router = createTestRouter()
 
     await router.push('/runtime/screen-1')
-    expect(router.currentRoute.value.fullPath).toBe('/runtime/screen-1')
+    expect(router.currentRoute.value.fullPath).toBe('/login?redirect=/runtime/screen-1')
+    expect(authApi.getCurrentUser).toHaveBeenCalledTimes(1)
 
+    vi.mocked(authApi.getCurrentUser).mockClear()
     await router.push('/share/token-1')
 
     expect(router.currentRoute.value.fullPath).toBe('/share/token-1')

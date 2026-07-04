@@ -6,10 +6,25 @@ export const DEFAULT_ACTOR_ID = 'demo-user'
 export const DEFAULT_WORKSPACE_ID = 'demo-workspace'
 
 export const defaultWorkbenchDashboards = [
-  { id: 'dashboard-all', name: '全员工作台', description: '工作台配置演示态' },
-  { id: 'dashboard-electro', name: '电教主任工作台', description: '工作台配置演示态' },
-  { id: 'dashboard-moral', name: '德育主任工作台', description: '工作台配置演示态' },
-  { id: 'dashboard-research', name: '教研主任工作台', description: '工作台配置演示态' },
+  { id: 'dashboard-all', name: '全员工作台', description: '工作台配置演示态', roleCode: 'all-staff' },
+  {
+    id: 'dashboard-electro',
+    name: '电教主任工作台',
+    description: '工作台配置演示态',
+    roleCode: 'electro-education-director',
+  },
+  {
+    id: 'dashboard-moral',
+    name: '德育主任工作台',
+    description: '工作台配置演示态',
+    roleCode: 'moral-education-director',
+  },
+  {
+    id: 'dashboard-research',
+    name: '教研主任工作台',
+    description: '工作台配置演示态',
+    roleCode: 'teaching-research-director',
+  },
 ] as const
 
 const defaultWorkbenchDashboardIds: ReadonlySet<string> = new Set(defaultWorkbenchDashboards.map((dashboard) => dashboard.id))
@@ -57,19 +72,19 @@ export function parseSchema(value: string): DashboardSchema {
   }
 }
 
-export async function createDashboard(input: { name: string; description?: string; id?: string }) {
+export async function createDashboard(input: { name: string; description?: string; id?: string; actorId: string }) {
   const schema = createDefaultSchema()
   const dashboard = await prisma.dashboard.create({
     data: {
       id: input.id ?? nanoid(),
       name: input.name,
       description: input.description ?? null,
-      ownerId: DEFAULT_ACTOR_ID,
+      ownerId: input.actorId,
       workspaceId: DEFAULT_WORKSPACE_ID,
       status: 'draft',
       draftSchema: JSON.stringify(schema),
       permissions: {
-        create: { id: nanoid(), subjectType: 'user', subjectId: DEFAULT_ACTOR_ID, permission: 'owner' },
+        create: { id: nanoid(), subjectType: 'user', subjectId: input.actorId, permission: 'owner' },
       },
     },
   })
@@ -103,6 +118,25 @@ async function ensureDefaultDashboardPermission(dashboardId: string) {
       subjectType: 'user',
       subjectId: DEFAULT_ACTOR_ID,
       permission: 'owner',
+    },
+  })
+}
+
+async function ensureDefaultDashboardRolePermission(dashboardId: string, roleCode: string) {
+  await prisma.dashboardPermission.upsert({
+    where: { id: `permission-${dashboardId}-role-${roleCode}` },
+    update: {
+      dashboardId,
+      subjectType: 'role',
+      subjectId: roleCode,
+      permission: 'view',
+    },
+    create: {
+      id: `permission-${dashboardId}-role-${roleCode}`,
+      dashboardId,
+      subjectType: 'role',
+      subjectId: roleCode,
+      permission: 'view',
     },
   })
 }
@@ -147,6 +181,7 @@ export async function ensureDefaultWorkbenchDashboards() {
     }
 
     await ensureDefaultDashboardPermission(preset.id)
+    await ensureDefaultDashboardRolePermission(preset.id, preset.roleCode)
   }
 }
 

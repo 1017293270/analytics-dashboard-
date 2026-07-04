@@ -44,6 +44,20 @@ describe('auth routes', () => {
     expect(sessionCount).toBe(1)
   })
 
+  test('logs in the seeded all-staff user with its role code', async () => {
+    const response = await login('all_staff', 'Demo@123').expect(200)
+
+    expect(response.body).toMatchObject({
+      success: true,
+      data: {
+        username: 'all_staff',
+        displayName: '全员演示账号',
+        status: 'active',
+        roles: [{ code: 'all-staff', name: '全员' }],
+      },
+    })
+  })
+
   test('rejects an invalid password without creating a session', async () => {
     const response = await login('admin', 'wrong-password').expect(401)
 
