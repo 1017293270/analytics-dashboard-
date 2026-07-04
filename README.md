@@ -19,6 +19,11 @@ Web: http://localhost:5174
 
 API health: http://localhost:4000/api/health
 
+## Documentation
+
+- `DESIGN.md` — product direction and interaction constraints
+- `DESIGN-SYSTEM.md` — visual design system spec (tokens, typography, components, Do/Don't). Source of truth for UI work; tokens live in `apps/web/src/styles/tokens.css`.
+
 ## Core Flows
 
 - Login: `/login`

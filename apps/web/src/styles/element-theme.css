@@ -1,30 +1,150 @@
+/*
+ * 翡翠学府 · Element Plus theme mapping
+ * Indirection layer: maps Element Plus CSS vars onto our design tokens.
+ * The full primary ramp is overridden so hover/active stay aligned with the product brand.
+ */
+
 :root {
+  /* ── Primary (full emerald ramp, keeps hover/active consistent) ── */
   --el-color-primary: var(--color-accent);
-  --el-color-primary-light-9: var(--color-accent-soft);
+  --el-color-primary-light-1: #1ba774;
+  --el-color-primary-light-2: #2fb07f;
+  --el-color-primary-light-3: #34d399;
+  --el-color-primary-light-4: #52dba8;
+  --el-color-primary-light-5: #6ee7b7;
+  --el-color-primary-light-6: #8fecd0;
+  --el-color-primary-light-7: #b6f2dd;
+  --el-color-primary-light-8: #d1fae5;
+  --el-color-primary-light-9: var(--color-accent-50);
+  --el-color-primary-dark-2: var(--color-accent-strong);
+
+  /* ── Semantic status colors ───────────────────────── */
   --el-color-danger: var(--color-danger);
+  --el-color-danger-light-9: var(--color-danger-soft);
   --el-color-success: var(--color-success);
+  --el-color-success-light-9: var(--color-success-soft);
+  --el-color-warning: var(--color-warning);
+  --el-color-warning-light-9: var(--color-warning-soft);
+  --el-color-info: var(--color-info);
+  --el-color-info-light-9: var(--color-info-soft);
+
+  /* ── Backgrounds ──────────────────────────────────── */
   --el-bg-color: var(--color-panel);
   --el-bg-color-page: var(--color-page);
   --el-bg-color-overlay: var(--color-panel);
+  --el-fill-color: var(--color-panel-muted);
+  --el-fill-color-light: var(--color-panel-muted);
+  --el-fill-color-blank: var(--color-panel);
+
+  /* ── Text ─────────────────────────────────────────── */
   --el-text-color-primary: var(--color-text);
   --el-text-color-regular: var(--color-text);
   --el-text-color-secondary: var(--color-text-muted);
+  --el-text-color-placeholder: var(--color-text-faint);
+
+  /* ── Borders ──────────────────────────────────────── */
   --el-border-color: var(--color-border);
   --el-border-color-light: var(--color-border);
-  --el-border-radius-base: 8px;
-  --el-border-radius-small: 6px;
-  --el-font-size-base: 14px;
-  --el-font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --el-border-color-lighter: var(--color-border);
+  --el-border-color-extra-light: var(--color-border);
+
+  /* ── Radius / type ────────────────────────────────── */
+  --el-border-radius-base: var(--radius-md);
+  --el-border-radius-small: var(--radius-sm);
+  --el-border-radius-round: var(--radius-pill);
+  --el-font-size-base: var(--fs-body);
+  --el-font-family: var(--font-sans);
+  --el-box-shadow: var(--shadow-panel);
+  --el-box-shadow-light: var(--shadow-sm);
 }
 
+/* ── Card: softer corners, calmer shadow ─────────────── */
 .el-card {
-  --el-card-border-radius: 8px;
+  --el-card-border-radius: var(--radius-lg);
+  --el-card-padding: var(--space-panel);
+  border-color: var(--color-border);
 }
 
+/* ── Button: tighter weight, refined hover ───────────── */
 .el-button {
-  font-weight: 800;
+  font-weight: var(--fw-bold);
+  transition:
+    background var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out),
+    transform var(--motion-fast) var(--ease-out);
 }
 
+.el-button--primary:hover {
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.24);
+}
+
+.el-button:focus-visible {
+  outline: 3px solid var(--color-accent-200);
+  outline-offset: 2px;
+}
+
+.el-button.is-link:focus-visible {
+  outline-offset: 1px;
+}
+
+/* ── Menu: remove right border (we style sidebar ourselves) ── */
 .el-menu {
   border-right: 0;
+  background: transparent;
+}
+
+/* ── Table: sage header tint, calmer hover, comfortable density ── */
+.el-table {
+  --el-table-header-bg-color: var(--color-panel-muted);
+  --el-table-row-hover-bg-color: var(--color-panel-sunken);
+  --el-table-border-color: var(--color-border);
+  --el-table-header-text-color: var(--color-text-muted);
+  --el-table-text-color: var(--color-text);
+  font-size: var(--fs-body);
+}
+
+.el-table th.el-table__cell {
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-label);
+  letter-spacing: var(--tracking-label);
+  text-transform: none;
+  padding: 13px 0;
+}
+
+/* Comfortable row height for default size tables */
+.el-table--default .el-table__cell {
+  padding: 14px 0;
+}
+
+/* "small" tables still get a touch more breathing room than EP default */
+.el-table--small .el-table__cell {
+  padding: 11px 0;
+}
+
+.el-table .cell {
+  line-height: var(--lh-normal);
+}
+
+
+/* ── Tag: slightly crisper radius ────────────────────── */
+.el-tag {
+  border-radius: var(--radius-sm);
+  font-weight: var(--fw-bold);
+}
+
+/* ── Statistic: tabular figures ──────────────────────── */
+.el-statistic__number {
+  font-feature-settings: var(--num-feature);
+}
+
+/* ── Input: refined focus ring ───────────────────────── */
+.el-input__wrapper:focus-within {
+  box-shadow: 0 0 0 1px var(--color-accent) inset, var(--shadow-glow) !important;
+}
+
+/* ── Scrollbar ───────────────────────────────────────── */
+.el-scrollbar__bar.is-vertical > div,
+.el-scrollbar__bar.is-horizontal > div {
+  border-radius: var(--radius-pill);
 }

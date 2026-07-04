@@ -280,10 +280,10 @@ function saveRole() {
       <div>
         <div class="accounts-view__eyebrow">
           <ElTag size="small" effect="plain">账号与角色</ElTag>
-          <ElTag type="success" size="small" effect="plain">演示级本地状态</ElTag>
+          <ElTag type="primary" size="small" effect="plain">角色可见范围</ElTag>
         </div>
         <h1>账号与角色</h1>
-        <p>维护演示账号、角色绑定和工作台可见范围。</p>
+        <p>账号角色用于预览菜单与工作台可见范围，工作台发布策略在工作台配置页统一维护。</p>
       </div>
       <div class="accounts-view__actions">
         <ElButton data-testid="accounts-reset-button" :icon="Refresh" @click="resetDemoState">重置演示状态</ElButton>
@@ -525,7 +525,7 @@ function saveRole() {
             </ElCheckbox>
           </ElCheckboxGroup>
         </ElFormItem>
-        <ElAlert title="本页为演示级角色绑定，正式工作台发布仍以工作台配置页为准。" type="info" :closable="false" />
+        <ElAlert title="账号角色用于预览菜单与工作台可见范围，工作台发布策略在工作台配置页统一维护。" type="info" :closable="false" />
       </ElForm>
       <template #footer>
         <ElButton @click="roleDrawerVisible = false">取消</ElButton>

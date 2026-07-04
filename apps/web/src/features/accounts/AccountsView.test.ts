@@ -66,6 +66,10 @@ describe('AccountsView', () => {
     expect(wrapper.text()).toContain('electro_director')
     expect(wrapper.text()).toContain('系统管理员')
     expect(wrapper.text()).toContain('角色可见性预览')
+    expect(wrapper.text()).toContain('角色可见范围')
+    expect(wrapper.text()).toContain('账号角色用于预览菜单与工作台可见范围，工作台发布策略在工作台配置页统一维护。')
+    expect(wrapper.text()).not.toContain('演示级本地状态')
+    expect(wrapper.text()).not.toContain('本页为演示级角色绑定')
   })
 
   test('updates the preview when selecting another role', async () => {

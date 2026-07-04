@@ -8,6 +8,7 @@ import {
   Monitor,
   Refresh,
   Tickets,
+  TrendCharts,
   VideoPlay,
 } from '@element-plus/icons-vue'
 import { computed, ref } from 'vue'
@@ -78,6 +79,12 @@ const launchStatusTypes: Record<string, TagType> = {
   待开发: 'info',
 }
 
+const alarmFilters: { key: AlarmFilter; label: string; testid: string }[] = [
+  { key: 'all', label: '全部', testid: 'alarm-filter-all' },
+  { key: '未处理', label: '未处理', testid: 'alarm-filter-unhandled' },
+  { key: '处理中', label: '处理中', testid: 'alarm-filter-processing' },
+]
+
 const filteredAlarms = computed(() =>
   alarmFilter.value === 'all'
     ? priorityAlarms
@@ -130,10 +137,11 @@ async function openAlarmDetail(deviceId: string) {
 </script>
 
 <template>
-  <main class="overview-view">
-    <header class="overview-view__header">
-      <div class="overview-view__title-block">
-        <div class="overview-view__eyebrow">
+  <main class="overview">
+    <!-- ════ Page header ════ -->
+    <header class="overview__header">
+      <div class="overview__title-block">
+        <div class="overview__eyebrow">
           <ElTag size="small" effect="plain">现场演示</ElTag>
           <ElTag type="success" size="small" effect="plain">数据已同步 {{ refreshedAt }}</ElTag>
         </div>
@@ -141,7 +149,7 @@ async function openAlarmDetail(deviceId: string) {
         <p>未来实验学校 · 系统管理员视角 · 统一查看设备、告警、应用与角色工作台运行状态。</p>
       </div>
 
-      <div class="overview-view__header-actions">
+      <div class="overview__header-actions">
         <ElButton :icon="Refresh" @click="refreshOverview">刷新数据</ElButton>
         <ElButton data-testid="demo-mode-link" type="primary" :icon="VideoPlay" @click="openDemoMode">
           进入演示模式
@@ -149,87 +157,80 @@ async function openAlarmDetail(deviceId: string) {
       </div>
     </header>
 
-    <section class="overview-view__kpi-grid" aria-label="关键运营指标">
-      <ElCard v-for="item in overviewKpis" :key="item.label" shadow="never" class="overview-view__kpi-card">
-        <div class="overview-view__kpi-head">
-          <span>{{ item.label }}</span>
-          <ElTag :type="getOverviewTagType(item.status)" size="small" effect="plain">{{ item.trend }}</ElTag>
+    <!-- ════ KPI grid ════ -->
+    <section class="overview__kpi-grid" aria-label="关键运营指标">
+      <article
+        v-for="item in overviewKpis"
+        :key="item.label"
+        class="overview__kpi-card overview__kpi-card--accent"
+        :class="`overview__kpi-card--${item.status}`"
+      >
+        <div class="overview__kpi-top">
+          <span class="overview__kpi-label">{{ item.label }}</span>
+          <span class="overview__kpi-trend" :class="`overview__kpi-trend--${item.status}`">{{ item.trend }}</span>
         </div>
-        <ElStatistic :value="item.value" :precision="item.precision" :suffix="item.suffix" />
-        <div class="overview-view__kpi-meta">
+        <div class="overview__kpi-value">
+          <ElStatistic :value="item.value" :precision="item.precision" :suffix="item.suffix" />
+        </div>
+        <div class="overview__kpi-meta">
           <span>{{ item.secondaryLabel }}</span>
           <strong>{{ item.secondaryValue }}</strong>
         </div>
-      </ElCard>
+      </article>
     </section>
 
+    <!-- ════ Console grid: alarm queue + system health ════ -->
     <section class="overview-view__console-grid">
-      <ElCard shadow="never" class="overview-view__panel overview-view__panel--alarms">
-        <template #header>
-          <div class="overview-view__panel-header">
-            <div class="overview-view__panel-title">
-              <strong>告警优先级队列</strong>
-              <p>按处置优先级展示当前需要关注的设备事件。</p>
-            </div>
-            <ElButtonGroup>
-              <ElButton
-                data-testid="alarm-filter-all"
-                size="small"
-                :type="alarmFilter === 'all' ? 'primary' : 'default'"
-                :aria-pressed="alarmFilter === 'all'"
-                @click="setAlarmFilter('all')"
-              >
-                全部
-              </ElButton>
-              <ElButton
-                data-testid="alarm-filter-unhandled"
-                size="small"
-                :type="alarmFilter === '未处理' ? 'primary' : 'default'"
-                :aria-pressed="alarmFilter === '未处理'"
-                @click="setAlarmFilter('未处理')"
-              >
-                未处理
-              </ElButton>
-              <ElButton
-                data-testid="alarm-filter-processing"
-                size="small"
-                :type="alarmFilter === '处理中' ? 'primary' : 'default'"
-                :aria-pressed="alarmFilter === '处理中'"
-                @click="setAlarmFilter('处理中')"
-              >
-                处理中
-              </ElButton>
-            </ElButtonGroup>
+      <!-- Alarm queue -->
+      <article class="overview__panel overview__panel--alarms">
+        <header class="overview__panel-head">
+          <div class="overview__panel-title">
+            <strong>告警优先级队列</strong>
+            <p>按处置优先级展示当前需要关注的设备事件。</p>
           </div>
-        </template>
+          <div class="overview__seg" role="group" aria-label="告警筛选">
+            <button
+              v-for="filter in alarmFilters"
+              :key="filter.key"
+              type="button"
+              class="overview__seg-btn"
+              :class="{ 'is-active': alarmFilter === filter.key }"
+              :data-testid="filter.testid"
+              :aria-pressed="alarmFilter === filter.key"
+              @click="setAlarmFilter(filter.key)"
+            >
+              {{ filter.label }}
+            </button>
+          </div>
+        </header>
 
-        <ElTable v-if="filteredAlarms.length > 0" :data="filteredAlarms" size="small" class="overview-view__table">
-          <ElTableColumn label="级别" width="60">
+        <ElTable v-if="filteredAlarms.length > 0" :data="filteredAlarms" size="small" class="overview__table">
+          <ElTableColumn label="级别" width="64">
             <template #default="{ row }">
-              <ElTag :type="getAlarmSeverityType(row.severity)" size="small" effect="plain">
+              <span class="overview__sev" :class="`overview__sev--${getAlarmSeverityType(row.severity)}`">
                 {{ row.severity }}
-              </ElTag>
+              </span>
             </template>
           </ElTableColumn>
-          <ElTableColumn label="设备" min-width="150">
+          <ElTableColumn label="设备" min-width="160">
             <template #default="{ row }">
-              <div class="overview-view__device-cell">
+              <div class="overview__device-cell">
                 <strong>{{ row.deviceId }}</strong>
                 <span>{{ row.deviceName }}</span>
               </div>
             </template>
           </ElTableColumn>
           <ElTableColumn prop="location" label="发生位置" min-width="126" />
-          <ElTableColumn prop="owner" label="责任人" width="74" />
+          <ElTableColumn prop="owner" label="责任人" width="76" />
           <ElTableColumn prop="trigger" label="触发方式" min-width="126" />
           <ElTableColumn label="状态" width="86">
             <template #default="{ row }">
-              <ElTag :type="getAlarmStatusType(row.status)" size="small" effect="plain">
+              <ElTag :type="getAlarmStatusType(row.status)" size="small" effect="light" round>
                 {{ row.status }}
               </ElTag>
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="reportedAt" label="上报" width="64" />
+          <ElTableColumn prop="reportedAt" label="上报" width="66" />
           <ElTableColumn label="操作" width="68">
             <template #default="{ row }">
               <ElButton
@@ -245,15 +246,17 @@ async function openAlarmDetail(deviceId: string) {
           </ElTableColumn>
         </ElTable>
 
-        <ElEmpty v-else description="当前筛选条件下暂无告警" :image-size="64" />
+        <div v-else class="overview__empty">
+          <ElEmpty description="当前筛选条件下暂无告警" :image-size="64" />
+        </div>
 
-        <div class="overview-view__alarm-compact-list" aria-label="移动端告警队列">
-          <div v-for="alarm in filteredAlarms" :key="alarm.deviceId" class="overview-view__alarm-compact-row">
+        <div class="overview__alarm-compact-list" aria-label="移动端告警队列">
+          <div v-for="alarm in filteredAlarms" :key="alarm.deviceId" class="overview__alarm-compact-row">
             <div>
               <strong>{{ alarm.deviceId }}</strong>
               <span>{{ alarm.deviceName }} · {{ alarm.location }}</span>
             </div>
-            <ElTag :type="getAlarmStatusType(alarm.status)" size="small" effect="plain">
+            <ElTag :type="getAlarmStatusType(alarm.status)" size="small" effect="light" round>
               {{ alarm.status }}
             </ElTag>
             <ElButton
@@ -267,486 +270,851 @@ async function openAlarmDetail(deviceId: string) {
             </ElButton>
           </div>
         </div>
-      </ElCard>
+      </article>
 
-      <ElCard shadow="never" class="overview-view__panel overview-view__panel--health">
-        <template #header>
-          <div class="overview-view__panel-header">
-            <div class="overview-view__panel-title">
-              <strong>系统健康</strong>
-              <p>核心服务状态与演示稳定性。</p>
-            </div>
+      <!-- System health -->
+      <article class="overview__panel overview__panel--health">
+        <header class="overview__panel-head">
+          <div class="overview__panel-title">
+            <strong>系统健康</strong>
+            <p>核心服务状态与演示稳定性。</p>
           </div>
-        </template>
+          <span class="overview__health-badge">
+            <span class="overview__health-pulse" :class="`overview__health-pulse--success`" />
+            运行中
+          </span>
+        </header>
 
-        <div class="overview-view__health-list">
-          <div v-for="item in systemHealth" :key="item.name" class="overview-view__health-row">
-            <span class="overview-view__status-dot" :class="`overview-view__status-dot--${item.status}`" />
-            <div>
+        <div class="overview__health-list">
+          <div v-for="item in systemHealth" :key="item.name" class="overview__health-row">
+            <span class="overview__status-dot" :class="`overview__status-dot--${item.status}`" />
+            <div class="overview__health-info">
               <strong>{{ item.name }}</strong>
               <span>{{ item.detail }}</span>
             </div>
-            <ElTag :type="getOverviewTagType(item.status)" size="small" effect="plain">{{ item.metric }}</ElTag>
+            <span class="overview__health-metric" :class="`overview__health-metric--${item.status}`">
+              {{ item.metric }}
+            </span>
           </div>
         </div>
-      </ElCard>
+      </article>
     </section>
 
-    <ElCard shadow="never" class="overview-view__panel">
-      <template #header>
-        <div class="overview-view__panel-header">
-          <div class="overview-view__panel-title">
-            <strong>演示快捷入口</strong>
-            <p>现场讲解时可从这里进入关键功能面。</p>
-          </div>
+    <!-- ════ Demo launch ════ -->
+    <article class="overview__panel overview__panel--launch">
+      <header class="overview__panel-head">
+        <div class="overview__panel-title">
+          <strong>演示快捷入口</strong>
+          <p>现场讲解时可从这里进入关键功能面。</p>
         </div>
-      </template>
+      </header>
 
-      <div class="overview-view__launch-grid">
-        <RouterLink v-for="item in demoLaunchItems" :key="item.label" :to="item.path" class="overview-view__launch-item">
-          <ElIcon><component :is="launchIcons[item.label]" /></ElIcon>
-          <span>
+      <div class="overview__launch-grid">
+        <RouterLink
+          v-for="item in demoLaunchItems"
+          :key="item.label"
+          :to="item.path"
+          class="overview__launch-item"
+        >
+          <span class="overview__launch-icon">
+            <ElIcon><component :is="launchIcons[item.label]" /></ElIcon>
+          </span>
+          <span class="overview__launch-text">
             <strong>{{ item.label }}</strong>
             <small>{{ item.description }}</small>
           </span>
-          <ElTag :type="getLaunchStatusType(item.status)" size="small" effect="plain">{{ item.status }}</ElTag>
-          <ElIcon class="overview-view__launch-arrow"><ArrowRight /></ElIcon>
+          <ElTag :type="getLaunchStatusType(item.status)" size="small" effect="light" round>
+            {{ item.status }}
+          </ElTag>
+          <ElIcon class="overview__launch-arrow"><ArrowRight /></ElIcon>
         </RouterLink>
       </div>
-    </ElCard>
+    </article>
 
-    <section class="overview-view__bottom-grid">
-      <ElCard shadow="never" class="overview-view__panel">
-        <template #header>
-          <div class="overview-view__panel-header">
-            <div class="overview-view__panel-title">
-              <strong>数据看板覆盖</strong>
-              <p>默认六类看板接入状态。</p>
-            </div>
+    <!-- ════ Bottom grid ════ -->
+    <section class="overview__bottom-grid">
+      <!-- Dashboard coverage -->
+      <article class="overview__panel">
+        <header class="overview__panel-head">
+          <div class="overview__panel-title">
+            <strong>数据看板覆盖</strong>
+            <p>默认六类看板接入状态。</p>
           </div>
-        </template>
+          <ElIcon class="overview__panel-glyph"><TrendCharts /></ElIcon>
+        </header>
 
-        <div class="overview-view__compact-list">
-          <div v-for="item in dashboardCoverage" :key="item.name" class="overview-view__compact-row">
-            <div>
+        <div class="overview__coverage-list">
+          <div v-for="item in dashboardCoverage" :key="item.name" class="overview__coverage-row">
+            <div class="overview__coverage-info">
               <strong>{{ item.name }}</strong>
               <span>{{ item.owner }} · {{ item.updatedAt }}</span>
             </div>
-            <ElTag :type="getDashboardStatusType(item.status)" size="small" effect="plain">{{ item.status }}</ElTag>
+            <ElTag :type="getDashboardStatusType(item.status)" size="small" effect="light" round>
+              {{ item.status }}
+            </ElTag>
           </div>
         </div>
-      </ElCard>
+      </article>
 
-      <ElCard shadow="never" class="overview-view__panel">
-        <template #header>
-          <div class="overview-view__panel-header">
-            <div class="overview-view__panel-title">
-              <strong>角色工作台发布</strong>
-              <p>角色可见范围与发布状态。</p>
-            </div>
+      <!-- Role workbenches -->
+      <article class="overview__panel">
+        <header class="overview__panel-head">
+          <div class="overview__panel-title">
+            <strong>角色工作台状态</strong>
+            <p>角色可见范围与启用状态。</p>
           </div>
-        </template>
+          <ElIcon class="overview__panel-glyph"><Grid /></ElIcon>
+        </header>
 
-        <ElTable :data="roleWorkbenches" size="small" class="overview-view__table">
+        <ElTable :data="roleWorkbenches" size="small" class="overview__table">
           <ElTableColumn prop="name" label="工作台" min-width="132" />
           <ElTableColumn prop="role" label="角色" width="92" />
           <ElTableColumn label="状态" width="84">
             <template #default="{ row }">
-              <ElTag :type="getWorkbenchStatusType(row.status)" size="small" effect="plain">{{ row.status }}</ElTag>
+              <ElTag :type="getWorkbenchStatusType(row.status)" size="small" effect="light" round>
+                {{ row.status }}
+              </ElTag>
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="updatedAt" label="更新" width="74" />
+          <ElTableColumn prop="updatedAt" label="更新" width="76" />
         </ElTable>
-      </ElCard>
+      </article>
 
-      <ElCard shadow="never" class="overview-view__panel">
-        <template #header>
-          <div class="overview-view__panel-header">
-            <div class="overview-view__panel-title">
-              <strong>演示准备进度</strong>
-              <p>当前阶段可讲解能力。</p>
-            </div>
+      <!-- Demo readiness -->
+      <article class="overview__panel">
+        <header class="overview__panel-head">
+          <div class="overview__panel-title">
+            <strong>演示准备进度</strong>
+            <p>当前阶段可讲解能力。</p>
           </div>
-        </template>
+          <ElIcon class="overview__panel-glyph"><Tickets /></ElIcon>
+        </header>
 
-        <div class="overview-view__readiness-list">
-          <div v-for="(item, index) in demoReadiness" :key="item.label" class="overview-view__readiness-row">
-            <span>{{ index + 1 }}</span>
-            <div>
+        <div class="overview__readiness-list">
+          <div v-for="(item, index) in demoReadiness" :key="item.label" class="overview__readiness-row">
+            <span class="overview__readiness-index">{{ index + 1 }}</span>
+            <div class="overview__readiness-info">
               <strong>{{ item.label }}</strong>
               <small>{{ item.detail }}</small>
             </div>
-            <ElTag :type="getReadinessStatusType(item.status)" size="small" effect="plain">{{ item.status }}</ElTag>
+            <ElTag :type="getReadinessStatusType(item.status)" size="small" effect="light" round>
+              {{ item.status }}
+            </ElTag>
           </div>
         </div>
-      </ElCard>
+      </article>
     </section>
   </main>
 </template>
 
 <style scoped>
-.overview-view {
+.overview {
   display: grid;
-  gap: 16px;
+  gap: var(--space-4);
+  max-width: var(--content-max);
+  margin: 0 auto;
   color: var(--color-text);
+  animation: overview-enter 0.4s var(--ease-enter);
 }
 
-.overview-view__header {
+@keyframes overview-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ════ Page header ════ */
+.overview__header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 20px;
+  gap: var(--space-5);
 }
 
-.overview-view__title-block {
+.overview__title-block {
   display: grid;
-  gap: 8px;
+  gap: var(--space-2);
   min-width: 0;
 }
 
-.overview-view__eyebrow,
-.overview-view__header-actions,
-.overview-view__kpi-head,
-.overview-view__panel-header,
-.overview-view__kpi-meta {
+.overview__eyebrow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
-.overview-view__header h1,
-.overview-view__header p,
-.overview-view__panel-header p {
+.overview__header h1 {
   margin: 0;
+  font-size: var(--fs-display);
+  font-weight: var(--fw-black);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--lh-tight);
 }
 
-.overview-view__header h1 {
-  font-size: 26px;
-  font-weight: 900;
-  line-height: 1.12;
-}
-
-.overview-view__header p,
-.overview-view__panel-header p,
-.overview-view__kpi-meta,
-.overview-view__device-cell span,
-.overview-view__health-row span,
-.overview-view__compact-row span,
-.overview-view__launch-item small,
-.overview-view__readiness-row small {
+.overview__header p {
+  margin: 0;
   color: var(--color-text-muted);
-  font-size: 12px;
+  font-size: var(--fs-subtitle);
+  max-width: 560px;
 }
 
-.overview-view__kpi-grid {
+.overview__header-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ════ KPI cards ════ */
+.overview__kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--space-3);
 }
 
-.overview-view__kpi-card {
-  min-width: 0;
-}
-
-.overview-view__kpi-card :deep(.el-card__body) {
+.overview__kpi-card {
+  position: relative;
+  overflow: hidden;
   display: grid;
-  gap: 10px;
-  padding: 14px;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-panel);
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform var(--motion-base) var(--ease-out),
+    box-shadow var(--motion-base) var(--ease-out),
+    border-color var(--motion-base) var(--ease-out);
 }
 
-.overview-view__kpi-head {
+.overview__kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--color-accent);
+  opacity: 0.85;
+}
+
+.overview__kpi-card--success::before {
+  background: var(--color-success);
+}
+.overview__kpi-card--danger::before {
+  background: var(--color-danger);
+}
+.overview__kpi-card--primary::before {
+  background: var(--color-accent);
+}
+.overview__kpi-card--warning::before {
+  background: var(--color-warning);
+}
+
+.overview__kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-border-strong);
+}
+
+.overview__kpi-top {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
+  gap: var(--space-2);
   min-width: 0;
 }
 
-.overview-view__kpi-head span,
-.overview-view__panel-header strong {
-  font-size: 14px;
-  font-weight: 900;
+.overview__kpi-label {
+  font-size: var(--fs-label);
+  font-weight: var(--fw-bold);
+  color: var(--color-text-muted);
+  letter-spacing: var(--tracking-label);
+  text-transform: none;
 }
 
-.overview-view__kpi-meta {
-  justify-content: space-between;
-  padding-top: 8px;
-  border-top: 1px solid var(--color-border);
+.overview__kpi-trend {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: var(--fw-bold);
+  background: var(--color-accent-50);
+  color: var(--color-accent-700);
 }
 
-.overview-view__kpi-meta strong {
-  color: var(--color-text);
-  font-size: 12px;
+.overview__kpi-trend--success {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+.overview__kpi-trend--danger {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+.overview__kpi-trend--warning {
+  background: var(--color-warning-soft);
+  color: #b45309;
 }
 
-.overview-view :deep(.el-statistic__number) {
-  font-size: 30px;
-  font-weight: 900;
+.overview__kpi-value :deep(.el-statistic__number) {
+  font-size: var(--fs-stat);
+  font-weight: var(--fw-black);
   line-height: 1;
+  color: var(--color-text-strong);
 }
 
+.overview__kpi-value :deep(.el-statistic__suffix) {
+  font-size: 18px;
+  font-weight: var(--fw-bold);
+  color: var(--color-text-muted);
+}
+
+.overview__kpi-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--fs-label);
+  color: var(--color-text-muted);
+}
+
+.overview__kpi-meta strong {
+  color: var(--color-text);
+  font-weight: var(--fw-bold);
+  font-feature-settings: var(--num-feature);
+}
+
+/* ════ Console grid (preserved BEM class for test contract) ════ */
 .overview-view__console-grid {
   display: grid;
   align-items: start;
-  grid-template-columns: minmax(0, 1.8fr) minmax(300px, 0.8fr);
-  gap: 12px;
+  grid-template-columns: minmax(0, 1.8fr) minmax(300px, 0.85fr);
+  gap: var(--space-3);
 }
 
-.overview-view__bottom-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.overview-view__panel {
+/* ════ Panels ════ */
+.overview__panel {
   min-width: 0;
-  border-color: color-mix(in srgb, var(--color-border) 74%, white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-panel);
+  box-shadow: var(--shadow-sm);
 }
 
-.overview-view__panel :deep(.el-card__header) {
-  padding: 13px 14px;
-  border-bottom-color: color-mix(in srgb, var(--color-border) 76%, white);
-}
-
-.overview-view__panel :deep(.el-card__body) {
-  padding: 14px;
-}
-
-.overview-view__panel-header {
+.overview__panel-head {
+  display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  min-width: 0;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
 }
 
-.overview-view__panel-title {
+.overview__panel-title {
   display: grid;
   gap: 4px;
   min-width: 0;
 }
 
-.overview-view__table {
-  --el-table-header-bg-color: #f8fafc;
-  --el-table-row-hover-bg-color: #f8fafc;
-  font-size: 12px;
+.overview__panel-title strong {
+  font-size: var(--fs-title);
+  font-weight: var(--fw-black);
+  letter-spacing: var(--tracking-tight);
 }
 
-.overview-view__alarm-compact-list {
-  display: none;
+.overview__panel-title p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--fs-label);
 }
 
-.overview-view__device-cell {
+.overview__panel-glyph {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--color-panel-muted);
+  color: var(--color-text-muted);
+  font-size: 17px;
+}
+
+/* ── Alarm segmented control ── */
+.overview__seg {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-panel-muted);
+}
+
+.overview__seg-btn {
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--fs-label);
+  font-weight: var(--fw-bold);
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
+}
+
+.overview__seg-btn:hover {
+  color: var(--color-text);
+}
+
+.overview__seg-btn.is-active {
+  background: var(--color-panel);
+  color: var(--color-accent-700);
+  box-shadow: var(--shadow-xs);
+}
+
+/* ── Alarm table ── */
+.overview__panel--alarms {
+  display: grid;
+}
+
+.overview__panel--alarms > .overview__panel-head {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.overview__table {
+  margin: 0 var(--space-4) var(--space-3);
+  width: auto;
+  font-size: var(--fs-label);
+}
+
+.overview__table :deep(.el-table__inner-wrapper) {
+  border-radius: var(--radius-md);
+}
+
+.overview__sev {
+  display: inline-grid;
+  place-items: center;
+  min-width: 28px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: var(--fw-black);
+}
+
+.overview__sev--danger {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+.overview__sev--warning {
+  background: var(--color-warning-soft);
+  color: #b45309;
+}
+.overview__sev--info {
+  background: var(--color-info-soft);
+  color: var(--color-info);
+}
+
+.overview__device-cell {
   display: grid;
   gap: 2px;
   min-width: 0;
 }
 
-.overview-view__health-list,
-.overview-view__compact-list,
-.overview-view__readiness-list {
-  display: grid;
+.overview__device-cell strong {
+  font-size: 13px;
+  font-weight: var(--fw-bold);
+  font-feature-settings: var(--num-feature);
 }
 
-.overview-view__health-row,
-.overview-view__compact-row,
-.overview-view__readiness-row {
+.overview__device-cell span {
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+
+.overview__empty {
   display: grid;
+  place-items: center;
+  padding: var(--space-6) var(--space-4);
+}
+
+.overview__alarm-compact-list {
+  display: none;
+}
+
+/* ── System health ── */
+.overview__health-badge {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  min-width: 0;
-  padding: 10px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 70%, white);
+  gap: 6px;
+  flex: none;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-success-soft);
+  color: var(--color-success);
+  font-size: 11px;
+  font-weight: var(--fw-bold);
 }
 
-.overview-view__health-row {
+.overview__health-pulse {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-circle);
+  background: var(--color-success);
+}
+
+.overview__health-pulse::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: var(--radius-circle);
+  background: var(--color-success);
+  opacity: 0.35;
+  animation: overview-pulse 2.2s var(--ease-out) infinite;
+}
+
+@keyframes overview-pulse {
+  0% {
+    transform: scale(0.5);
+    opacity: 0.4;
+  }
+  70% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.overview__health-list {
+  display: grid;
+  padding: var(--space-2) var(--space-4) var(--space-3);
+}
+
+.overview__health-row {
+  display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 11px 0;
+  border-bottom: 1px solid var(--color-border);
 }
 
-.overview-view__health-row:last-child,
-.overview-view__compact-row:last-child,
-.overview-view__readiness-row:last-child {
+.overview__health-row:last-child {
   border-bottom: 0;
 }
 
-.overview-view__health-row div,
-.overview-view__compact-row div,
-.overview-view__readiness-row div {
+.overview__health-info {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.overview__health-info strong {
+  font-size: 13px;
+  font-weight: var(--fw-bold);
+}
+
+.overview__health-info span {
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+
+.overview__health-metric {
+  font-size: 12px;
+  font-weight: var(--fw-black);
+  font-feature-settings: var(--num-feature);
+  color: var(--color-success);
+}
+
+.overview__health-metric--warning {
+  color: #b45309;
+}
+
+/* ── Status dots ── */
+.overview__status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-circle);
+  background: var(--color-text-muted);
+}
+
+.overview__status-dot--success {
+  background: var(--color-success);
+}
+.overview__status-dot--warning {
+  background: var(--color-warning);
+}
+.overview__status-dot--danger {
+  background: var(--color-danger);
+}
+.overview__status-dot--primary,
+.overview__status-dot--info {
+  background: var(--color-accent);
+}
+
+/* ════ Launch grid ════ */
+.overview__launch-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+
+.overview__launch-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 76px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-panel);
+  color: inherit;
+  text-decoration: none;
+  transition:
+    transform var(--motion-base) var(--ease-out),
+    border-color var(--motion-base) var(--ease-out),
+    box-shadow var(--motion-base) var(--ease-out);
+}
+
+.overview__launch-item:hover,
+.overview__launch-item:focus-visible {
+  transform: translateY(-2px);
+  border-color: var(--color-border-accent);
+  box-shadow: var(--shadow-lift);
+  outline: 0;
+}
+
+.overview__launch-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--color-accent-50), var(--color-accent-100));
+  color: var(--color-accent-700);
+  font-size: 19px;
+}
+
+.overview__launch-text {
   display: grid;
   gap: 3px;
   min-width: 0;
 }
 
-.overview-view__status-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 999px;
-  background: var(--color-text-muted);
-}
-
-.overview-view__status-dot--success {
-  background: var(--color-success);
-}
-
-.overview-view__status-dot--warning {
-  background: #f59e0b;
-}
-
-.overview-view__status-dot--danger {
-  background: var(--color-danger);
-}
-
-.overview-view__status-dot--primary,
-.overview-view__status-dot--info {
-  background: var(--color-accent);
-}
-
-.overview-view__launch-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.overview-view__launch-item {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  min-height: 74px;
-  padding: 12px;
-  border: 1px solid color-mix(in srgb, var(--color-border) 74%, white);
-  border-radius: 8px;
-  background: #fbfdff;
-  color: inherit;
-  text-decoration: none;
-  transition:
-    border-color var(--motion-fast) var(--ease-enter),
-    background var(--motion-fast) var(--ease-enter);
-}
-
-.overview-view__launch-item:hover,
-.overview-view__launch-item:focus-visible {
-  border-color: var(--color-accent);
-  background: #f8fbff;
-  outline: 0;
-}
-
-.overview-view__launch-item > .el-icon:first-child {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
-}
-
-.overview-view__launch-item span {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.overview-view__launch-item strong,
-.overview-view__compact-row strong,
-.overview-view__readiness-row strong,
-.overview-view__health-row strong {
+.overview__launch-text strong {
+  font-size: 14px;
+  font-weight: var(--fw-black);
   overflow: hidden;
-  font-size: 13px;
-  font-weight: 900;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.overview-view__launch-arrow {
-  color: var(--color-text-muted);
-}
-
-.overview-view__compact-row {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
-.overview-view__readiness-row {
-  grid-template-columns: 26px minmax(0, 1fr) auto;
-}
-
-.overview-view__readiness-row > span:first-child {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: var(--color-panel-muted);
+.overview__launch-text small {
   color: var(--color-text-muted);
   font-size: 12px;
-  font-weight: 900;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+.overview__launch-arrow {
+  color: var(--color-text-faint);
+  transition:
+    transform var(--motion-base) var(--ease-out),
+    color var(--motion-base) var(--ease-out);
+}
+
+.overview__launch-item:hover .overview__launch-arrow {
+  transform: translateX(3px);
+  color: var(--color-accent);
+}
+
+/* ════ Bottom grid ════ */
+.overview__bottom-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+/* ── Coverage list ── */
+.overview__coverage-list {
+  display: grid;
+  padding: var(--space-2) var(--space-4) var(--space-3);
+}
+
+.overview__coverage-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 11px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.overview__coverage-row:last-child {
+  border-bottom: 0;
+}
+
+.overview__coverage-info {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.overview__coverage-info strong {
+  font-size: 13px;
+  font-weight: var(--fw-bold);
+}
+
+.overview__coverage-info span {
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+
+/* ── Readiness list ── */
+.overview__readiness-list {
+  display: grid;
+  padding: var(--space-2) var(--space-4) var(--space-3);
+}
+
+.overview__readiness-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 11px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.overview__readiness-row:last-child {
+  border-bottom: 0;
+}
+
+.overview__readiness-index {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-circle);
+  background: var(--color-accent-50);
+  color: var(--color-accent-700);
+  font-size: 12px;
+  font-weight: var(--fw-black);
+  font-feature-settings: var(--num-feature);
+}
+
+.overview__readiness-info {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.overview__readiness-info strong {
+  font-size: 13px;
+  font-weight: var(--fw-bold);
+}
+
+.overview__readiness-info small {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  line-height: var(--lh-normal);
+}
+
+/* ════ Responsive ════ */
 @media (max-width: 1280px) {
-  .overview-view__bottom-grid {
+  .overview__bottom-grid {
     grid-template-columns: 1fr;
   }
 }
 
 @media (min-width: 1680px) {
-  .overview-view__launch-grid {
+  .overview__launch-grid {
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 980px) {
-  .overview-view__header,
-  .overview-view__panel-header {
+  .overview__header {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .overview-view__kpi-grid,
+  .overview__kpi-grid,
   .overview-view__console-grid {
     grid-template-columns: 1fr;
   }
 
-  .overview-view__launch-grid {
+  .overview__launch-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 620px) {
-  .overview-view__header-actions,
-  .overview-view__eyebrow {
+  .overview__header-actions,
+  .overview__eyebrow {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .overview-view__launch-grid {
+  .overview__launch-grid {
     grid-template-columns: 1fr;
   }
 
-  .overview-view__panel--alarms :deep(.el-table) {
+  .overview__panel--alarms :deep(.el-table) {
     display: none;
   }
 
-  .overview-view__alarm-compact-list {
+  .overview__alarm-compact-list {
     display: grid;
-    gap: 8px;
+    gap: var(--space-2);
+    padding: 0 var(--space-4) var(--space-3);
   }
 
-  .overview-view__alarm-compact-row {
+  .overview__alarm-compact-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto auto;
     align-items: center;
-    gap: 8px;
-    padding: 10px;
+    gap: var(--space-2);
+    padding: var(--space-3);
     border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     background: var(--color-panel-muted);
   }
 
-  .overview-view__alarm-compact-row div {
+  .overview__alarm-compact-row div {
     display: grid;
     gap: 3px;
     min-width: 0;
   }
 
-  .overview-view__alarm-compact-row strong,
-  .overview-view__alarm-compact-row span {
+  .overview__alarm-compact-row strong,
+  .overview__alarm-compact-row span {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overview {
+    animation: none;
+  }
+
+  .overview__health-pulse::after {
+    animation: none;
   }
 }
 </style>

@@ -1,17 +1,143 @@
+/*
+ * 翡翠学府 · Academy Design Tokens
+ * Source of truth for the whole UI. Element Plus maps onto these via element-theme.css.
+ * Never hardcode hex in component CSS when a token here covers the role.
+ */
+
 :root {
-  --color-page: #eef2f7;
+  /* ── Brand ─────────────────────────────────────────── */
+  --color-accent: #059669; /* emerald-600 · primary brand */
+  --color-accent-strong: #047857; /* emerald-700 · hover/active */
+  --color-accent-cyan: #0891b2; /* cyan-600 · glow / gradient second */
+  --color-accent-soft: #d1fae5; /* emerald-100 · tint fills */
+
+  /* Full emerald primary ramp (consumed by Element Plus hover/active states) */
+  --color-accent-50: #ecfdf5;
+  --color-accent-100: #d1fae5;
+  --color-accent-200: #a7f3d0;
+  --color-accent-300: #6ee7b7;
+  --color-accent-400: #34d399;
+  --color-accent-500: #10b981;
+  --color-accent-600: #059669;
+  --color-accent-700: #047857;
+  --color-accent-800: #065f46;
+  --color-accent-900: #064e3b;
+
+  /* ── Surfaces (warm sage neutrals, not cold blue) ──── */
+  --color-page: #f5f8f6; /* warm off-white with a green whisper */
   --color-panel: #ffffff;
-  --color-panel-muted: #f8fafc;
-  --color-border: #d8e2f3;
-  --color-text: #0f172a;
-  --color-text-muted: #64748b;
-  --color-accent: #2563eb;
-  --color-accent-soft: #dbeafe;
+  --color-panel-muted: #f3f7f5;
+  --color-panel-sunken: #eef3f0;
+
+  /* ── Borders / lines ───────────────────────────────── */
+  --color-border: #e3e8e5;
+  --color-border-strong: #cdd6d1;
+  --color-border-accent: #a7f3d0;
+
+  /* ── Text ──────────────────────────────────────────── */
+  --color-text: #0f1b16; /* green-tinted ink */
+  --color-text-strong: #06120d;
+  --color-text-muted: #5b6b66; /* sage gray */
+  --color-text-faint: #8a988f;
+  --color-text-on-accent: #ffffff;
+  --color-text-on-dark: #e8f0ec;
+
+  /* ── Sidebar signature surface ─────────────────────── */
+  --color-sidebar: #0e1a14; /* deep ink */
+  --color-sidebar-soft: #142621;
+  --color-sidebar-hover: rgba(255, 255, 255, 0.06);
+  --color-sidebar-active: rgba(5, 150, 105, 0.18);
+  --color-sidebar-text: #aebcb3;
+  --color-sidebar-text-strong: #ffffff;
+  --color-sidebar-text-muted: #6f8079;
+  --color-sidebar-border: rgba(255, 255, 255, 0.08);
+
+  /* ── Semantic status ───────────────────────────────── */
   --color-danger: #dc2626;
-  --color-success: #16a34a;
-  --shadow-panel: 0 18px 45px rgba(15, 23, 42, 0.12);
+  --color-danger-soft: #fee2e2;
+  --color-success: #10b981;
+  --color-success-soft: #d1fae5;
+  --color-warning: #f59e0b;
+  --color-warning-soft: #fef3c7;
+  --color-info: #0891b2;
+  --color-info-soft: #cffafe;
+
+  /* ── Big-screen canvas component accents (dark runtime) ── */
+  /* Used by EChart / Metric / Decoration / Table renderers on the 1920×1080 dark canvas.
+     Keep emerald-aligned so the canvas shares the brand family. */
+  --chart-accent: #34d399;
+  --metric-accent: #34d399;
+  --table-accent: #2dd4bf;
+  --decoration-accent: #34d399;
+  --brand: #059669;
+
+  /* ── Typography ────────────────────────────────────── */
+  --font-sans: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-numeric: "Inter", "SF Pro Display", system-ui, sans-serif;
+
+  --fs-display: 28px; /* page H1 */
+  --fs-title: 16px; /* panel title */
+  --fs-subtitle: 13px;
+  --fs-body: 14px;
+  --fs-label: 12px;
+  --fs-stat: 32px; /* hero KPI number */
+  --fs-stat-sm: 26px; /* summary stat */
+
+  --lh-tight: 1.1;
+  --lh-snug: 1.3;
+  --lh-normal: 1.5;
+
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-bold: 700;
+  --fw-black: 900;
+
+  --tracking-tight: 0;
+  --tracking-label: 0;
+
+  /* tabular figures for KPI / table numerals */
+  --num-feature: 'tnum' 1, 'cv01' 1;
+
+  /* ── Spacing scale ─────────────────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+
+  --space-page: 20px; /* main content padding */
+  --space-page-y: 22px;
+  --space-panel: 16px; /* card body padding */
+
+  /* ── Radius (crisp reusable corners, capped at 8px) ── */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+  --radius-pill: 8px;
   --radius-panel: 8px;
+  --radius-circle: 50%;
+
+  /* ── Shadows (layered, green-tinted, soft) ─────────── */
+  --shadow-xs: 0 1px 2px rgba(16, 36, 28, 0.04);
+  --shadow-sm: 0 1px 3px rgba(16, 36, 28, 0.06), 0 1px 2px rgba(16, 36, 28, 0.04);
+  --shadow-md: 0 4px 12px rgba(16, 36, 28, 0.06), 0 1px 3px rgba(16, 36, 28, 0.04);
+  --shadow-panel: 0 1px 3px rgba(16, 36, 28, 0.04), 0 8px 24px rgba(16, 36, 28, 0.05);
+  --shadow-lift: 0 8px 28px rgba(5, 150, 105, 0.16), 0 2px 6px rgba(16, 36, 28, 0.06);
+  --shadow-glow: 0 0 0 4px rgba(5, 150, 105, 0.14);
+
+  /* ── Motion (L1 restrained, per DESIGN.md) ─────────── */
   --motion-fast: 120ms;
+  --motion-base: 180ms;
   --motion-medium: 250ms;
   --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ── Layout ────────────────────────────────────────── */
+  --sidebar-width: 248px;
+  --topbar-height: 64px;
+  --content-max: 1680px;
 }
