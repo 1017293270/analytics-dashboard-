@@ -3,6 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import ElementPlus from 'element-plus'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { afterEach, describe, expect, test, vi } from 'vitest'
+import type { DashboardListItem } from '../big-screen/api/bigScreenApi'
 import DataDashboardsView from './DataDashboardsView.vue'
 
 const elementStubs = {
@@ -106,6 +107,49 @@ const demoDashboardRows: DataDashboardRow[] = [
   },
 ]
 
+const demoWorkbenchRows: DashboardListItem[] = [
+  {
+    id: 'dashboard-all',
+    name: '未来实验学校数据总览',
+    description: '全员可查看的校级驾驶舱',
+    status: 'draft',
+    updatedAt: '2026-07-09T10:30:00.000Z',
+    publishedAt: null,
+    visibleRoles: ['all-staff'],
+    availability: 'enabled',
+  },
+  {
+    id: 'dashboard-electro',
+    name: '电教主任设备运维工作台',
+    description: '设备在线、告警和应用巡检',
+    status: 'draft',
+    updatedAt: '2026-07-09T10:22:00.000Z',
+    publishedAt: null,
+    visibleRoles: ['electro-education-director'],
+    availability: 'enabled',
+  },
+  {
+    id: 'dashboard-moral',
+    name: '德育主任学生成长工作台',
+    description: '学生成长、德育活动和预警跟进',
+    status: 'draft',
+    updatedAt: '2026-07-09T10:18:00.000Z',
+    publishedAt: null,
+    visibleRoles: ['moral-education-director'],
+    availability: 'enabled',
+  },
+  {
+    id: 'dashboard-research',
+    name: '教研主任教师发展工作台',
+    description: '教研活动、教师发展和资源共建',
+    status: 'draft',
+    updatedAt: '2026-07-09T10:12:00.000Z',
+    publishedAt: null,
+    visibleRoles: ['teaching-research-director'],
+    availability: 'enabled',
+  },
+]
+
 vi.mock('element-plus', async () => {
   const actual = await vi.importActual<typeof import('element-plus')>('element-plus')
 
@@ -172,6 +216,10 @@ function createDashboardFetchMock(initialRows = demoDashboardRows) {
       return jsonResponse(listPayload(filteredRows))
     }
 
+    if (parsedUrl.pathname === '/api/big-screens' && method === 'GET') {
+      return jsonResponse(demoWorkbenchRows)
+    }
+
     if (parsedUrl.pathname === '/api/data-dashboards' && method === 'POST') {
       const body = JSON.parse(String(init?.body)) as Partial<DataDashboardRow>
       const created: DataDashboardRow = {
@@ -219,7 +267,10 @@ async function mountDashboardView(fetchMock = createDashboardFetchMock()) {
 
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: [{ path: '/data-dashboards', component: DataDashboardsView }],
+    routes: [
+      { path: '/data-dashboards', component: DataDashboardsView },
+      { path: '/workbenches/:id', component: { template: '<main />' } },
+    ],
   })
   await router.push('/data-dashboards')
   await router.isReady()
@@ -262,6 +313,50 @@ describe('DataDashboardsView', () => {
     expect(wrapper.text()).toContain('内置看板')
     expect(wrapper.text()).toContain('第三方嵌入')
     expect(wrapper.text()).not.toContain('本地演示状态')
+  })
+
+  test('renders the data center overview with role workbench browsing cards', async () => {
+    const { wrapper, fetchMock } = await mountDashboardView()
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/big-screens',
+      expect.objectContaining({ credentials: 'include' }),
+    )
+    expect(wrapper.text()).toContain('数据中心总览')
+    expect(wrapper.text()).toContain('角色工作台')
+    expect(wrapper.text()).toContain('默认数据看板')
+    expect(wrapper.text()).toContain('第三方融合看板')
+    expect(wrapper.text()).toContain('未来实验学校数据总览')
+    expect(wrapper.text()).toContain('电教主任设备运维工作台')
+    expect(wrapper.text()).toContain('德育主任学生成长工作台')
+    expect(wrapper.text()).toContain('教研主任教师发展工作台')
+    const workbenchHrefs = wrapper
+      .findAll('[data-testid^="data-center-workbench-"]')
+      .map((link) => link.attributes('href'))
+    expect(workbenchHrefs).toEqual([
+      '/workbenches/dashboard-all',
+      '/workbenches/dashboard-electro',
+      '/workbenches/dashboard-moral',
+      '/workbenches/dashboard-research',
+    ])
+    expect(workbenchHrefs.every((href) => href && !href.startsWith('/runtime/'))).toBe(true)
+    expect(wrapper.findAll('[data-testid^="data-center-dashboard-"]')).toHaveLength(5)
+  })
+
+  test('opens built-in and embedded dashboard previews from overview cards', async () => {
+    const { wrapper } = await mountDashboardView()
+
+    await wrapper.get('[data-testid="data-center-dashboard-dashboard-governance"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('配置数据看板')
+    expect(wrapper.text()).toContain('治理事项')
+
+    await wrapper.get('[data-testid="data-center-dashboard-dashboard-alarm"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('https://demo.school.local/alarm-bi')
+    expect(wrapper.text()).toContain('今日告警')
   })
 
   test('filters dashboards by keyword and resets the table without replacing API state', async () => {
