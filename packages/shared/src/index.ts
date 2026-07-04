@@ -1,4 +1,5 @@
 export const sharedVersion = '0.1.0'
+export * from './accounts.js'
 export * from './api.js'
 export * from './auth.js'
 export * from './dashboard-schema.js'

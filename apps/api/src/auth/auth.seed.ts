@@ -19,6 +19,7 @@ type DemoUser = {
   id: string
   username: string
   displayName: string
+  phone: string
   password: string
   roleCodes: RoleCode[]
 }
@@ -51,6 +52,7 @@ export const demoUsers: DemoUser[] = [
     id: 'user-system-admin',
     username: 'admin',
     displayName: '系统管理员',
+    phone: '13800000001',
     password: 'Admin@123',
     roleCodes: ['system-admin'],
   },
@@ -58,6 +60,7 @@ export const demoUsers: DemoUser[] = [
     id: 'user-all-staff',
     username: 'all_staff',
     displayName: '全员演示账号',
+    phone: '13800000002',
     password: 'Demo@123',
     roleCodes: ['all-staff'],
   },
@@ -65,6 +68,7 @@ export const demoUsers: DemoUser[] = [
     id: 'user-electro-director',
     username: 'electro_director',
     displayName: '电教主任',
+    phone: '13800000003',
     password: 'Demo@123',
     roleCodes: ['electro-education-director'],
   },
@@ -72,6 +76,7 @@ export const demoUsers: DemoUser[] = [
     id: 'user-moral-director',
     username: 'moral_director',
     displayName: '德育主任',
+    phone: '13800000004',
     password: 'Demo@123',
     roleCodes: ['moral-education-director'],
   },
@@ -79,6 +84,7 @@ export const demoUsers: DemoUser[] = [
     id: 'user-research-director',
     username: 'research_director',
     displayName: '教研主任',
+    phone: '13800000005',
     password: 'Demo@123',
     roleCodes: ['teaching-research-director'],
   },
@@ -98,12 +104,13 @@ export async function ensureDemoAuthSeed() {
       where: { username: user.username },
       update: {
         displayName: user.displayName,
-        status: 'active',
+        phone: user.phone,
       },
       create: {
         id: user.id,
         username: user.username,
         displayName: user.displayName,
+        phone: user.phone,
         passwordHash: hashPassword(user.password),
         status: 'active',
       },

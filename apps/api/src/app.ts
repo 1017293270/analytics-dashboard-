@@ -1,6 +1,7 @@
 import cors from 'cors'
 import express from 'express'
 import { ok } from '@analytics/shared'
+import { accountRoutes } from './auth/account.routes.js'
 import { authRoutes } from './auth/auth.routes.js'
 import { roleRoutes } from './auth/role.routes.js'
 import { attachAuthContext } from './auth/session.js'
@@ -19,9 +20,10 @@ export function createApp() {
     res.json(ok({ status: 'ok' }))
   })
   app.use('/api', authRoutes)
+  app.use('/api', accountRoutes)
   app.use('/api', roleRoutes)
-  app.use('/api', dashboardRoutes)
   app.use('/api', dataRoutes)
+  app.use('/api', dashboardRoutes)
   app.use(errorMiddleware)
 
   return app

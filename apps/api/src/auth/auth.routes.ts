@@ -36,6 +36,10 @@ authRoutes.post('/auth/login', asyncHandler(async (req, res) => {
     return sendUnauthorized(res, 'Username or password is invalid')
   }
 
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastLoginAt: new Date() },
+  })
   const { token } = await createSession(user.id)
   setSessionCookie(res, token)
   res.json(ok(toCurrentUser(user)))
