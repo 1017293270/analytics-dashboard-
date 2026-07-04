@@ -158,4 +158,65 @@ describe('SmartBlackboardView', () => {
     expect(wrapper.text()).toContain('视频片段同步删除：暂未启用')
     expect(wrapper.text()).toContain('转写结果预览')
   })
+
+  test('completes the current activity and reopens the saved classroom record', async () => {
+    const wrapper = await mountBlackboardView()
+
+    await wrapper.get('[data-testid="blackboard-source-input"]').setValue(
+      '中国古代四大发明包括造纸术、印刷术、火药和____。A. 指南针 B. 地动仪 C. 浑天仪 答案：A',
+    )
+    await wrapper.get('[data-testid="blackboard-parse-button"]').trigger('click')
+    await wrapper.get('[data-testid="blackboard-complete-button"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="blackboard-completion-notice"]').text()).toContain('已完成 1 个课堂活动')
+    const completedList = wrapper.get('[data-testid="blackboard-completed-list"]').text()
+    expect(completedList).toContain('选词填空')
+    expect(completedList).toContain('已完成')
+    expect(completedList).toContain('A. 指南针')
+
+    await wrapper.get('[data-testid="blackboard-stem-input"]').setValue('老师临时修改后的题干。')
+    await flushPromises()
+    expect(wrapper.get('[data-testid="blackboard-preview"]').text()).toContain('老师临时修改后的题干。')
+
+    await wrapper.get('[data-testid="blackboard-open-activity-activity-1"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="blackboard-preview"]').text()).toContain('中国古代四大发明包括造纸术')
+    expect(wrapper.get('[data-testid="blackboard-preview"]').text()).toContain('正确答案')
+  })
+
+  test('reopening a completed activity restores source text, filler setting, and clears stale errors', async () => {
+    const wrapper = await mountBlackboardView()
+
+    await wrapper.get('[data-testid="blackboard-remove-fillers-switch"]').trigger('click')
+    await wrapper.get('[data-testid="blackboard-source-input"]').setValue('嗯 这个 长江是中国第一长河。答案：长江')
+    await wrapper.get('[data-testid="blackboard-parse-button"]').trigger('click')
+    await wrapper.get('[data-testid="blackboard-complete-button"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="blackboard-preview"]').text()).toContain('嗯 这个')
+
+    await wrapper.get('[data-testid="blackboard-source-input"]').setValue('')
+    await wrapper.get('[data-testid="blackboard-parse-button"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('请输入文本后再解析')
+
+    await wrapper.get('[data-testid="blackboard-remove-fillers-switch"]').trigger('click')
+    await wrapper.get('[data-testid="blackboard-stem-input"]').setValue('被污染的临时题干。')
+    await wrapper.get('[data-testid="blackboard-open-activity-activity-1"]').trigger('click')
+    await flushPromises()
+
+    expect((wrapper.get('[data-testid="blackboard-source-input"]').element as HTMLTextAreaElement).value).toBe(
+      '嗯 这个 长江是中国第一长河。答案：长江',
+    )
+    expect(wrapper.text()).not.toContain('请输入文本后再解析')
+    expect(wrapper.get('[data-testid="blackboard-preview"]').text()).toContain('嗯 这个')
+
+    await wrapper.get('[data-testid="blackboard-parse-button"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="blackboard-preview"]').text()).toContain('嗯 这个')
+    expect(wrapper.get('[data-testid="blackboard-preview"]').text()).not.toContain('被污染的临时题干')
+  })
 })

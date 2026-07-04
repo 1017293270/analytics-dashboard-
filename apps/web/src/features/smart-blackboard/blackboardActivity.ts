@@ -18,6 +18,21 @@ export type BlackboardActivityDraft = {
   parseNotes: string[]
 }
 
+export type BlackboardSourceMode = 'text' | 'video'
+
+export type CompletedBlackboardActivity = {
+  id: string
+  title: string
+  type: BlackboardActivityType
+  typeLabel: string
+  draft: BlackboardActivityDraft
+  correctAnswerText: string
+  sourceMode: BlackboardSourceMode
+  sourceLabel: string
+  completedAt: string
+  status: '已完成'
+}
+
 export const activityTypeLabels: Record<BlackboardActivityType, string> = {
   cloze: '选词填空',
   judgement: '判断对错',
@@ -227,4 +242,47 @@ export function validateBlackboardActivity(draft: BlackboardActivityDraft): stri
   if (!hasValidCorrectAnswer) errors.push('请选择正确答案')
 
   return errors
+}
+
+export function cloneBlackboardActivityDraft(draft: BlackboardActivityDraft): BlackboardActivityDraft {
+  return {
+    ...draft,
+    options: draft.options.map((option) => ({ ...option })),
+    parseNotes: [...draft.parseNotes],
+  }
+}
+
+export function buildBlackboardActivityTitle(stem: string, maxLength = 32): string {
+  const normalizedStem = normalizeSourceText(stem)
+  if (normalizedStem.length <= maxLength) return normalizedStem
+
+  return `${normalizedStem.slice(0, maxLength)}...`
+}
+
+export function createCompletedBlackboardActivity(
+  draft: BlackboardActivityDraft,
+  input: {
+    id: string
+    sourceMode: BlackboardSourceMode
+    completedAt: string
+  },
+): CompletedBlackboardActivity {
+  const errors = validateBlackboardActivity(draft)
+  if (errors.length > 0) throw new Error(errors[0])
+
+  const clonedDraft = cloneBlackboardActivityDraft(draft)
+  const correctOption = clonedDraft.options.find((option) => option.id === clonedDraft.correctOptionId)
+
+  return {
+    id: input.id,
+    title: buildBlackboardActivityTitle(clonedDraft.stem),
+    type: clonedDraft.type,
+    typeLabel: activityTypeLabels[clonedDraft.type],
+    draft: clonedDraft,
+    correctAnswerText: correctOption ? `${correctOption.label}. ${correctOption.text}` : '',
+    sourceMode: input.sourceMode,
+    sourceLabel: input.sourceMode === 'video' ? '视频转写预览' : '文本输入',
+    completedAt: input.completedAt,
+    status: '已完成',
+  }
 }

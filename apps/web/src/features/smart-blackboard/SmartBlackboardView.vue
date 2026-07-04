@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import { CircleCheck, MagicStick, Plus, VideoCamera } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import {
   activityTypeLabels,
+  cloneBlackboardActivityDraft,
+  createCompletedBlackboardActivity,
   demoTranscriptText,
   parseBlackboardActivity,
   validateBlackboardActivity,
   type BlackboardActivityDraft,
   type BlackboardActivityType,
+  type CompletedBlackboardActivity,
 } from './blackboardActivity'
 
 const sourceMode = ref<'text' | 'video'>('text')
@@ -16,6 +20,8 @@ const sourceText = ref('中国古代四大发明包括造纸术、印刷术、�
 const transcriptText = ref(demoTranscriptText)
 const removeFillers = ref(true)
 const parseError = ref('')
+const completionNotice = ref('')
+const completedActivities = ref<CompletedBlackboardActivity[]>([])
 
 const draft = reactive<BlackboardActivityDraft>(
   parseBlackboardActivity({
@@ -50,6 +56,7 @@ function setType(type: BlackboardActivityType) {
 
 function parseActivity() {
   parseError.value = ''
+  completionNotice.value = ''
   if (!selectedSourceText.value.trim()) {
     parseError.value = '请输入文本后再解析'
     return
@@ -90,6 +97,47 @@ function removeOption(optionId: string) {
   draft.options.splice(0, draft.options.length, ...nextOptions)
   if (draft.correctOptionId === optionId) draft.correctOptionId = draft.options[0]?.id ?? ''
 }
+
+function getCompletionTime(index: number) {
+  const totalMinutes = 10 * 60 + 40 + index
+  const hour = Math.floor(totalMinutes / 60)
+  const minute = totalMinutes % 60
+
+  return `2026-07-09 ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+}
+
+function completeActivity() {
+  parseError.value = ''
+
+  try {
+    const completedActivity = createCompletedBlackboardActivity(draft, {
+      id: `activity-${completedActivities.value.length + 1}`,
+      sourceMode: sourceMode.value,
+      completedAt: getCompletionTime(completedActivities.value.length),
+    })
+    completedActivities.value.unshift(completedActivity)
+    completionNotice.value = `已完成 ${completedActivities.value.length} 个课堂活动，可在活动记录中再次查看。`
+    ElMessage.success('课堂活动已完成')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '课堂活动校验失败'
+    parseError.value = message
+    ElMessage.error(message)
+  }
+}
+
+function openCompletedActivity(activity: CompletedBlackboardActivity) {
+  sourceMode.value = activity.sourceMode
+  requestedType.value = activity.type
+  removeFillers.value = activity.draft.removeFillers
+  parseError.value = ''
+  if (activity.sourceMode === 'video') {
+    transcriptText.value = activity.draft.sourceText
+  } else {
+    sourceText.value = activity.draft.sourceText
+  }
+  assignDraft(cloneBlackboardActivityDraft(activity.draft))
+  completionNotice.value = `已载入活动：${activity.title}`
+}
 </script>
 
 <template>
@@ -100,8 +148,25 @@ function removeOption(optionId: string) {
         <h1>课堂活动制作</h1>
         <p>输入课堂文本，一键生成选词填空、判断对错和趣味选择活动。</p>
       </div>
-      <ElButton type="primary" :icon="CircleCheck" :disabled="validationErrors.length > 0">完成制作</ElButton>
+      <ElButton
+        data-testid="blackboard-complete-button"
+        type="primary"
+        :icon="CircleCheck"
+        :disabled="validationErrors.length > 0"
+        @click="completeActivity"
+      >
+        完成制作
+      </ElButton>
     </header>
+
+    <ElAlert
+      v-if="completionNotice"
+      data-testid="blackboard-completion-notice"
+      type="success"
+      :closable="false"
+      :title="completionNotice"
+      show-icon
+    />
 
     <section class="smart-blackboard__grid" aria-label="智慧黑板活动制作">
       <ElCard shadow="never" class="smart-blackboard__panel">
@@ -152,7 +217,11 @@ function removeOption(optionId: string) {
         </ElTabs>
 
         <div class="smart-blackboard__source-actions">
-          <ElSwitch v-model="removeFillers" active-text="删除语气词" />
+          <ElSwitch
+            v-model="removeFillers"
+            data-testid="blackboard-remove-fillers-switch"
+            active-text="删除语气词"
+          />
           <ElButton type="primary" :icon="MagicStick" data-testid="blackboard-parse-button" @click="parseActivity">
             一键解析
           </ElButton>
@@ -257,6 +326,43 @@ function removeOption(optionId: string) {
         </div>
       </ElCard>
     </section>
+
+    <ElCard shadow="never" class="smart-blackboard__records" data-testid="blackboard-completed-list">
+      <template #header>
+        <div class="smart-blackboard__panel-title">
+          <span>活动记录</span>
+          <ElTag type="success" effect="plain">已完成 {{ completedActivities.length }}</ElTag>
+        </div>
+      </template>
+
+      <ElTable v-if="completedActivities.length > 0" :data="completedActivities" class="smart-blackboard__records-table">
+        <ElTableColumn prop="typeLabel" label="活动类型" width="112" />
+        <ElTableColumn prop="title" label="活动名称" min-width="260" show-overflow-tooltip />
+        <ElTableColumn prop="correctAnswerText" label="正确答案" min-width="140" />
+        <ElTableColumn prop="sourceLabel" label="来源" width="104" />
+        <ElTableColumn prop="completedAt" label="完成时间" width="142" />
+        <ElTableColumn label="状态" width="96">
+          <template #default="{ row }">
+            <ElTag type="success" effect="plain">{{ row.status }}</ElTag>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn label="操作" width="92" fixed="right">
+          <template #default="{ row }">
+            <ElButton
+              link
+              type="primary"
+              size="small"
+              :data-testid="`blackboard-open-activity-${row.id}`"
+              @click="openCompletedActivity(row)"
+            >
+              查看
+            </ElButton>
+          </template>
+        </ElTableColumn>
+      </ElTable>
+
+      <ElEmpty v-else description="完成制作后将在这里生成课堂活动记录" :image-size="64" />
+    </ElCard>
   </main>
 </template>
 
@@ -396,6 +502,14 @@ function removeOption(optionId: string) {
 
 .smart-blackboard__preview {
   min-height: 520px;
+}
+
+.smart-blackboard__records {
+  border-radius: var(--radius-panel);
+}
+
+.smart-blackboard__records-table {
+  --el-table-header-bg-color: var(--color-panel-muted);
 }
 
 .smart-blackboard__board {

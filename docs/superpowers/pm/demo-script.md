@@ -151,11 +151,12 @@ Route: `/blackboard`
    - 判断对错
    - 趣味选择
 4. Demonstrate filler-word deletion if visible.
-5. Click the video/transcript tab and show:
+5. Click `完成制作`, then show the generated activity record and use `查看` to restore it into the preview.
+6. Click the video/transcript tab and show:
    - `不接入真实视频处理`
    - `转写结果预览`
    - `视频片段同步删除：暂未启用`
-6. Say clearly: “本次交付重点演示课堂活动智能填写；视频提取、语音转文字和按文字删除视频片段已暂缓，不在本轮现场闭环中。”
+7. Say clearly: “本次交付重点演示课堂活动智能填写和本页活动记录闭环；视频提取、语音转文字和按文字删除视频片段已暂缓，不在本轮现场闭环中。”
 
 ## Closing
 

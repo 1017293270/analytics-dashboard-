@@ -164,6 +164,8 @@ Do not visit non-scripted routes during the formal run.
 | One-click parse | Produces 选词填空、判断对错、趣味选择 |
 | Manual edit | Structured fields can be edited |
 | Filler-word deletion | Filler words can be removed where visible |
+| Complete activity | `完成制作` creates an activity record |
+| Activity record reopen | `查看` restores the saved activity into the preview |
 | Video tab | Shows `不接入真实视频处理` |
 | Transcript preview | Shows transcript preview state |
 | Video closure label | Shows `视频片段同步删除：暂未启用` |
@@ -175,7 +177,6 @@ Do not click these visible controls unless implementation is later completed and
 
 - Top-bar search.
 - Top-bar notification.
-- 智慧黑板 `完成制作`.
 - 告警详情 `误报反馈`.
 
 ## Stop Conditions

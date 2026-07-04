@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest'
 import {
   activityTypeLabels,
+  buildBlackboardActivityTitle,
+  createCompletedBlackboardActivity,
   parseBlackboardActivity,
   removeFillerWords,
   validateBlackboardActivity,
@@ -166,5 +168,60 @@ describe('blackboardActivity parser', () => {
         correctOptionId: 'missing-option',
       }),
     ).toContain('请选择正确答案')
+  })
+
+  test('creates a completed activity record with cloned draft and readable answer summary', () => {
+    const draft = parseBlackboardActivity({
+      requestedType: 'cloze',
+      removeFillers: true,
+      sourceText: '中国古代四大发明包括造纸术、印刷术、火药和____。A. 指南针 B. 地动仪 C. 浑天仪 答案：A',
+    })
+
+    const completed = createCompletedBlackboardActivity(draft, {
+      id: 'activity-1',
+      sourceMode: 'text',
+      completedAt: '2026-07-09 10:40',
+    })
+
+    expect(completed).toMatchObject({
+      id: 'activity-1',
+      title: '中国古代四大发明包括造纸术、印刷术、火药和____。',
+      type: 'cloze',
+      typeLabel: '选词填空',
+      correctAnswerText: 'A. 指南针',
+      sourceLabel: '文本输入',
+      status: '已完成',
+      completedAt: '2026-07-09 10:40',
+    })
+
+    draft.options[0].text = '已修改'
+    expect(completed.draft.options[0].text).toBe('指南针')
+  })
+
+  test('builds compact activity titles and rejects invalid completion drafts', () => {
+    const draft = parseBlackboardActivity({
+      requestedType: 'choice',
+      removeFillers: false,
+      sourceText: '下列哪一项属于可再生能源？A. 煤炭 B. 风能 C. 石油 正确答案：风能',
+    })
+
+    expect(buildBlackboardActivityTitle('  这是一段非常长的题干，用来验证课堂活动列表里标题不会无限撑开页面布局。  ')).toBe(
+      '这是一段非常长的题干，用来验证课堂活动列表里标题不会无限撑开页面...',
+    )
+    expect(() =>
+      createCompletedBlackboardActivity(
+        {
+          ...draft,
+          stem: '',
+          options: [],
+          correctOptionId: '',
+        },
+        {
+          id: 'activity-invalid',
+          sourceMode: 'text',
+          completedAt: '2026-07-09 10:40',
+        },
+      ),
+    ).toThrow('题干不能为空')
   })
 })
