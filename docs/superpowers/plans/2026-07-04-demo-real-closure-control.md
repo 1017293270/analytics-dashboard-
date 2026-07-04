@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Upgrade the current tender demo from frontend-simulated flows to B-grade verifiable loops for backend permissions/persistence, video ASR/editing, and RTC interactive teaching without destabilizing the July 9 demonstration.
+**Goal:** Upgrade the current tender demo from frontend-simulated flows to B-grade verifiable loops for backend permissions/persistence, video ASR/editing, and interactive teaching local state sync without destabilizing the July 9 demonstration.
 
-**Architecture:** Keep the current Vue 3 + Element Plus + Express + Prisma SQLite monorepo. Implement in phase gates: first make identity, role, management data, and workbench availability backend-backed; then add a controlled video pipeline with real upload, timestamped transcript editing, and conditional FFmpeg export; finally add a local two-tab RTC classroom using WebSocket state sync and one native WebRTC screen-share stream.
+**Architecture:** Keep the current Vue 3 + Element Plus + Express + Prisma SQLite monorepo. Implement in phase gates: first make identity, role, management data, and workbench availability backend-backed; then add a controlled video pipeline with real upload, timestamped transcript editing, and conditional FFmpeg export; finally add a local two-tab classroom state-sync path using WebSocket. Native RTC/WebRTC desktop media remains deferred and must not be presented as completed.
 
-**Tech Stack:** Vue 3, TypeScript, Element Plus, Pinia, Vue Router, Vitest, Vue Test Utils, Playwright, Express, Prisma SQLite, Zod, Node `crypto/fs/path`, optional FFmpeg CLI, optional local Whisper CLI/service, `ws`, browser `RTCPeerConnection`, browser `getDisplayMedia`.
+**Tech Stack:** Vue 3, TypeScript, Element Plus, Pinia, Vue Router, Vitest, Vue Test Utils, Playwright, Express, Prisma SQLite, Zod, Node `crypto/fs/path`, optional FFmpeg CLI, optional local Whisper CLI/service, `ws`.
 
 ---
 
@@ -16,7 +16,7 @@ The main agent remains the project manager and reviewer. Subagents execute bound
 
 - Tender alignment: every change must map to 智慧黑板 ♦29, 交互智能平板 ♦27, 集控 ♦1, 集控 ♦15, or the account/permission foundation needed to demo them.
 - Demo stability: the existing successful route flow must keep working before deeper realism is accepted.
-- Honesty: ASR fixture mode, local FFmpeg fallback, local WebRTC limits, and demo-grade persistence must be visible in docs and not oversold as production capability.
+- Honesty: ASR fixture mode, local FFmpeg fallback, local WebSocket state sync, and demo-grade persistence must be visible in docs and not oversold as production capability.
 - TDD: workers must write or update tests first, run the focused failing test, then implement.
 - Review cadence: after each task, run focused tests; after each phase, run `npm run test`, `npm run lint`, `npm run build`, and `npm run demo:rehearsal`.
 
@@ -26,9 +26,9 @@ Priority order is locked as:
 
 1. **P0 后端权限/持久化**: highest leverage, lowest demo disruption, improves all management pages.
 2. **P1 视频 ASR 与剪辑**: useful but must avoid claiming real cloud ASR without a key/model.
-3. **P2 RTC 互动教学**: visually impressive but highest integration risk, therefore starts after the backend foundation is green.
+3. **P2 互动教学本地状态同步**: visually useful but limited to local WebSocket sync; native RTC/WebRTC remains deferred.
 
-This is intentionally not a production IAM/media/RTC build. The goal is B-grade demonstrability: real input, real state transition, real persistence or real network loop where feasible, and clear fallback where external media dependencies are unavailable.
+This is intentionally not a production IAM/media/RTC build. The goal is B-grade demonstrability: real input, real state transition, real persistence or local network state sync where feasible, and clear fallback where external media dependencies are unavailable.
 
 ## Current Baseline
 
@@ -46,7 +46,7 @@ Known simulated or mock areas:
 - Account, application, alarm, data-dashboard pages are mostly frontend seed state.
 - Workbench role visibility and enablement are demo metadata/localStorage, not backend ACL/persistence.
 - Smart blackboard video tab is a deferred placeholder.
-- Interactive teaching is a single-tab local-state console, not a real WebSocket/WebRTC room.
+- Interactive teaching defaults to a single-tab local-state console; `?room=` enables local WebSocket state sync only, not RTC/WebRTC media.
 
 ## Out Of Scope For This Plan
 
@@ -107,7 +107,7 @@ Expected: one docs commit that becomes the handoff source for subagents.
 
 ## Phase 1: Backend Permissions And Persistence
 
-**PM Decision:** This phase starts first. It must finish before RTC code is merged. Video work may start in parallel only after Phase 1 Task 1 is green.
+**PM Decision:** This phase starts first. It must finish before interactive-teaching realtime code is merged. Video work may start in parallel only after Phase 1 Task 1 is green.
 
 ### Task 1.1: Backend Actor And Dashboard Permission Boundary
 
@@ -665,9 +665,9 @@ git commit -m "feat: add smart blackboard video edit demo loop"
 
 ---
 
-## Phase 3: RTC Interactive Teaching Real-Time Loop
+## Phase 3: Interactive Teaching Local State Sync Loop
 
-**PM Decision:** Start after Phase 1 is stable and only if Phase 2 does not threaten the July 9 demo. Use `ws` + native browser WebRTC. Do not introduce LiveKit in this sprint.
+**PM Decision:** Start after Phase 1 is stable and only if Phase 2 does not threaten the July 9 demo. Use `ws` for local classroom state sync first. Native WebRTC remains deferred; do not introduce LiveKit in this sprint.
 
 ### Task 3.1: WebSocket Room Skeleton
 
@@ -682,7 +682,7 @@ git commit -m "feat: add smart blackboard video edit demo loop"
 - Create: `apps/api/tests/teachingRealtime.test.ts`
 - Modify: `apps/web/vite.config.ts`
 
-- [ ] **Step 1: Write protocol tests first**
+- [x] **Step 1: Write protocol tests first**
 
 Test:
 
@@ -701,12 +701,12 @@ npm --workspace apps/api run test -- teachingRealtime
 
 Expected: fail before protocol/server exists.
 
-- [ ] **Step 2: Add `ws` server**
+- [x] **Step 2: Add `ws` server**
 
 Server contract:
 
 - Bind WebSocket upgrade to existing HTTP server in `apps/api/src/index.ts`.
-- Require a valid session cookie for room access where feasible; for localhost demo fallback, reject anonymous room mutation events.
+- For this local demo slice, clients must `join` a room before sending mutation events. Full session-cookie authorization for WebSocket rooms is deferred.
 - Keep room state in memory.
 - Broadcast room snapshots and events to clients with the same `roomId`.
 
@@ -720,7 +720,7 @@ Server contract:
 - Modify: `apps/web/src/features/interactive-teaching/InteractiveTeachingView.vue`
 - Modify: `apps/web/src/features/interactive-teaching/InteractiveTeachingView.test.ts`
 
-- [ ] **Step 1: Write hook/client tests first**
+- [x] **Step 1: Write hook/client tests first**
 
 Test:
 
@@ -737,7 +737,7 @@ npm --workspace apps/web run test -- teachingRealtimeClient teachingSession Inte
 
 Expected: fail before client/hook exists.
 
-- [ ] **Step 2: Keep demo fallback**
+- [x] **Step 2: Keep demo fallback**
 
 Fallback contract:
 
@@ -773,7 +773,7 @@ npm --workspace apps/web run test -- InteractiveTeachingView
 
 Expected: fail before components are wired.
 
-### Task 3.4: Native Screen Share And Screenshot
+### Task 3.4: Deferred Native Screen Share And Screenshot
 
 **Files:**
 - Create: `apps/web/src/features/interactive-teaching/teachingWebrtc.ts`
@@ -784,7 +784,7 @@ Expected: fail before components are wired.
 - Modify: `apps/web/src/features/interactive-teaching/InteractiveTeachingView.test.ts`
 - Modify: `docs/superpowers/pm/demo-script.md`
 
-- [ ] **Step 1: Write WebRTC helper tests first**
+- [ ] **Step 1: Write deferred native media helper tests first**
 
 Test:
 
@@ -823,7 +823,7 @@ npm run build
 npm run demo:rehearsal
 ```
 
-Expected: pass. Manual two-tab WebRTC verification is required because Playwright cannot reliably grant screen-capture permission in all local environments.
+Expected: pass. Manual two-tab native media verification is required only if this deferred task is later activated.
 
 Commit:
 
@@ -884,7 +884,7 @@ Required status language:
 
 - Backend persistence: say which modules are backend-backed.
 - Video: say whether ASR is fixture, local Whisper, or external provider.
-- RTC: say whether WebSocket/WebRTC two-tab loop is enabled and whether it is local-only.
+- Interactive teaching: say whether local WebSocket two-tab state sync is enabled; do not claim RTC/WebRTC media.
 
 - [ ] **Step 4: Final commit**
 
@@ -911,7 +911,7 @@ Immediate dispatch order:
 Deferred dispatch:
 
 - Video workers start after Task 1.1 is green.
-- RTC workers start after the first full Phase 1 gate passes.
+- Interactive-teaching realtime workers start after the first full Phase 1 gate passes.
 
 ## PM Stop Conditions
 

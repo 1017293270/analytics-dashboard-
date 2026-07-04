@@ -128,16 +128,18 @@ Route: `/alarms`
 Route: `/teaching`
 
 1. Show the dedicated 互动教学 page.
+   - Point out `实时连接未启用` on the normal rehearsal route.
+   - Optional development check only: open `/teaching?room=demo&persona=teacher` and `/teaching?room=demo&persona=student` to show local WebSocket state sync.
 2. In the member list:
    - Click `设为授课老师` for 陈同学.
    - Click `设为学生` for 周老师.
-3. Click `共享远程白板`.
-4. Click `共享电脑桌面`.
+3. Click `模拟白板共享`.
+4. Click `桌面状态共享`.
 5. Click `截屏插入`.
 6. Click `答题器`.
 7. Select `白板优先`.
 8. Toggle `教师发言时放大显示`.
-9. Say: “这里演示的是互动教学控制台的可操作状态，不接入真实 RTC 或远程桌面服务。”
+9. Say: “这里演示的是互动教学控制台的可操作状态；普通演示路线不依赖实时连接，带 room 参数时只做本地 WebSocket 状态同步，不接入真实 RTC 或远程桌面服务。”
 10. Do not say the page performs real voice detection; the focus toggle is an operator-controlled demo state.
 
 ## Clause ♦29 智慧黑板
@@ -164,7 +166,7 @@ Route: `/blackboard`
 2. Show demo launch items all pointing to real routes.
 3. Say:
    - “工作台、告警、互动教学、智慧黑板活动生成都可现场点击演示。”
-   - “生产级后台持久化、真实 RTC、真实视频处理属于后续增强，不影响本轮软件演示。”
+   - “生产级后台持久化、真实 RTC/WebRTC 媒体、真实视频处理属于后续增强，不影响本轮软件演示。”
 
 ## Fallback Plan
 

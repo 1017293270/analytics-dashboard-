@@ -28,6 +28,7 @@ describe('InteractiveTeachingView', () => {
     const wrapper = await mountTeachingView()
 
     expect(wrapper.text()).toContain('互动教学')
+    expect(wrapper.text()).toContain('实时连接未启用')
     expect(wrapper.text()).toContain('林老师')
     expect(wrapper.text()).toContain('周老师')
     expect(wrapper.text()).toContain('陈同学')
@@ -55,11 +56,11 @@ describe('InteractiveTeachingView', () => {
 
     await wrapper.get('[data-testid="teaching-whiteboard-share"]').trigger('click')
     await flushPromises()
-    expect(wrapper.get('[data-testid="teaching-stage"]').text()).toContain('远程白板共享中')
+    expect(wrapper.get('[data-testid="teaching-stage"]').text()).toContain('模拟白板共享中')
 
     await wrapper.get('[data-testid="teaching-desktop-share"]').trigger('click')
     await flushPromises()
-    expect(wrapper.get('[data-testid="teaching-stage"]').text()).toContain('电脑桌面共享中')
+    expect(wrapper.get('[data-testid="teaching-stage"]').text()).toContain('桌面画面状态共享中')
 
     await wrapper.get('[data-testid="teaching-insert-screenshot"]').trigger('click')
     await flushPromises()

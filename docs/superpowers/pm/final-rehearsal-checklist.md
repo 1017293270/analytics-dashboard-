@@ -146,6 +146,7 @@ Do not visit non-scripted routes during the formal run.
 | Step | Expected |
 | --- | --- |
 | Open `/teaching` | Dedicated interactive teaching page appears |
+| Realtime status | Normal route shows `实时连接未启用` |
 | Set 陈同学 as teacher | Member role visibly changes |
 | Set 周老师 as student | Member role visibly changes |
 | Share whiteboard | Stage or status visibly changes |
@@ -154,7 +155,7 @@ Do not visit non-scripted routes during the formal run.
 | Answer responder | Question/result panel appears |
 | Layout `白板优先` | Stage layout visibly changes |
 | Teacher focus | Teacher tile is enlarged or highlighted |
-| Presenter wording | Says simulated control console, not real RTC or real remote desktop |
+| Presenter wording | Says simulated control console and local WebSocket status sync, not real RTC or real remote desktop |
 
 ## Clause ♦29 Smart Blackboard Gate
 

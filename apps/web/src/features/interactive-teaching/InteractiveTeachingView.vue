@@ -7,12 +7,12 @@ import {
   UserFilled,
   VideoCameraFilled,
 } from '@element-plus/icons-vue'
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import {
   insertScreenshot,
   launchAnswerQuestion,
   recordStudentAnswer,
-  seedTeachingSession,
   selectLiveLayout,
   setMemberRole,
   toggleDesktopShare,
@@ -20,12 +20,17 @@ import {
   toggleWhiteboardShare,
   type TeachingLayout,
   type TeachingMemberRole,
-  type TeachingSession,
 } from './teachingSession'
+import { useTeachingRoom } from './useTeachingRoom'
 
 type TagType = 'primary' | 'success' | 'warning' | 'danger' | 'info'
 
-const session = ref<TeachingSession>(cloneSession(seedTeachingSession))
+const route = useRoute()
+const teachingRoom = useTeachingRoom(route.query)
+const session = teachingRoom.session
+const roomConfig = teachingRoom.roomConfig
+const realtimeStatusText = teachingRoom.realtimeStatusText
+const realtimeStatusType = teachingRoom.realtimeStatusType
 
 const roleTagTypes: Record<TeachingMemberRole, TagType> = {
   主讲人: 'primary',
@@ -60,44 +65,44 @@ const stageLayoutClass = computed(() => ({
   'is-layout-whiteboard': session.value.layout === '白板优先',
 }))
 
-function cloneSession(source: TeachingSession): TeachingSession {
-  return {
-    ...source,
-    members: source.members.map((member) => ({ ...member })),
-    screenshots: source.screenshots.map((screenshot) => ({ ...screenshot })),
-    activeQuestion: source.activeQuestion
-      ? {
-          ...source.activeQuestion,
-          options: source.activeQuestion.options.map((option) => ({ ...option })),
-          answers: source.activeQuestion.answers.map((answer) => ({ ...answer })),
-        }
-      : null,
-  }
-}
-
-function updateSession(nextSession: TeachingSession) {
-  session.value = nextSession
-}
-
 function setRole(memberId: string, role: TeachingMemberRole) {
-  updateSession(setMemberRole(session.value, memberId, role))
+  teachingRoom.updateSession(setMemberRole(session.value, memberId, role), {
+    type: 'set-member-role',
+    memberId,
+    role,
+  })
 }
 
 function shareWhiteboard() {
-  updateSession(toggleWhiteboardShare(session.value))
+  const nextSession = toggleWhiteboardShare(session.value)
+  teachingRoom.updateSession(nextSession, {
+    type: 'set-share-mode',
+    target: 'whiteboard',
+    mode: nextSession.whiteboardShare,
+  })
 }
 
 function shareDesktop() {
-  updateSession(toggleDesktopShare(session.value))
+  const nextSession = toggleDesktopShare(session.value)
+  teachingRoom.updateSession(nextSession, {
+    type: 'set-share-mode',
+    target: 'desktop',
+    mode: nextSession.desktopShare,
+  })
 }
 
 function captureScreenshot() {
   const source = session.value.desktopShare === '共享中' ? '桌面' : '白板'
-  updateSession(insertScreenshot(session.value, '2026-07-09T09:30:00.000Z', source))
+  const capturedAt = '2026-07-09T09:30:00.000Z'
+  teachingRoom.updateSession(insertScreenshot(session.value, capturedAt, source), {
+    type: 'insert-screenshot',
+    capturedAt,
+    source,
+  })
 }
 
 function launchResponder() {
-  const launched = launchAnswerQuestion(session.value, {
+  const question = {
     id: 'question-keyword',
     title: '这节课的关键词是什么？',
     options: [
@@ -105,13 +110,20 @@ function launchResponder() {
       { id: 'b', label: '几何' },
       { id: 'c', label: '比例' },
     ],
-  })
+  }
+  const launched = launchAnswerQuestion(session.value, question)
   const chenAnswered = recordStudentAnswer(launched, 'member-student-chen', 'a')
-  updateSession(recordStudentAnswer(chenAnswered, 'member-student-wang', 'b'))
+  teachingRoom.applyLocalSession(recordStudentAnswer(chenAnswered, 'member-student-wang', 'b'))
+  teachingRoom.sendRealtimeEvent({ type: 'launch-question', question })
+  teachingRoom.sendRealtimeEvent({ type: 'record-answer', memberId: 'member-student-chen', optionId: 'a' })
+  teachingRoom.sendRealtimeEvent({ type: 'record-answer', memberId: 'member-student-wang', optionId: 'b' })
 }
 
 function selectLayout(layout: TeachingLayout) {
-  updateSession(selectLiveLayout(session.value, layout))
+  teachingRoom.updateSession(selectLiveLayout(session.value, layout), {
+    type: 'select-layout',
+    layout,
+  })
 }
 
 function selectLayoutFromControl(value: string | number | boolean) {
@@ -122,7 +134,11 @@ function selectLayoutFromControl(value: string | number | boolean) {
 }
 
 function toggleFocus() {
-  updateSession(toggleTeacherFocus(session.value))
+  const nextSession = toggleTeacherFocus(session.value)
+  teachingRoom.updateSession(nextSession, {
+    type: 'set-teacher-focus',
+    enabled: nextSession.teacherFocus,
+  })
 }
 </script>
 
@@ -132,9 +148,14 @@ function toggleFocus() {
       <div>
         <p class="interactive-teaching__eyebrow">交互智能平板 ♦27</p>
         <h1>互动教学</h1>
-        <p>现场演示用课堂协同模拟：角色切换、远程共享、截屏插入、答题器与布局控制。</p>
+        <p>现场演示用课堂协同模拟：角色切换、共享状态、截屏插入、答题器与布局控制。</p>
       </div>
-      <ElTag type="success" effect="light" round>可演示</ElTag>
+      <div class="interactive-teaching__header-tags">
+        <ElTag type="success" effect="light" round>可演示</ElTag>
+        <ElTag :type="realtimeStatusType" effect="plain" round>
+          {{ realtimeStatusText }}
+        </ElTag>
+      </div>
     </header>
 
     <section class="interactive-teaching__grid interactive-teaching__grid--responsive" aria-label="互动教学演示工作区">
@@ -204,15 +225,15 @@ function toggleFocus() {
         <div class="interactive-teaching__stage" :class="stageLayoutClass" data-testid="teaching-stage">
           <div class="interactive-teaching__stage-main">
             <ElIcon><DataBoard /></ElIcon>
-            <strong v-if="session.whiteboardShare === '共享中'">远程白板共享中</strong>
-            <strong v-else>远程白板待共享</strong>
+            <strong v-if="session.whiteboardShare === '共享中'">模拟白板共享中</strong>
+            <strong v-else>模拟白板待共享</strong>
             <span>{{ session.layout }}</span>
           </div>
           <div class="interactive-teaching__stage-side">
             <div>
               <ElIcon><Monitor /></ElIcon>
-              <strong v-if="session.desktopShare === '共享中'">电脑桌面共享中</strong>
-              <strong v-else>电脑桌面待共享</strong>
+              <strong v-if="session.desktopShare === '共享中'">桌面画面状态共享中</strong>
+              <strong v-else>桌面画面状态待共享</strong>
             </div>
             <div
               class="interactive-teaching__teacher-video"
@@ -250,10 +271,10 @@ function toggleFocus() {
 
         <div class="interactive-teaching__control-grid">
           <ElButton type="primary" :icon="DataBoard" data-testid="teaching-whiteboard-share" @click="shareWhiteboard">
-            共享远程白板
+            模拟白板共享
           </ElButton>
           <ElButton :icon="Monitor" data-testid="teaching-desktop-share" @click="shareDesktop">
-            共享电脑桌面
+            桌面状态共享
           </ElButton>
           <ElButton :icon="Camera" data-testid="teaching-insert-screenshot" @click="captureScreenshot">
             截屏插入
@@ -334,6 +355,13 @@ function toggleFocus() {
   max-width: 680px;
   color: var(--color-text-muted);
   font-size: var(--fs-subtitle);
+}
+
+.interactive-teaching__header-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
 }
 
 .interactive-teaching__eyebrow {
