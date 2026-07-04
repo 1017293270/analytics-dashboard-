@@ -67,7 +67,7 @@ Route: `/workbenches`
    - 德育主任工作台
    - 教研主任工作台
 2. Point out role chips and enablement state.
-3. Say: “这里预设了全员、电教主任、德育主任、教研主任四类工作台；启停状态为本机演示保存，角色可见性用于现场演示。”
+3. Say: “这里预设了全员、电教主任、德育主任、教研主任四类工作台；启停状态通过本机演示 API 保存，角色可见性用于现场演示。”
 4. Click `电教主任工作台`.
 5. In the designer, show:
    - Drag-and-drop editing canvas.
@@ -177,7 +177,7 @@ Route: `/blackboard`
 
 ## Do-Not-Say List
 
-- Do not claim production backend persistence for workbench enable/disable.
+- Do not claim production backend persistence for workbench enable/disable; describe it as local demo API persistence.
 - Do not claim backend ACL enforcement for direct workbench URLs.
 - Do not claim “角色权限服务” means full production ACL; describe it as role menu and workbench visibility demo.
 - Do not claim 30 independent renderer implementations; claim 30+ configurable component templates.
