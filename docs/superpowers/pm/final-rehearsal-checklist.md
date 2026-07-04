@@ -1,6 +1,6 @@
 # Final Demo Rehearsal Checklist
 
-Date: 2026-07-03
+Date: 2026-07-04
 
 Purpose: use this checklist to decide whether the July 9 on-site demonstration is ready enough to run live. The goal is credible software demonstration, not production acceptance.
 
@@ -194,23 +194,24 @@ Stop and fix before live use if any of these occur:
 
 ## Captured Fallback Assets
 
-Fallback screenshots have been captured under:
+Latest fallback screenshots have been captured under:
 
-`docs/superpowers/pm/screenshots/2026-07-03-final-rehearsal/`
+`docs/superpowers/pm/screenshots/2026-07-04-final-walkthrough/`
 
 Use `docs/superpowers/pm/fallback-assets.md` as the screenshot index.
 
 Current captured set:
 
 - `01-overview-readiness.png`
-- `02-workbench-designer-web-embed.png`
-- `03-data-dashboard-third-party-preview.png`
-- `04-application-center.png`
-- `05-alarm-detail-recording.png`
-- `06-interactive-teaching.png`
-- `06-interactive-teaching-stage.png`
-- `06-interactive-teaching-controls.png`
-- `07-blackboard-activity-parser.png`
-- `08-blackboard-video-deferred.png`
+- `02-accounts-role-scope.png`
+- `03-workbench-list.png`
+- `04-workbench-designer-web-embed.png`
+- `05-data-dashboard-third-party-preview.png`
+- `06-application-center.png`
+- `07-alarm-detail-recording.png`
+- `08-interactive-teaching-simulation.png`
+- `09-blackboard-activity-parser.png`
+- `10-blackboard-video-deferred.png`
+- `visual-audit.json`
 
 These fallback assets are only backup evidence; the preferred flow remains a live guided browser demonstration.

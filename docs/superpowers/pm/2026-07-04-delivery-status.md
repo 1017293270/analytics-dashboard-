@@ -15,7 +15,7 @@ The current build covers the four tender-facing demo clauses with clickable rout
 - 集控 ♦1: workbench configuration, 30+ component templates, role workbenches, data dashboards, third-party web component, and application center are demonstrable.
 - 集控 ♦15: alarm list, filtering, detail drawer, responsible person phone, recording control, disposal records, and status flow are demonstrable.
 
-The formal rehearsal gate is `npm run demo:rehearsal`; the latest verified run passed both 1366x768 and 1920x1080 projects after commit `3385313`.
+The formal rehearsal gate is `npm run demo:rehearsal`; the latest verified run on 2026-07-04 passed both 1366x768 and 1920x1080 projects after the current simulated-teaching wording.
 
 ## Verification Evidence
 
@@ -27,6 +27,7 @@ Latest passing commands from the current delivery slice:
 | `npm run test` | Passed | Shared, web, and API unit/integration suites passed. |
 | `npm run build` | Passed | Existing Rollup pure-comment and chunk-size warnings only. |
 | `npm run demo:rehearsal` | Passed | Desktop Chrome 1366x768 and Large Screen Chrome 1920x1080 passed. |
+| Final walkthrough screenshots | Passed | Ten fresh fallback screenshots captured under `docs/superpowers/pm/screenshots/2026-07-04-final-walkthrough/`; `visual-audit.json` records zero local page errors, zero local console errors, and zero horizontal overflow. |
 | Subagent final review | Passed | No Critical or Important findings after realtime teaching fixes. |
 
 Current key commits:
@@ -87,7 +88,7 @@ These boundaries must be spoken consistently:
 
 | Priority | Gap | Why It Matters | Recommendation |
 | --- | --- | --- | --- |
-| P0 | Manual rehearsal and screenshot refresh | Latest UI copy changed from remote wording to simulated wording; fallback screenshots may be stale. | Capture fresh fallback screenshots after one manual walkthrough. |
+| P0 | Manual human rehearsal | Automated route gate and screenshot refresh are complete; the only remaining P0 is human timing, projector/browser confidence, and spoken boundary discipline. | Run one live human walkthrough on the actual demo machine before July 9. |
 | P1 | Real video ASR/editing | Tender asks for extraction/transcription/text-linked clipping; current page clearly defers it. | Only build if time remains and dependencies are controlled; otherwise keep deferred wording. |
 | P2 | Native RTC/WebRTC media | Tender asks interactive teaching; current implementation is control-state demo plus optional local state sync. | Do not attempt LiveKit/SFU/TURN before July 9; optional local WebRTC only if it does not threaten gates. |
 | P2 | Production IAM/tenant ACL | Current account-role demo is enough for visible scope, but not a production identity system. | Keep as post-demo enhancement unless evaluator demands deeper backend proof. |
@@ -123,4 +124,4 @@ Stop and fix before live use if:
 
 ## PM Call
 
-The current product is close enough for a July 9 software demonstration. The strongest next action is not new scope; it is a human rehearsal plus fresh screenshots after the latest interaction-teaching copy change.
+The current product is close enough for a July 9 software demonstration. The strongest next action is not new scope; it is a human rehearsal on the actual demo machine, using the refreshed screenshot set only as fallback evidence.

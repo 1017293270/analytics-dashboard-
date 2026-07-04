@@ -1,0 +1,68 @@
+{
+  "capturedAt": "2026-07-04",
+  "login": "admin / Admin@123",
+  "localPageErrors": [],
+  "localConsoleErrors": [],
+  "screenshots": [
+    {
+      "name": "01-overview-readiness.png",
+      "path": "E:\\jiaoyu\\analytics-dashboard-\\docs\\superpowers\\pm\\screenshots\\2026-07-04-final-walkthrough\\01-overview-readiness.png",
+      "url": "http://localhost:5174/overview",
+      "horizontalOverflow": 0
+    },
+    {
+      "name": "02-accounts-role-scope.png",
+      "path": "E:\\jiaoyu\\analytics-dashboard-\\docs\\superpowers\\pm\\screenshots\\2026-07-04-final-walkthrough\\02-accounts-role-scope.png",
+      "url": "http://localhost:5174/accounts",
+      "horizontalOverflow": 0
+    },
+    {
+      "name": "03-workbench-list.png",
+      "path": "E:\\jiaoyu\\analytics-dashboard-\\docs\\superpowers\\pm\\screenshots\\2026-07-04-final-walkthrough\\03-workbench-list.png",
+      "url": "http://localhost:5174/workbenches",
+      "horizontalOverflow": 0
+    },
+    {
+      "name": "04-workbench-designer-web-embed.png",
+      "path": "E:\\jiaoyu\\analytics-dashboard-\\docs\\superpowers\\pm\\screenshots\\2026-07-04-final-walkthrough\\04-workbench-designer-web-embed.png",
+      "url": "http://localhost:5174/workbenches/dashboard-electro",
+      "horizontalOverflow": 0
+    },
+    {
+      "name": "05-data-dashboard-third-party-preview.png",
+      "path": "E:\\jiaoyu\\analytics-dashboard-\\docs\\superpowers\\pm\\screenshots\\2026-07-04-final-walkthrough\\05-data-dashboard-third-party-preview.png",
+      "url": "http://localhost:5174/data-dashboards",
+      "horizontalOverflow": 0
+    },
+    {
+      "name": "06-application-center.png",
+      "path": "E:\\jiaoyu\\analytics-dashboard-\\docs\\superpowers\\pm\\screenshots\\2026-07-04-final-walkthrough\\06-application-center.png",
+      "url": "http://localhost:5174/applications",
+      "horizontalOverflow": 0
+    },
+    {
+      "name": "07-alarm-detail-recording.png",
+      "path": "E:\\jiaoyu\\analytics-dashboard-\\docs\\superpowers\\pm\\screenshots\\2026-07-04-final-walkthrough\\07-alarm-detail-recording.png",
+      "url": "http://localhost:5174/alarms",
+      "horizontalOverflow": 0
+    },
+    {
+      "name": "08-interactive-teaching-simulation.png",
+      "path": "E:\\jiaoyu\\analytics-dashboard-\\docs\\superpowers\\pm\\screenshots\\2026-07-04-final-walkthrough\\08-interactive-teaching-simulation.png",
+      "url": "http://localhost:5174/teaching",
+      "horizontalOverflow": 0
+    },
+    {
+      "name": "09-blackboard-activity-parser.png",
+      "path": "E:\\jiaoyu\\analytics-dashboard-\\docs\\superpowers\\pm\\screenshots\\2026-07-04-final-walkthrough\\09-blackboard-activity-parser.png",
+      "url": "http://localhost:5174/blackboard",
+      "horizontalOverflow": 0
+    },
+    {
+      "name": "10-blackboard-video-deferred.png",
+      "path": "E:\\jiaoyu\\analytics-dashboard-\\docs\\superpowers\\pm\\screenshots\\2026-07-04-final-walkthrough\\10-blackboard-video-deferred.png",
+      "url": "http://localhost:5174/blackboard",
+      "horizontalOverflow": 0
+    }
+  ]
+}
