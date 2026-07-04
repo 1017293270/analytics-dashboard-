@@ -4,6 +4,7 @@ import { defineConfig, devices } from '@playwright/test'
 
 const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const reuseExistingServer = !process.env.CI
+const localBrowserChannel = process.env.CI ? undefined : 'chrome'
 
 export default defineConfig({
   testDir: './e2e',
@@ -33,6 +34,7 @@ export default defineConfig({
       name: 'Desktop Chrome 1366x768',
       use: {
         ...devices['Desktop Chrome'],
+        channel: localBrowserChannel,
         viewport: { width: 1366, height: 768 },
       },
     },
@@ -40,6 +42,7 @@ export default defineConfig({
       name: 'Large Screen Chrome 1920x1080',
       use: {
         ...devices['Desktop Chrome'],
+        channel: localBrowserChannel,
         viewport: { width: 1920, height: 1080 },
       },
     },
