@@ -133,3 +133,74 @@ model Session {
   @@index([userId])
   @@index([expiresAt])
 }
+
+model ApplicationCategory {
+  id        String   @id
+  name      String
+  sortOrder Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ManagedApplication {
+  id               String   @id
+  name             String
+  categoryId       String
+  categoryName     String
+  platform         String
+  url              String
+  packageId        String
+  icon             String
+  visibleRoleCodes String
+  status           String
+  sortOrder        Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([categoryId])
+  @@index([platform])
+  @@index([status])
+  @@index([sortOrder])
+}
+
+model DataDashboard {
+  id               String   @id
+  name             String
+  type             String
+  source           String
+  embedUrl         String
+  isDefault        Boolean
+  visibleRoleCodes String
+  status           String
+  metrics          String
+  sortOrder        Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([type])
+  @@index([source])
+  @@index([status])
+  @@index([sortOrder])
+}
+
+model Alarm {
+  id                 String   @id
+  deviceIdentifier   String
+  deviceName         String
+  location           String
+  responsibleName    String
+  responsiblePhone   String
+  triggerMethod      String
+  eventType          String
+  status             String
+  reportedAt         DateTime
+  recording          String
+  disposalRecords    String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([deviceIdentifier])
+  @@index([triggerMethod])
+  @@index([status])
+  @@index([reportedAt])
+}

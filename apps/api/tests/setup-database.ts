@@ -33,6 +33,10 @@ beforeAll(async () => {
 })
 
 beforeEach(async () => {
+  await prisma.alarm.deleteMany()
+  await prisma.dataDashboard.deleteMany()
+  await prisma.managedApplication.deleteMany()
+  await prisma.applicationCategory.deleteMany()
   await prisma.auditLog.deleteMany()
   await prisma.dashboardShareLink.deleteMany()
   await prisma.dashboardPermission.deleteMany()
