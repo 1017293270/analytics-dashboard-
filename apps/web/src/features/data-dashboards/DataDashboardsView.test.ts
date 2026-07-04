@@ -119,6 +119,18 @@ describe('DataDashboardsView', () => {
     expect(wrapper.get('[data-testid="dashboard-status-control"]').text()).toContain('已停用')
   })
 
+  test('shows third-party dashboard metrics in the preview drawer', async () => {
+    const wrapper = await mountDashboardView()
+
+    await wrapper.get('[data-testid="dashboard-preview-dashboard-alarm"]').trigger('click')
+    await flushPromises()
+
+    const metrics = wrapper.get('[data-testid="dashboard-embed-metrics"]').text()
+    expect(metrics).toContain('今日告警')
+    expect(metrics).toContain('8')
+    expect(metrics).toContain('未处理 4')
+  })
+
   test('validates and saves a third-party dashboard from the drawer', async () => {
     const wrapper = await mountDashboardView()
 

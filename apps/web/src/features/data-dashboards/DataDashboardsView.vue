@@ -125,7 +125,7 @@ function saveDashboard() {
       id: `dashboard-${Date.now()}`,
       ...draft,
       visibleRoles: [...draft.visibleRoles],
-      updatedAt: '2026-07-03 10:36',
+      updatedAt: '2026-07-09 10:36',
       metrics: [
         { label: '外部指标', value: '已接入', trend: '第三方链接' },
         { label: '刷新方式', value: '手动', trend: '演示模式' },
@@ -205,7 +205,7 @@ function toggleDashboardStatus(dashboard: ManagedDashboard) {
         </ElFormItem>
       </ElForm>
 
-      <ElTable v-if="filteredDashboards.length > 0" :data="filteredDashboards" size="small" class="data-dashboards__table">
+      <ElTable v-if="filteredDashboards.length > 0" :data="filteredDashboards" class="data-dashboards__table">
         <ElTableColumn label="看板名称" min-width="160">
           <template #default="{ row }">
             <div class="data-dashboards__name-cell">
@@ -323,11 +323,18 @@ function toggleDashboardStatus(dashboard: ManagedDashboard) {
 
           <div v-if="draft.source === '第三方嵌入'" class="data-dashboards__embed-frame" title="第三方看板预览">
             <template v-if="isValidDashboardEmbedUrl(draft.url)">
-              <div>
+              <div class="data-dashboards__embed-title">
                 <ElIcon><Link /></ElIcon>
                 <strong>{{ draft.name || '第三方看板' }}</strong>
               </div>
               <span class="data-dashboards__single-line" :title="draft.url">{{ draft.url }}</span>
+              <div class="data-dashboards__embed-metrics" data-testid="dashboard-embed-metrics">
+                <div v-for="metric in previewMetrics" :key="metric.label" class="data-dashboards__metric">
+                  <span>{{ metric.label }}</span>
+                  <strong>{{ metric.value }}</strong>
+                  <small>{{ metric.trend }}</small>
+                </div>
+              </div>
               <ElButton :icon="Link" size="small" disabled>打开新页</ElButton>
               <small>演示环境使用稳定预览框展示融合效果，不依赖远程页面加载。</small>
             </template>
@@ -434,8 +441,8 @@ function toggleDashboardStatus(dashboard: ManagedDashboard) {
 }
 
 .data-dashboards__table {
-  --el-table-header-bg-color: #f8fafc;
-  font-size: 12px;
+  --el-table-header-bg-color: var(--color-panel-muted);
+  font-size: var(--fs-subtitle);
 }
 
 .data-dashboards__name-cell,
@@ -481,7 +488,7 @@ function toggleDashboardStatus(dashboard: ManagedDashboard) {
 .data-dashboards__preview {
   padding: 12px;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--color-panel-muted);
 }
 
@@ -500,9 +507,9 @@ function toggleDashboardStatus(dashboard: ManagedDashboard) {
   gap: 10px;
   min-height: 160px;
   padding: 12px;
-  border-radius: 8px;
-  background: #07111f;
-  color: #e5eefb;
+  border-radius: var(--radius-md);
+  background: var(--color-sidebar);
+  color: var(--color-text-on-dark);
 }
 
 .data-dashboards__built-in-preview {
@@ -515,35 +522,43 @@ function toggleDashboardStatus(dashboard: ManagedDashboard) {
   gap: 8px;
   min-width: 0;
   padding: 12px;
-  border: 1px solid rgba(216, 226, 243, 0.22);
-  border-radius: 8px;
-  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid var(--color-sidebar-border);
+  border-radius: var(--radius-md);
+  background: var(--color-sidebar-soft);
 }
 
 .data-dashboards__metric span,
 .data-dashboards__metric small,
 .data-dashboards__embed-frame small {
-  color: #a7b8d4;
-  font-size: 12px;
+  color: var(--color-sidebar-text);
+  font-size: var(--fs-label);
 }
 
 .data-dashboards__metric strong {
   font-size: 24px;
-  font-weight: 900;
+  font-weight: var(--fw-black);
+  color: var(--color-accent-300);
+  font-feature-settings: var(--num-feature);
 }
 
 .data-dashboards__embed-frame {
   align-content: center;
 }
 
-.data-dashboards__embed-frame div {
+.data-dashboards__embed-title {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
+.data-dashboards__embed-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
 .data-dashboards__embed-frame > span {
-  color: #93c5fd;
+  color: var(--color-accent-200);
 }
 
 @media (max-width: 1180px) {
@@ -560,7 +575,8 @@ function toggleDashboardStatus(dashboard: ManagedDashboard) {
 
   .data-dashboards__summary,
   .data-dashboards__filters,
-  .data-dashboards__built-in-preview {
+  .data-dashboards__built-in-preview,
+  .data-dashboards__embed-metrics {
     grid-template-columns: 1fr;
   }
 }

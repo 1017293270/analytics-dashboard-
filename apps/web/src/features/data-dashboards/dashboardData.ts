@@ -68,7 +68,7 @@ export const seedDashboards: ManagedDashboard[] = [
     isDefault: true,
     visibleRoles: ['全员', '电教主任'],
     status: '已启用',
-    updatedAt: '2026-07-03 10:10',
+    updatedAt: '2026-07-09 10:10',
     metrics: [
       { label: '治理事项', value: '128', trend: '本周 +12' },
       { label: '完成率', value: '93.6%', trend: '较昨日 +2.1%' },
@@ -84,7 +84,7 @@ export const seedDashboards: ManagedDashboard[] = [
     isDefault: true,
     visibleRoles: ['教研主任'],
     status: '已启用',
-    updatedAt: '2026-07-03 09:42',
+    updatedAt: '2026-07-09 09:42',
     metrics: [
       { label: '教研活动', value: '36', trend: '本月 +6' },
       { label: '培训完成', value: '88%', trend: '较上周 +5%' },
@@ -100,7 +100,7 @@ export const seedDashboards: ManagedDashboard[] = [
     isDefault: true,
     visibleRoles: ['德育主任'],
     status: '已启用',
-    updatedAt: '2026-07-03 09:20',
+    updatedAt: '2026-07-09 09:20',
     metrics: [
       { label: '成长档案', value: '1,286', trend: '全量同步' },
       { label: '德育活动', value: '42', trend: '本学期' },
@@ -116,7 +116,7 @@ export const seedDashboards: ManagedDashboard[] = [
     isDefault: false,
     visibleRoles: ['电教主任'],
     status: '已启用',
-    updatedAt: '2026-07-03 09:05',
+    updatedAt: '2026-07-09 09:05',
     metrics: [
       { label: '在线设备', value: '642', trend: '在线率 98.6%' },
       { label: '巡检任务', value: '24', trend: '今日' },
@@ -132,9 +132,9 @@ export const seedDashboards: ManagedDashboard[] = [
     isDefault: false,
     visibleRoles: ['电教主任'],
     status: '已停用',
-    updatedAt: '2026-07-03 08:58',
+    updatedAt: '2026-07-09 08:58',
     metrics: [
-      { label: '今日告警', value: '12', trend: '未处理 4' },
+      { label: '今日告警', value: '8', trend: '未处理 4' },
       { label: '平均响应', value: '6m', trend: '较昨日 -1m' },
       { label: '设备离线', value: '3', trend: '处理中' },
     ],
@@ -148,11 +148,11 @@ export const seedDashboards: ManagedDashboard[] = [
     isDefault: false,
     visibleRoles: ['全员', '电教主任'],
     status: '已启用',
-    updatedAt: '2026-07-03 08:45',
+    updatedAt: '2026-07-09 08:45',
     metrics: [
-      { label: '启用应用', value: '36', trend: '网页端 24' },
+      { label: '启用应用', value: '6', trend: '网页端 5' },
       { label: '今日访问', value: '2,418', trend: '高峰 10:00' },
-      { label: '移动端', value: '12', trend: '稳定' },
+      { label: '移动端', value: '3', trend: '演示接入' },
     ],
   },
 ]

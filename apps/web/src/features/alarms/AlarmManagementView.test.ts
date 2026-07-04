@@ -87,9 +87,18 @@ describe('AlarmManagementView', () => {
 
     expect(wrapper.text()).toContain('告警详情')
     expect(wrapper.text()).toContain('138 0000 1201')
+    expect(wrapper.text()).toContain('事件触发录音')
     expect(wrapper.text()).toContain('0:00 / 0:15')
     expect(wrapper.text()).toContain('处理记录')
-    expect(wrapper.get('[aria-label="播放录音占位"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('[data-testid="alarm-recording-track"]').exists()).toBe(true)
+
+    const playButton = wrapper.get('[data-testid="alarm-recording-toggle"]')
+    expect(playButton.text()).toContain('播放')
+
+    await playButton.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="alarm-recording-toggle"]').text()).toContain('暂停')
 
     await wrapper.get('[data-testid="alarm-mark-processing"]').trigger('click')
     await flushPromises()

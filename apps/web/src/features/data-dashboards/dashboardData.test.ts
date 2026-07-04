@@ -1,4 +1,6 @@
 import { describe, expect, test } from 'vitest'
+import { alarmSummary, seedAlarms } from '../alarms/alarmData'
+import { seedApplications } from '../applications/applicationData'
 import {
   applyDashboardFilters,
   createDashboardDraft,
@@ -17,6 +19,31 @@ describe('dashboardData', () => {
       defaults: 3,
       embedded: 2,
     })
+  })
+
+  test('keeps application usage metrics aligned with application center seed data', () => {
+    const applicationUsage = seedDashboards.find((dashboard) => dashboard.id === 'dashboard-app-usage')
+    const enabledApplications = seedApplications.filter((app) => app.status === '已启用').length
+    const webApplications = seedApplications.filter((app) => app.platform === '网页端').length
+    const mobileApplications = seedApplications.filter((app) => app.platform === '移动端').length
+
+    expect(applicationUsage?.metrics).toEqual(
+      expect.arrayContaining([
+        { label: '启用应用', value: String(enabledApplications), trend: `网页端 ${webApplications}` },
+        { label: '移动端', value: String(mobileApplications), trend: '演示接入' },
+      ]),
+    )
+  })
+
+  test('keeps alarm dashboard metrics aligned with alarm seed data', () => {
+    const alarmDashboard = seedDashboards.find((dashboard) => dashboard.id === 'dashboard-alarm')
+    const summary = alarmSummary(seedAlarms)
+
+    expect(alarmDashboard?.metrics).toEqual(
+      expect.arrayContaining([
+        { label: '今日告警', value: String(summary.total), trend: `未处理 ${summary.unhandled}` },
+      ]),
+    )
   })
 
   test('filters dashboards by keyword, type, role, status, and source', () => {

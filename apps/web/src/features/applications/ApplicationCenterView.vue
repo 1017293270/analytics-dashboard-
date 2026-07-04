@@ -236,7 +236,6 @@ function launchApplication(app: ManagedApplication) {
       <ElTable
         v-if="filteredApplications.length > 0"
         :data="filteredApplications"
-        size="small"
         class="application-center__table"
       >
         <ElTableColumn label="应用名称" min-width="170">
@@ -461,8 +460,8 @@ function launchApplication(app: ManagedApplication) {
 }
 
 .application-center__table {
-  --el-table-header-bg-color: #f8fafc;
-  font-size: 12px;
+  --el-table-header-bg-color: var(--color-panel-muted);
+  font-size: var(--fs-subtitle);
 }
 
 .application-center__app-cell {

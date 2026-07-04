@@ -18,12 +18,21 @@ describe('alarmData', () => {
     })
   })
 
+  test('uses the July 9 presentation date for visible demo alarm timestamps', () => {
+    expect(seedAlarms.every((alarm) => alarm.reportedAt.startsWith('2026-07-09'))).toBe(true)
+    expect(
+      seedAlarms.every((alarm) =>
+        alarm.disposalRecords.every((record) => record.createdAt.startsWith('2026-07-09')),
+      ),
+    ).toBe(true)
+  })
+
   test('filters alarms by keyword, status, trigger method, and date range', () => {
     const filters: AlarmFilters = {
       keyword: '101',
       status: '未处理',
       triggerMethod: 'AI识别',
-      dateRange: ['2026-07-03 00:00:00', '2026-07-03 23:59:59'],
+      dateRange: ['2026-07-09 00:00:00', '2026-07-09 23:59:59'],
     }
 
     expect(applyAlarmFilters(seedAlarms, filters).map((alarm) => alarm.deviceIdentifier)).toEqual(['CAM-3-101-01'])
@@ -63,7 +72,7 @@ describe('alarmData', () => {
       operatorName: '系统管理员',
       action: '标记为处理中',
       note: '已接收告警，正在确认现场情况。',
-      createdAt: '2026-07-03 10:32:00',
+      createdAt: '2026-07-09 10:32:00',
     })
   })
 })

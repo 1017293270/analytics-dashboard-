@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Bell, Refresh, Search, VideoPlay, WarningFilled } from '@element-plus/icons-vue'
+import { Bell, Refresh, Search, VideoPause, VideoPlay, WarningFilled } from '@element-plus/icons-vue'
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
@@ -28,6 +28,7 @@ const alarms = ref<AlarmEvent[]>(
 const filters = reactive({ ...defaultAlarmFilters })
 const selectedAlarmId = ref<string | null>(null)
 const detailVisible = ref(false)
+const playingRecordingId = ref<string | null>(null)
 
 const statusTagTypes: Record<AlarmStatus, TagType> = {
   未处理: 'danger',
@@ -38,6 +39,7 @@ const statusTagTypes: Record<AlarmStatus, TagType> = {
 const filteredAlarms = computed(() => applyAlarmFilters(alarms.value, filters))
 const summary = computed(() => alarmSummary(alarms.value))
 const selectedAlarm = computed(() => alarms.value.find((alarm) => alarm.id === selectedAlarmId.value) ?? null)
+const isSelectedRecordingPlaying = computed(() => selectedAlarm.value?.id === playingRecordingId.value)
 
 function getStatusTagType(status: AlarmStatus): TagType {
   return statusTagTypes[status]
@@ -69,6 +71,12 @@ function applyStatusAction(action: AlarmAction) {
 
   selectedAlarm.value.status = nextStatus
   selectedAlarm.value.disposalRecords.push(record)
+}
+
+function toggleSelectedRecording() {
+  if (!selectedAlarm.value) return
+
+  playingRecordingId.value = isSelectedRecordingPlaying.value ? null : selectedAlarm.value.id
 }
 
 function syncQueryDevice() {
@@ -152,7 +160,7 @@ watch(
         </ElFormItem>
       </ElForm>
 
-      <ElTable v-if="filteredAlarms.length > 0" :data="filteredAlarms" size="small" class="alarm-management__table">
+      <ElTable v-if="filteredAlarms.length > 0" :data="filteredAlarms" class="alarm-management__table">
         <ElTableColumn prop="deviceIdentifier" label="设备标识符" min-width="132" />
         <ElTableColumn prop="deviceName" label="设备名称" min-width="140" />
         <ElTableColumn prop="location" label="发生位置" min-width="160" />
@@ -204,11 +212,21 @@ watch(
         </ElDescriptions>
 
         <section class="alarm-management__recording" aria-label="事件录音">
-          <h2>事件录音</h2>
+          <h2>事件触发录音</h2>
           <div class="alarm-management__audio">
-            <ElButton :icon="VideoPlay" circle disabled aria-label="播放录音占位" />
+            <ElButton
+              data-testid="alarm-recording-toggle"
+              :icon="isSelectedRecordingPlaying ? VideoPause : VideoPlay"
+              type="primary"
+              plain
+              @click="toggleSelectedRecording"
+            >
+              {{ isSelectedRecordingPlaying ? '暂停' : '播放' }}
+            </ElButton>
             <span>0:00 / {{ selectedAlarm.recordingDuration }}</span>
-            <div class="alarm-management__audio-bar"><span /></div>
+            <div class="alarm-management__audio-bar" data-testid="alarm-recording-track">
+              <span :class="{ 'is-playing': isSelectedRecordingPlaying }" />
+            </div>
             <ElIcon><Bell /></ElIcon>
           </div>
         </section>
@@ -333,8 +351,8 @@ watch(
 }
 
 .alarm-management__table {
-  --el-table-header-bg-color: #f8fafc;
-  font-size: 12px;
+  --el-table-header-bg-color: var(--color-panel-muted);
+  font-size: var(--fs-subtitle);
 }
 
 .alarm-management__detail {
@@ -375,14 +393,18 @@ watch(
   height: 6px;
   overflow: hidden;
   border-radius: 999px;
-  background: #d8e2f3;
+  background: var(--color-panel-sunken);
 }
 
 .alarm-management__audio-bar span {
   display: block;
   width: 58%;
   height: 100%;
-  background: var(--color-text);
+  background: var(--color-text-muted);
+}
+
+.alarm-management__audio-bar span.is-playing {
+  background: var(--color-accent);
 }
 
 .alarm-management__drawer-actions {

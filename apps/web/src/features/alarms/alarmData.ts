@@ -63,7 +63,7 @@ export const seedAlarms: AlarmEvent[] = [
     triggerMethod: '设备离线',
     eventType: '黑板心跳中断',
     status: '未处理',
-    reportedAt: '2026-07-03 10:28:12',
+    reportedAt: '2026-07-09 10:28:12',
     recordingDuration: '0:15',
     disposalRecords: [
       {
@@ -71,7 +71,7 @@ export const seedAlarms: AlarmEvent[] = [
         operatorName: '系统',
         action: '自动上报',
         note: '检测到设备连续 3 分钟未响应。',
-        createdAt: '2026-07-03 10:28:12',
+        createdAt: '2026-07-09 10:28:12',
       },
     ],
   },
@@ -85,7 +85,7 @@ export const seedAlarms: AlarmEvent[] = [
     triggerMethod: 'AI识别',
     eventType: '人员摔倒',
     status: '未处理',
-    reportedAt: '2026-07-03 10:21:35',
+    reportedAt: '2026-07-09 10:21:35',
     recordingDuration: '0:15',
     disposalRecords: [
       {
@@ -93,7 +93,7 @@ export const seedAlarms: AlarmEvent[] = [
         operatorName: '李老师',
         action: '收到告警',
         note: '正在确认现场情况。',
-        createdAt: '2026-07-03 10:22:02',
+        createdAt: '2026-07-09 10:22:02',
       },
     ],
   },
@@ -107,7 +107,7 @@ export const seedAlarms: AlarmEvent[] = [
     triggerMethod: '设备离线',
     eventType: '录像服务异常',
     status: '处理中',
-    reportedAt: '2026-07-03 10:18:12',
+    reportedAt: '2026-07-09 10:18:12',
     recordingDuration: '0:15',
     disposalRecords: [
       {
@@ -115,7 +115,7 @@ export const seedAlarms: AlarmEvent[] = [
         operatorName: '王工',
         action: '远程排查',
         note: '已登录设备管理端，正在检查存储状态。',
-        createdAt: '2026-07-03 10:20:18',
+        createdAt: '2026-07-09 10:20:18',
       },
     ],
   },
@@ -129,7 +129,7 @@ export const seedAlarms: AlarmEvent[] = [
     triggerMethod: '阈值告警',
     eventType: '温度超阈值',
     status: '未处理',
-    reportedAt: '2026-07-03 10:14:09',
+    reportedAt: '2026-07-09 10:14:09',
     recordingDuration: '0:15',
     disposalRecords: [
       {
@@ -137,7 +137,7 @@ export const seedAlarms: AlarmEvent[] = [
         operatorName: '系统',
         action: '自动上报',
         note: '室内温度高于预警阈值。',
-        createdAt: '2026-07-03 10:14:09',
+        createdAt: '2026-07-09 10:14:09',
       },
     ],
   },
@@ -151,7 +151,7 @@ export const seedAlarms: AlarmEvent[] = [
     triggerMethod: '刷卡失败',
     eventType: '门禁认证失败',
     status: '已处理',
-    reportedAt: '2026-07-03 09:58:03',
+    reportedAt: '2026-07-09 09:58:03',
     recordingDuration: '0:15',
     disposalRecords: [
       {
@@ -159,14 +159,14 @@ export const seedAlarms: AlarmEvent[] = [
         operatorName: '赵老师',
         action: '核验身份',
         note: '已核实为临时访客证件过期。',
-        createdAt: '2026-07-03 10:01:33',
+        createdAt: '2026-07-09 10:01:33',
       },
       {
         id: 'record-access-2',
         operatorName: '赵老师',
         action: '标记为已处理',
         note: '已重新登记访客信息。',
-        createdAt: '2026-07-03 10:08:46',
+        createdAt: '2026-07-09 10:08:46',
       },
     ],
   },
@@ -180,7 +180,7 @@ export const seedAlarms: AlarmEvent[] = [
     triggerMethod: '手动上报',
     eventType: '广播无声',
     status: '处理中',
-    reportedAt: '2026-07-03 09:45:22',
+    reportedAt: '2026-07-09 09:45:22',
     recordingDuration: '0:15',
     disposalRecords: [
       {
@@ -188,7 +188,7 @@ export const seedAlarms: AlarmEvent[] = [
         operatorName: '陈老师',
         action: '现场排查',
         note: '已安排电教人员前往楼层检查线路。',
-        createdAt: '2026-07-03 09:50:16',
+        createdAt: '2026-07-09 09:50:16',
       },
     ],
   },
@@ -202,7 +202,7 @@ export const seedAlarms: AlarmEvent[] = [
     triggerMethod: '移动侦测',
     eventType: '异常进入',
     status: '未处理',
-    reportedAt: '2026-07-03 09:31:47',
+    reportedAt: '2026-07-09 09:31:47',
     recordingDuration: '0:15',
     disposalRecords: [
       {
@@ -210,7 +210,7 @@ export const seedAlarms: AlarmEvent[] = [
         operatorName: '系统',
         action: '自动上报',
         note: '检测到非开放时段进入操场区域。',
-        createdAt: '2026-07-03 09:31:47',
+        createdAt: '2026-07-09 09:31:47',
       },
     ],
   },
@@ -224,7 +224,7 @@ export const seedAlarms: AlarmEvent[] = [
     triggerMethod: '市电异常',
     eventType: '电源切换',
     status: '已处理',
-    reportedAt: '2026-07-03 08:55:33',
+    reportedAt: '2026-07-09 08:55:33',
     recordingDuration: '0:15',
     disposalRecords: [
       {
@@ -232,7 +232,7 @@ export const seedAlarms: AlarmEvent[] = [
         operatorName: '王工',
         action: '电源恢复',
         note: '已确认市电恢复，UPS 状态正常。',
-        createdAt: '2026-07-03 09:08:00',
+        createdAt: '2026-07-09 09:08:00',
       },
     ],
   },
@@ -280,6 +280,6 @@ export function createDisposalRecord(operatorName: string, action: string, note:
     operatorName,
     action,
     note,
-    createdAt: '2026-07-03 10:32:00',
+    createdAt: '2026-07-09 10:32:00',
   }
 }
