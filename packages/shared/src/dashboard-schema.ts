@@ -12,9 +12,29 @@ export const componentTypeValidator = z.enum([
   'text',
   'image',
   'decoration',
+  'web-embed',
 ])
 
 export type ComponentType = z.infer<typeof componentTypeValidator>
+
+const allowedWebEmbedHttpHosts = new Set(['127.0.0.1', 'localhost', 'demo.school.local'])
+
+function isAllowedWebEmbedUrl(value: string): boolean {
+  const trimmedValue = value.trim()
+  const hasHttpsScheme = /^https:\/\//i.test(trimmedValue)
+  const hasHttpScheme = /^http:\/\//i.test(trimmedValue)
+  if (!hasHttpsScheme && !hasHttpScheme) return false
+
+  try {
+    const parsedUrl = new URL(trimmedValue)
+    if (parsedUrl.protocol === 'https:' && hasHttpsScheme) return true
+    if (parsedUrl.protocol === 'http:' && hasHttpScheme) return allowedWebEmbedHttpHosts.has(parsedUrl.hostname)
+  } catch {
+    return false
+  }
+
+  return false
+}
 
 export const backgroundConfigValidator = z.union([
   z.object({ type: z.literal('color'), value: z.string().min(1).max(80) }),
@@ -97,6 +117,21 @@ export const dashboardSchemaValidator = z
           code: z.ZodIssueCode.custom,
           path: ['components', component.id, 'dataBindingId'],
           message: `Missing data binding: ${component.dataBindingId}`,
+        })
+      }
+
+      const webEmbedUrl = component.props.url
+      if (
+        component.type === 'web-embed' &&
+        typeof webEmbedUrl === 'string' &&
+        webEmbedUrl.trim() &&
+        !isAllowedWebEmbedUrl(webEmbedUrl)
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['components', component.id, 'props', 'url'],
+          message:
+            'Web embed URL must use https, or http for localhost, 127.0.0.1, or demo.school.local.',
         })
       }
     }

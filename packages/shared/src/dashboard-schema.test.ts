@@ -71,21 +71,42 @@ describe('dashboardSchemaValidator', () => {
     expect(result.success).toBe(false)
   })
 
-  test('accepts extended chart component types', () => {
+  test('accepts extended chart and embed component types', () => {
     const result = dashboardSchemaValidator.safeParse({
       ...baseDashboardSchema,
-      components: ['area-chart', 'radar-chart', 'funnel-chart'].map((type, index) => ({
+      components: ['area-chart', 'radar-chart', 'funnel-chart', 'web-embed'].map((type, index) => ({
         id: `component-${index}`,
         type,
         name: type,
         layout: { x: 0, y: 0, width: 320, height: 240, zIndex: index + 1 },
-        props: {},
+        props: type === 'web-embed' ? { title: '第三方数据看板', url: 'https://demo.school.local/board' } : {},
         style: {},
       })),
     })
 
     expect(result.success).toBe(true)
   })
+
+  test.each(['javascript:alert(1)', 'http://example.com/dashboard', 'https:example.com/dashboard'])(
+    'rejects unsafe web embed URL: %s',
+    (url) => {
+      const result = dashboardSchemaValidator.safeParse({
+        ...baseDashboardSchema,
+        components: [
+          {
+            id: 'web-embed-1',
+            type: 'web-embed',
+            name: '第三方网页',
+            layout: { x: 0, y: 0, width: 720, height: 420, zIndex: 1 },
+            props: { title: '第三方数据看板', url },
+            style: {},
+          },
+        ],
+      })
+
+      expect(result.success).toBe(false)
+    },
+  )
 
   test('rejects duplicate component ids', () => {
     const component = {

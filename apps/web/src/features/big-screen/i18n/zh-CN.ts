@@ -41,6 +41,7 @@ export const bigScreenText = {
     archiveConfirm: (name: string) => `归档“${name}”？它会从大屏库中移除。`,
     createFirst: '创建第一个大屏',
     dashboardLibrary: '大屏库',
+    demoWorkbenchDescription: '工作台配置演示态：暂无后端记录，前端使用默认角色工作台。',
     emptyDescription: '已发布的大屏和草稿会显示在这里。',
     eyebrow: '大屏',
     loadFailed: '加载失败',
@@ -52,6 +53,7 @@ export const bigScreenText = {
     rollbackConfirm: (name: string, version: number) => `将“${name}”回滚到版本 ${version}？`,
     unavailable: '大屏库暂不可用',
     versionLoading: '正在加载版本',
+    workbenchDemoNotice: '启停状态为本机演示保存，角色可见性用于现场演示。',
     table: {
       actions: '操作',
       name: '名称',

@@ -16,6 +16,8 @@ import {
   createDashboard,
   DEFAULT_ACTOR_ID,
   DEFAULT_WORKSPACE_ID,
+  ensureDefaultWorkbenchDashboards,
+  isDefaultWorkbenchDashboardId,
   parseSchema,
 } from './dashboard.repository.js'
 
@@ -84,6 +86,10 @@ function isActiveDashboard<T extends { workspaceId: string; status: string }>(da
 }
 
 async function findActiveDashboard(id: string) {
+  if (isDefaultWorkbenchDashboardId(id)) {
+    await ensureDefaultWorkbenchDashboards()
+  }
+
   const dashboard = await prisma.dashboard.findUnique({ where: { id } })
 
   return isActiveDashboard(dashboard) ? dashboard : null
@@ -117,6 +123,8 @@ async function sendExistingReservation(res: Response, dashboardId: string) {
 }
 
 dashboardRoutes.get('/big-screens', asyncHandler(async (_req, res) => {
+  await ensureDefaultWorkbenchDashboards()
+
   const dashboards = await prisma.dashboard.findMany({
     where: {
       workspaceId: DEFAULT_WORKSPACE_ID,

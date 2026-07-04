@@ -5,6 +5,15 @@ import { prisma } from '../db.js'
 export const DEFAULT_ACTOR_ID = 'demo-user'
 export const DEFAULT_WORKSPACE_ID = 'demo-workspace'
 
+export const defaultWorkbenchDashboards = [
+  { id: 'dashboard-all', name: '全员工作台', description: '工作台配置演示态' },
+  { id: 'dashboard-electro', name: '电教主任工作台', description: '工作台配置演示态' },
+  { id: 'dashboard-moral', name: '德育主任工作台', description: '工作台配置演示态' },
+  { id: 'dashboard-research', name: '教研主任工作台', description: '工作台配置演示态' },
+] as const
+
+const defaultWorkbenchDashboardIds: ReadonlySet<string> = new Set(defaultWorkbenchDashboards.map((dashboard) => dashboard.id))
+
 export function createDefaultSchema(): DashboardSchema {
   return {
     version: '1.0',
@@ -23,6 +32,10 @@ export function createDefaultSchema(): DashboardSchema {
     dataBindings: {},
     refresh: { mode: 'manual' },
   }
+}
+
+export function isDefaultWorkbenchDashboardId(id: string) {
+  return defaultWorkbenchDashboardIds.has(id)
 }
 
 export class StoredSchemaError extends Error {
@@ -62,6 +75,79 @@ export async function createDashboard(input: { name: string; description?: strin
   })
 
   return { ...dashboard, draftSchema: schema, publishedSchema: null }
+}
+
+async function ensureDefaultDashboardPermission(dashboardId: string) {
+  const existingPermission = await prisma.dashboardPermission.findFirst({
+    where: {
+      dashboardId,
+      subjectType: 'user',
+      subjectId: DEFAULT_ACTOR_ID,
+      permission: 'owner',
+    },
+  })
+
+  if (existingPermission) return
+
+  await prisma.dashboardPermission.upsert({
+    where: { id: `permission-${dashboardId}-owner` },
+    update: {
+      dashboardId,
+      subjectType: 'user',
+      subjectId: DEFAULT_ACTOR_ID,
+      permission: 'owner',
+    },
+    create: {
+      id: `permission-${dashboardId}-owner`,
+      dashboardId,
+      subjectType: 'user',
+      subjectId: DEFAULT_ACTOR_ID,
+      permission: 'owner',
+    },
+  })
+}
+
+export async function ensureDefaultWorkbenchDashboards() {
+  const existingDashboards = await prisma.dashboard.findMany({
+    where: { id: { in: [...defaultWorkbenchDashboardIds] } },
+    select: { id: true, workspaceId: true, status: true },
+  })
+  const existingById = new Map(existingDashboards.map((dashboard) => [dashboard.id, dashboard]))
+  const schema = JSON.stringify(createDefaultSchema())
+
+  for (const preset of defaultWorkbenchDashboards) {
+    const existingDashboard = existingById.get(preset.id)
+
+    if (!existingDashboard) {
+      await prisma.dashboard.create({
+        data: {
+          id: preset.id,
+          name: preset.name,
+          description: preset.description,
+          ownerId: DEFAULT_ACTOR_ID,
+          workspaceId: DEFAULT_WORKSPACE_ID,
+          status: 'draft',
+          draftSchema: schema,
+        },
+      })
+    } else if (existingDashboard.workspaceId !== DEFAULT_WORKSPACE_ID || existingDashboard.status === 'archived') {
+      await prisma.dashboard.update({
+        where: { id: preset.id },
+        data: {
+          name: preset.name,
+          description: preset.description,
+          ownerId: DEFAULT_ACTOR_ID,
+          workspaceId: DEFAULT_WORKSPACE_ID,
+          status: 'draft',
+          draftSchema: schema,
+          publishedSchema: null,
+          publishedAt: null,
+        },
+      })
+    }
+
+    await ensureDefaultDashboardPermission(preset.id)
+  }
 }
 
 export async function getDashboard(id: string) {

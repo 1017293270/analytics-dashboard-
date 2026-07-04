@@ -14,6 +14,7 @@ const componentTypes: ComponentType[] = [
   'text',
   'image',
   'decoration',
+  'web-embed',
 ]
 
 describe('componentRegistry', () => {
@@ -30,5 +31,20 @@ describe('componentRegistry', () => {
     expect(first.props).not.toBe(componentRegistry['metric-card'].defaultProps)
     expect(first.style).not.toBe(componentRegistry['metric-card'].defaultStyle)
     expect(first.id).not.toBe(second.id)
+  })
+
+  test('creates a valid third-party web embed component', () => {
+    const component = createComponent('web-embed', 40, 60, 2)
+
+    expect(dashboardComponentValidator.safeParse(component).success).toBe(true)
+    expect(component).toMatchObject({
+      type: 'web-embed',
+      name: '第三方网页',
+      layout: { x: 40, y: 60, zIndex: 2, visible: true },
+      props: {
+        title: '第三方数据看板',
+        url: 'https://demo.school.local/alarm-bi',
+      },
+    })
   })
 })

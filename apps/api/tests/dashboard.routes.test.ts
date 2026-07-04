@@ -5,6 +5,29 @@ import { prisma } from '../src/db.js'
 import { createApp } from '../src/app.js'
 
 describe('dashboard routes', () => {
+  test('seeds the four default role workbenches as editable dashboard records', async () => {
+    const app = createApp()
+
+    const listed = await request(app).get('/api/big-screens').expect(200)
+
+    expect(listed.body.success).toBe(true)
+    expect(listed.body.data.map((dashboard: { id: string; name: string }) => [dashboard.id, dashboard.name])).toEqual(
+      expect.arrayContaining([
+        ['dashboard-all', '全员工作台'],
+        ['dashboard-electro', '电教主任工作台'],
+        ['dashboard-moral', '德育主任工作台'],
+        ['dashboard-research', '教研主任工作台'],
+      ]),
+    )
+
+    for (const id of ['dashboard-all', 'dashboard-electro', 'dashboard-moral', 'dashboard-research']) {
+      const fetched = await request(app).get(`/api/big-screens/${id}`).expect(200)
+
+      expect(fetched.body.data.id).toBe(id)
+      expect(fetched.body.data.draftSchema.version).toBe('1.0')
+    }
+  })
+
   test('creates and fetches a dashboard draft', async () => {
     const app = createApp()
 

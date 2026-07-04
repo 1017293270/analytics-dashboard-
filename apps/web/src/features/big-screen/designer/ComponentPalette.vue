@@ -1,17 +1,15 @@
 <script setup lang="ts">
-import type { ComponentType } from '@analytics/shared'
 import { computed } from 'vue'
-import { componentRegistry } from '../components/registry'
+import { createComponentFromPaletteEntry, getWorkbenchPaletteEntries, type WorkbenchPaletteEntry } from '../components/paletteEntries'
 import { bigScreenText } from '../i18n/zh-CN'
 import { useDashboardDesignerStore } from '../stores/useDashboardDesignerStore'
-import { createDesignerComponent } from './designerLayout'
 
 const designer = useDashboardDesignerStore()
 
-const definitions = computed(() => Object.values(componentRegistry))
+const definitions = computed(() => getWorkbenchPaletteEntries())
 
-function addComponent(type: ComponentType) {
-  designer.addComponent(createDesignerComponent(type, designer.schema))
+function addComponent(entry: WorkbenchPaletteEntry) {
+  designer.addComponent(createComponentFromPaletteEntry(entry.id, designer.schema))
 }
 </script>
 
@@ -25,17 +23,17 @@ function addComponent(type: ComponentType) {
     <div class="component-palette__list">
       <button
         v-for="definition in definitions"
-        :key="definition.type"
+        :key="definition.id"
         class="component-palette__item"
         type="button"
         :disabled="designer.isLoading || designer.isSaving"
-        :data-testid="`add-${definition.type}`"
-        @click="addComponent(definition.type)"
+        :data-testid="`add-${definition.id}`"
+        @click="addComponent(definition)"
       >
         <span class="component-palette__glyph" aria-hidden="true">{{ definition.title.slice(0, 1) }}</span>
         <span class="component-palette__copy">
           <span class="component-palette__name">{{ definition.title }}</span>
-        <span class="component-palette__meta">{{ definition.defaultLayout.width }} × {{ definition.defaultLayout.height }}</span>
+        <span class="component-palette__meta">{{ definition.group }} · {{ definition.description }}</span>
         </span>
       </button>
     </div>

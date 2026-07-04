@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { DashboardComponent } from '@analytics/shared'
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import {
   getAllChartPresets,
   getChartPresetGroups,
@@ -38,8 +38,11 @@ const DEFAULT_STYLE_VALUES: Record<string, string> = {
   accentColor: '#38bdf8',
   borderColor: 'transparent',
 }
+const ALLOWED_HTTP_WEB_EMBED_HOSTS = new Set(['127.0.0.1', 'localhost', 'demo.school.local'])
+const WEB_EMBED_URL_HINT = '仅支持 https://，或 localhost / 127.0.0.1 / demo.school.local 的 http:// 链接'
 
 const designer = useDashboardDesignerStore()
+const rejectedWebEmbedUrl = ref('')
 
 const selectedComponent = computed(() => designer.selectedComponent)
 const selectedDefinition = computed(() =>
@@ -81,6 +84,14 @@ const hasMissingBinding = computed(() => {
 const showTitleProp = computed(() => selectedComponent.value && 'title' in selectedComponent.value.props)
 const showTextProp = computed(() => selectedComponent.value && 'text' in selectedComponent.value.props)
 const showImageSourceProp = computed(() => selectedComponent.value?.type === 'image')
+const showWebEmbedUrlProp = computed(() => selectedComponent.value?.type === 'web-embed')
+const webEmbedUrl = computed(() => (selectedComponent.value ? propString(selectedComponent.value, 'url') : ''))
+const webEmbedUrlInputValue = computed(() => rejectedWebEmbedUrl.value || webEmbedUrl.value)
+const hasUnsafeWebEmbedUrl = computed(() => {
+  if (!showWebEmbedUrlProp.value) return false
+  const url = webEmbedUrlInputValue.value.trim()
+  return Boolean(url && !isAllowedWebEmbedUrl(url))
+})
 const showChartPicker = computed(() => {
   const component = selectedComponent.value
 
@@ -117,6 +128,13 @@ const colorSwatches = computed(() => {
   })
 })
 
+watch(
+  () => selectedComponent.value?.id,
+  () => {
+    rejectedWebEmbedUrl.value = ''
+  },
+)
+
 function getInputValue(event: Event): string {
   return (event.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).value
 }
@@ -136,6 +154,39 @@ function updateComponentProp(key: string, event: Event) {
   if (isEditingDisabled.value) return
 
   designer.patchComponentProps(component.id, { [key]: getInputValue(event) })
+}
+
+function isAllowedWebEmbedUrl(value: string): boolean {
+  const trimmedValue = value.trim()
+  const hasHttpsScheme = /^https:\/\//i.test(trimmedValue)
+  const hasHttpScheme = /^http:\/\//i.test(trimmedValue)
+  if (!hasHttpsScheme && !hasHttpScheme) return false
+
+  try {
+    const parsedUrl = new URL(trimmedValue)
+    if (parsedUrl.protocol === 'https:' && hasHttpsScheme) return true
+    if (parsedUrl.protocol === 'http:' && hasHttpScheme) return ALLOWED_HTTP_WEB_EMBED_HOSTS.has(parsedUrl.hostname)
+  } catch {
+    return false
+  }
+
+  return false
+}
+
+function updateWebEmbedUrl(event: Event) {
+  const component = selectedComponent.value
+  if (!component) return
+  if (isEditingDisabled.value) return
+
+  const value = getInputValue(event)
+  const trimmedValue = value.trim()
+  if (trimmedValue && !isAllowedWebEmbedUrl(trimmedValue)) {
+    rejectedWebEmbedUrl.value = value
+    return
+  }
+
+  rejectedWebEmbedUrl.value = ''
+  designer.patchComponentProps(component.id, { url: trimmedValue })
 }
 
 function recordString(record: Record<string, unknown>, key: string): string {
@@ -398,6 +449,20 @@ function updateFontSize(event: Event) {
             @change="updateComponentProp('src', $event)"
           />
         </label>
+        <label v-if="showWebEmbedUrlProp" class="property-panel__field">
+          <span>第三方链接</span>
+          <input
+            data-testid="web-embed-url-input"
+            type="text"
+            :value="webEmbedUrlInputValue"
+            :disabled="isEditingDisabled"
+            maxlength="1000"
+            @change="updateWebEmbedUrl"
+          />
+        </label>
+        <p v-if="hasUnsafeWebEmbedUrl" class="property-panel__warning">
+          {{ WEB_EMBED_URL_HINT }}
+        </p>
         <div class="property-panel__readonly-grid">
           <span>{{ bigScreenText.propertyPanel.componentType }}</span>
           <strong>{{ selectedDefinition?.title }}</strong>

@@ -44,6 +44,39 @@ describe('DesignerPropertyPanel', () => {
     expect(store.selectedComponent?.layout.x).toBe(0)
   })
 
+  test('updates third-party web embed URL without persisting unsafe schemes', async () => {
+    const wrapper = mountWithPinia()
+    const store = useDashboardDesignerStore()
+    store.addComponent(createComponent('web-embed', 20, 30, 1))
+    await nextTick()
+
+    await wrapper.get('[data-testid="web-embed-url-input"]').setValue('https://demo.school.local/teacher-bi')
+    await wrapper.get('[data-testid="web-embed-url-input"]').trigger('change')
+
+    expect(store.selectedComponent?.props.url).toBe('https://demo.school.local/teacher-bi')
+
+    await wrapper.get('[data-testid="web-embed-url-input"]').setValue('javascript:alert(1)')
+    await wrapper.get('[data-testid="web-embed-url-input"]').trigger('change')
+
+    expect(store.selectedComponent?.props.url).toBe('https://demo.school.local/teacher-bi')
+    expect((wrapper.get('[data-testid="web-embed-url-input"]').element as HTMLInputElement).value).toBe(
+      'javascript:alert(1)',
+    )
+    expect(wrapper.text()).toContain('仅支持 https://')
+
+    await wrapper.get('[data-testid="web-embed-url-input"]').setValue('http://example.com/public-bi')
+    await wrapper.get('[data-testid="web-embed-url-input"]').trigger('change')
+
+    expect(store.selectedComponent?.props.url).toBe('https://demo.school.local/teacher-bi')
+    expect(wrapper.text()).toContain('仅支持 https://')
+
+    await wrapper.get('[data-testid="web-embed-url-input"]').setValue('https:example.com/public-bi')
+    await wrapper.get('[data-testid="web-embed-url-input"]').trigger('change')
+
+    expect(store.selectedComponent?.props.url).toBe('https://demo.school.local/teacher-bi')
+    expect(wrapper.text()).toContain('仅支持 https://')
+  })
+
   test('converts chart type from the visual picker while preserving compatible component state', async () => {
     const wrapper = mountWithPinia()
     const store = useDashboardDesignerStore()

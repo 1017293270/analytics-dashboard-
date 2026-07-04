@@ -1,8 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '../../auth/stores/useAuthStore'
 import { bigScreenApi, type DashboardListItem, type DashboardRecord, type DashboardVersion } from '../api/bigScreenApi'
 import { bigScreenText } from '../i18n/zh-CN'
+import {
+  createWorkbenchMetadata,
+  defaultWorkbenchMetadata,
+  isWorkbenchAvailable,
+  toggleWorkbenchAvailability,
+  type WorkbenchAvailability,
+  type WorkbenchMetadata,
+} from '../workbenches/workbenchMetadata'
 
 type ListState = 'loading' | 'success' | 'error'
 type RowAction = 'copy' | 'archive' | 'share' | 'versions' | 'rollback'
@@ -12,7 +21,10 @@ type VersionState =
   | { status: 'success'; versions: DashboardVersion[]; error: '' }
   | { status: 'error'; versions: []; error: string }
 
+const workbenchAvailabilityStorageKey = 'analytics-dashboard.workbench-availability.v1'
+
 const router = useRouter()
+const auth = useAuthStore()
 const dashboards = ref<DashboardListItem[]>([])
 const listState = ref<ListState>('loading')
 const errorMessage = ref('')
@@ -20,10 +32,16 @@ const isCreating = ref(false)
 const activeRowActions = ref<Record<string, RowActionState>>({})
 const shareLinks = ref<Record<string, string>>({})
 const versionStates = ref<Record<string, VersionState>>({})
+const storedWorkbenchAvailability = ref(readStoredWorkbenchAvailability())
+const workbenchMetadata = ref<WorkbenchMetadata[]>(createInitialWorkbenchMetadata())
 
 const isLoading = computed(() => listState.value === 'loading')
-const hasDashboards = computed(() => listState.value === 'success' && dashboards.value.length > 0)
-const isEmpty = computed(() => listState.value === 'success' && dashboards.value.length === 0)
+const currentUserRoleNames = computed(() => auth.user?.roles.map((role) => role.name) ?? [])
+const visibleDashboards = computed(() =>
+  dashboards.value.filter((dashboard) => isWorkbenchAvailable(getWorkbenchMetadata(dashboard), currentUserRoleNames.value)),
+)
+const hasDashboards = computed(() => listState.value === 'success' && visibleDashboards.value.length > 0)
+const isEmpty = computed(() => listState.value === 'success' && visibleDashboards.value.length === 0)
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : bigScreenText.dashboardList.unavailable
@@ -54,6 +72,101 @@ function toListItem(record: DashboardRecord): DashboardListItem {
     updatedAt: record.updatedAt,
     publishedAt: record.publishedAt,
   }
+}
+
+function cloneWorkbenchMetadata(workbench: WorkbenchMetadata): WorkbenchMetadata {
+  return {
+    ...workbench,
+    visibleRoles: [...workbench.visibleRoles],
+  }
+}
+
+function isStoredWorkbenchAvailability(value: unknown): value is WorkbenchAvailability {
+  return value === '已启用' || value === '已停用'
+}
+
+function readStoredWorkbenchAvailability(): Record<string, WorkbenchAvailability> {
+  if (typeof window === 'undefined') return {}
+
+  try {
+    const raw =
+      window.localStorage?.getItem(workbenchAvailabilityStorageKey) ??
+      window.sessionStorage?.getItem(workbenchAvailabilityStorageKey)
+    if (!raw) return {}
+
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    return Object.fromEntries(
+      Object.entries(parsed).filter((entry): entry is [string, WorkbenchAvailability] =>
+        isStoredWorkbenchAvailability(entry[1]),
+      ),
+    )
+  } catch {
+    return {}
+  }
+}
+
+function persistWorkbenchAvailability(availabilityById: Record<string, WorkbenchAvailability>) {
+  if (typeof window === 'undefined') return
+
+  try {
+    window.localStorage?.setItem(workbenchAvailabilityStorageKey, JSON.stringify(availabilityById))
+  } catch {
+    try {
+      window.sessionStorage?.setItem(workbenchAvailabilityStorageKey, JSON.stringify(availabilityById))
+    } catch {
+      // Demo-only persistence should never block the workbench list.
+    }
+  }
+}
+
+function createInitialWorkbenchMetadata() {
+  return defaultWorkbenchMetadata.map((workbench) => ({
+    ...cloneWorkbenchMetadata(workbench),
+    availability: storedWorkbenchAvailability.value[workbench.id] ?? workbench.availability,
+  }))
+}
+
+function findWorkbenchMetadataIndex(dashboard: DashboardListItem) {
+  const idMatch = workbenchMetadata.value.findIndex((workbench) => workbench.id === dashboard.id)
+  if (idMatch >= 0) return idMatch
+
+  return workbenchMetadata.value.findIndex((workbench) => workbench.name === dashboard.name)
+}
+
+function createDashboardWorkbenchMetadata(dashboard: DashboardListItem) {
+  const workbench = createWorkbenchMetadata({ id: dashboard.id, name: dashboard.name })
+
+  return {
+    ...workbench,
+    availability: storedWorkbenchAvailability.value[workbench.id] ?? workbench.availability,
+  }
+}
+
+function getWorkbenchMetadata(dashboard: DashboardListItem) {
+  const index = findWorkbenchMetadataIndex(dashboard)
+  if (index >= 0) return workbenchMetadata.value[index]
+
+  return createDashboardWorkbenchMetadata(dashboard)
+}
+
+function toggleDashboardWorkbenchAvailability(dashboard: DashboardListItem) {
+  const index = findWorkbenchMetadataIndex(dashboard)
+  const current = index >= 0 ? workbenchMetadata.value[index] : createDashboardWorkbenchMetadata(dashboard)
+  const next = toggleWorkbenchAvailability(current)
+
+  const nextWorkbenchMetadata =
+    index >= 0
+      ? workbenchMetadata.value.map((workbench, candidateIndex) => (candidateIndex === index ? next : workbench))
+      : [...workbenchMetadata.value, next]
+
+  const nextStoredAvailability = {
+    ...storedWorkbenchAvailability.value,
+    [next.id]: next.availability,
+  }
+
+  workbenchMetadata.value = nextWorkbenchMetadata
+  storedWorkbenchAvailability.value = nextStoredAvailability
+  persistWorkbenchAvailability(nextStoredAvailability)
 }
 
 function isRowBusy(id: string, action?: RowAction) {
@@ -87,7 +200,8 @@ async function loadDashboards() {
   errorMessage.value = ''
 
   try {
-    dashboards.value = await bigScreenApi.listDashboards()
+    const loadedDashboards = await bigScreenApi.listDashboards()
+    dashboards.value = loadedDashboards
     listState.value = 'success'
   } catch (error) {
     errorMessage.value = getErrorMessage(error)
@@ -251,18 +365,21 @@ onMounted(() => {
 
     <section v-else-if="hasDashboards" class="dashboard-list__panel" :aria-label="bigScreenText.dashboardList.dashboardLibrary">
       <p v-if="errorMessage" class="dashboard-list__inline-error" role="status">{{ errorMessage }}</p>
+      <p class="dashboard-list__notice" role="note">{{ bigScreenText.dashboardList.workbenchDemoNotice }}</p>
       <table class="dashboard-list__table">
         <thead>
           <tr>
             <th scope="col">{{ bigScreenText.dashboardList.table.name }}</th>
             <th scope="col">{{ bigScreenText.dashboardList.table.status }}</th>
+            <th scope="col">使用角色</th>
+            <th scope="col">启用状态</th>
             <th scope="col">{{ bigScreenText.dashboardList.table.updated }}</th>
             <th scope="col">{{ bigScreenText.dashboardList.table.published }}</th>
             <th scope="col">{{ bigScreenText.dashboardList.table.actions }}</th>
           </tr>
         </thead>
         <tbody>
-          <template v-for="dashboard in dashboards" :key="dashboard.id">
+          <template v-for="dashboard in visibleDashboards" :key="dashboard.id">
             <tr>
               <td class="dashboard-list__name-cell">
                 <RouterLink class="dashboard-list__name-link" :to="`/workbenches/${dashboard.id}`">
@@ -284,6 +401,26 @@ onMounted(() => {
               <td>
                 <span class="dashboard-list__status" :class="`is-${dashboard.status}`">
                   {{ getStatusLabel(dashboard.status) }}
+                </span>
+              </td>
+              <td>
+                <div class="dashboard-list__roles" aria-label="使用角色">
+                  <span
+                    v-for="role in getWorkbenchMetadata(dashboard).visibleRoles"
+                    :key="role"
+                    class="dashboard-list__role-chip"
+                    data-testid="workbench-role-chip"
+                  >
+                    {{ role }}
+                  </span>
+                </div>
+              </td>
+              <td>
+                <span
+                  class="dashboard-list__availability"
+                  :class="{ 'is-disabled': getWorkbenchMetadata(dashboard).availability === '已停用' }"
+                >
+                  {{ getWorkbenchMetadata(dashboard).availability }}
                 </span>
               </td>
               <td>{{ formatDate(dashboard.updatedAt) }}</td>
@@ -327,6 +464,13 @@ onMounted(() => {
                     {{ isRowBusy(dashboard.id, 'share') ? bigScreenText.common.actions.sharing : bigScreenText.common.actions.share }}
                   </button>
                   <button
+                    type="button"
+                    :data-testid="`toggle-workbench-availability-${dashboard.id}`"
+                    @click="toggleDashboardWorkbenchAvailability(dashboard)"
+                  >
+                    {{ getWorkbenchMetadata(dashboard).availability === '已启用' ? '停用' : '启用' }}
+                  </button>
+                  <button
                     class="dashboard-list__danger"
                     type="button"
                     :disabled="isRowBusy(dashboard.id)"
@@ -338,7 +482,7 @@ onMounted(() => {
               </td>
             </tr>
             <tr v-if="versionStates[dashboard.id]" class="dashboard-list__version-row">
-              <td colspan="5">
+              <td colspan="7">
                 <div class="dashboard-list__versions" :aria-busy="versionStates[dashboard.id].status === 'loading'">
                   <p class="dashboard-list__versions-title">{{ bigScreenText.common.actions.versions }}</p>
                   <p v-if="versionStates[dashboard.id].status === 'loading'" class="dashboard-list__versions-state">
@@ -382,22 +526,28 @@ onMounted(() => {
 .dashboard-list {
   display: grid;
   align-content: start;
-  gap: 18px;
-  min-height: 100vh;
-  padding: 28px;
-  background:
-    linear-gradient(180deg, rgba(219, 234, 254, 0.72), rgba(248, 250, 252, 0) 280px),
-    var(--color-page);
+  gap: var(--space-5);
+  padding: var(--space-page-y) var(--space-page);
   color: var(--color-text);
+  animation: dashboard-list-enter 0.4s var(--ease-enter);
+}
+
+@keyframes dashboard-list-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .dashboard-list__header {
   display: flex;
-  align-items: end;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
-  width: min(1180px, 100%);
-  margin: 0 auto;
+  gap: var(--space-4);
 }
 
 .dashboard-list__title-group,
@@ -414,59 +564,70 @@ onMounted(() => {
 }
 
 .dashboard-list__eyebrow {
-  color: var(--color-accent);
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 0;
+  color: var(--color-accent-700);
+  font-size: var(--fs-label);
+  font-weight: var(--fw-black);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
 .dashboard-list__title-group h1 {
-  font-family: "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
-  font-size: 30px;
-  font-weight: 760;
-  letter-spacing: 0;
-  line-height: 1.18;
+  margin-top: var(--space-1);
+  font-size: var(--fs-display);
+  font-weight: var(--fw-black);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--lh-tight);
 }
 
+/* ── Buttons (shared) ── */
 .dashboard-list__primary-action,
 .dashboard-list__state button,
 .dashboard-list__actions button,
 .dashboard-list__action {
-  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
   border: 1px solid var(--color-border);
-  border-radius: 7px;
+  border-radius: var(--radius-md);
   background: var(--color-panel);
   color: var(--color-text);
   cursor: pointer;
-  font-weight: 850;
+  font-size: var(--fs-label);
+  font-weight: var(--fw-bold);
   text-decoration: none;
+  white-space: nowrap;
   transition:
-    background var(--motion-fast) var(--ease-enter),
-    border-color var(--motion-fast) var(--ease-enter),
-    color var(--motion-fast) var(--ease-enter),
-    box-shadow var(--motion-fast) var(--ease-enter);
+    background var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out);
 }
 
 .dashboard-list__primary-action {
   flex: 0 0 auto;
-  padding: 0 16px;
-  border-color: color-mix(in srgb, var(--color-accent) 70%, #0f172a);
-  background: var(--color-accent);
-  color: #ffffff;
-  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.22);
+  gap: 6px;
+  padding: 0 var(--space-4);
+  min-height: 38px;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-strong));
+  color: #fff;
+  font-size: var(--fs-body);
+  font-weight: var(--fw-black);
+  box-shadow: 0 6px 16px rgba(5, 150, 105, 0.28);
 }
 
-.dashboard-list__primary-action:hover:not(:disabled),
 .dashboard-list__state button:hover:not(:disabled),
 .dashboard-list__actions button:hover:not(:disabled),
 .dashboard-list__action:hover:not(.is-disabled) {
-  border-color: color-mix(in srgb, var(--color-accent) 42%, var(--color-border));
-  background: color-mix(in srgb, var(--color-accent) 9%, var(--color-panel));
+  border-color: var(--color-border-accent);
+  background: var(--color-accent-50);
+  color: var(--color-accent-700);
 }
 
 .dashboard-list__primary-action:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--color-accent) 88%, #0f172a);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(5, 150, 105, 0.36);
 }
 
 .dashboard-list__primary-action:disabled,
@@ -474,16 +635,15 @@ onMounted(() => {
 .dashboard-list__actions button:disabled,
 .dashboard-list__action.is-disabled {
   cursor: not-allowed;
-  opacity: 0.52;
+  opacity: 0.5;
 }
 
+/* ── Panel & state surfaces ── */
 .dashboard-list__panel,
 .dashboard-list__state {
-  width: min(1180px, 100%);
-  margin: 0 auto;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-panel);
-  background: color-mix(in srgb, var(--color-panel) 96%, #eff6ff);
+  border-radius: var(--radius-lg);
+  background: var(--color-panel);
   box-shadow: var(--shadow-panel);
 }
 
@@ -494,23 +654,25 @@ onMounted(() => {
 .dashboard-list__state {
   display: grid;
   justify-items: start;
-  gap: 12px;
-  padding: 30px;
+  gap: var(--space-3);
+  padding: var(--space-8);
 }
 
 .dashboard-list__state h2 {
-  font-size: 26px;
-  line-height: 1.1;
+  font-size: 24px;
+  font-weight: var(--fw-black);
+  line-height: var(--lh-tight);
 }
 
 .dashboard-list__state p {
   max-width: 560px;
   color: var(--color-text-muted);
+  font-size: var(--fs-subtitle);
   overflow-wrap: anywhere;
 }
 
 .dashboard-list__state button {
-  padding: 0 14px;
+  padding: 0 var(--space-4);
 }
 
 .dashboard-list__state--error {
@@ -525,17 +687,33 @@ onMounted(() => {
 
 .dashboard-list__inline-error {
   margin: 0;
-  padding: 12px 16px 0;
-  font-size: 13px;
-  font-weight: 800;
+  padding: var(--space-3) var(--space-4) 0;
+  font-size: var(--fs-subtitle);
+  font-weight: var(--fw-bold);
   overflow-wrap: anywhere;
 }
 
+.dashboard-list__notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) var(--space-4) 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--color-accent-300);
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-50);
+  color: var(--color-accent-800);
+  font-size: var(--fs-label);
+  font-weight: var(--fw-bold);
+  overflow-wrap: anywhere;
+}
+
+/* ── Skeleton ── */
 .dashboard-list__skeleton-row {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) minmax(90px, 0.4fr) minmax(120px, 0.5fr);
-  gap: 16px;
-  padding: 18px;
+  gap: var(--space-4);
+  padding: 18px var(--space-4);
   border-bottom: 1px solid var(--color-border);
 }
 
@@ -546,8 +724,8 @@ onMounted(() => {
 .dashboard-list__skeleton {
   display: block;
   height: 16px;
-  border-radius: 6px;
-  background: linear-gradient(90deg, #e2e8f0, #f8fafc, #e2e8f0);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--color-border), var(--color-panel-muted), var(--color-border));
   background-size: 220% 100%;
   animation: dashboard-list-shimmer 1.2s var(--ease-enter) infinite;
 }
@@ -560,28 +738,38 @@ onMounted(() => {
   width: 70%;
 }
 
+/* ── Table ── */
 .dashboard-list__table {
   width: 100%;
   border-collapse: collapse;
-  table-layout: fixed;
+  table-layout: auto;
 }
 
 .dashboard-list__table th,
 .dashboard-list__table td {
-  padding: 16px;
+  padding: 14px var(--space-4);
   border-bottom: 1px solid var(--color-border);
   color: var(--color-text-muted);
-  font-size: 13px;
+  font-size: var(--fs-subtitle);
   text-align: left;
   vertical-align: top;
 }
 
 .dashboard-list__table th {
-  background: color-mix(in srgb, var(--color-panel-muted) 84%, #dbeafe);
-  color: var(--color-text);
-  font-size: 12px;
-  font-weight: 900;
-  text-transform: uppercase;
+  background: var(--color-panel-muted);
+  color: var(--color-text-muted);
+  font-size: var(--fs-label);
+  font-weight: var(--fw-black);
+  letter-spacing: var(--tracking-label);
+  text-transform: none;
+}
+
+.dashboard-list__table tbody tr {
+  transition: background var(--motion-fast) var(--ease-out);
+}
+
+.dashboard-list__table tbody tr:hover {
+  background: var(--color-panel-sunken);
 }
 
 .dashboard-list__table tr:last-child td {
@@ -592,7 +780,7 @@ onMounted(() => {
   display: block;
   color: var(--color-text);
   font-size: 15px;
-  font-weight: 900;
+  font-weight: var(--fw-black);
   line-height: 1.2;
   overflow-wrap: anywhere;
   text-decoration: none;
@@ -607,12 +795,13 @@ onMounted(() => {
   display: block;
   margin-top: 6px;
   color: var(--color-text-muted);
+  font-size: var(--fs-label);
   overflow-wrap: anywhere;
 }
 
 .dashboard-list__share-link {
-  color: var(--color-accent);
-  font-weight: 800;
+  color: var(--color-accent-700);
+  font-weight: var(--fw-bold);
 }
 
 .dashboard-list__status {
@@ -620,51 +809,90 @@ onMounted(() => {
   align-items: center;
   min-height: 24px;
   max-width: 100%;
-  padding: 0 8px;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--color-text-muted) 12%, white);
+  padding: 0 9px;
+  border-radius: var(--radius-pill);
+  background: var(--color-panel-muted);
   color: var(--color-text-muted);
-  font-size: 12px;
-  font-weight: 900;
+  font-size: var(--fs-label);
+  font-weight: var(--fw-bold);
 }
 
 .dashboard-list__status.is-published {
-  background: color-mix(in srgb, var(--color-success) 14%, white);
+  background: var(--color-success-soft);
   color: var(--color-success);
 }
 
+.dashboard-list__roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.dashboard-list__role-chip,
+.dashboard-list__availability {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  max-width: 100%;
+  padding: 0 9px;
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-label);
+  font-weight: var(--fw-bold);
+}
+
+.dashboard-list__role-chip {
+  background: var(--color-accent-50);
+  color: var(--color-accent-700);
+}
+
+.dashboard-list__availability {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.dashboard-list__availability.is-disabled {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+/* ── Actions: horizontal flow, wraps gracefully ── */
 .dashboard-list__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
 }
 
 .dashboard-list__actions button,
 .dashboard-list__action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  max-width: 100%;
-  padding: 0 10px;
-  font-size: 12px;
+  padding: 0 11px;
+  font-size: var(--fs-label);
   line-height: 1;
 }
 
 .dashboard-list__danger {
-  border-color: color-mix(in srgb, var(--color-danger) 28%, var(--color-border));
-  background: color-mix(in srgb, var(--color-danger) 6%, var(--color-panel));
+  border-color: color-mix(in srgb, var(--color-danger) 24%, var(--color-border));
+  background: var(--color-panel);
+  color: var(--color-danger);
 }
 
+.dashboard-list__danger:hover:not(:disabled) {
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+
+/* ── Version expansion ── */
 .dashboard-list__version-row td {
   padding: 0;
-  background: color-mix(in srgb, var(--color-panel-muted) 72%, #eff6ff);
+  background: var(--color-panel-muted);
 }
 
 .dashboard-list__versions {
   display: grid;
-  gap: 10px;
-  padding: 14px 16px 16px;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
   min-width: 0;
 }
 
@@ -675,14 +903,15 @@ onMounted(() => {
 
 .dashboard-list__versions-title {
   color: var(--color-text);
-  font-size: 13px;
-  font-weight: 900;
+  font-size: var(--fs-label);
+  font-weight: var(--fw-black);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
 .dashboard-list__versions-state {
   color: var(--color-text-muted);
-  font-weight: 800;
+  font-weight: var(--fw-bold);
   overflow-wrap: anywhere;
 }
 
@@ -692,7 +921,7 @@ onMounted(() => {
 
 .dashboard-list__version-list {
   display: grid;
-  gap: 8px;
+  gap: var(--space-2);
   min-width: 0;
   padding: 0;
   margin: 0;
@@ -703,11 +932,11 @@ onMounted(() => {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
   min-width: 0;
-  padding: 10px;
+  padding: var(--space-3);
   border: 1px solid var(--color-border);
-  border-radius: 7px;
+  border-radius: var(--radius-md);
   background: var(--color-panel);
 }
 
@@ -720,19 +949,19 @@ onMounted(() => {
 
 .dashboard-list__version-list span {
   color: var(--color-text);
-  font-weight: 900;
+  font-weight: var(--fw-black);
 }
 
 .dashboard-list__version-list small {
   margin-top: 3px;
   color: var(--color-text-muted);
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--fs-label);
+  font-weight: var(--fw-bold);
 }
 
 @media (max-width: 760px) {
   .dashboard-list {
-    padding: 18px;
+    padding: var(--space-4);
   }
 
   .dashboard-list__header {
@@ -742,10 +971,6 @@ onMounted(() => {
 
   .dashboard-list__primary-action {
     width: 100%;
-  }
-
-  .dashboard-list__title-group h1 {
-    font-size: 26px;
   }
 
   .dashboard-list__table,
@@ -766,7 +991,7 @@ onMounted(() => {
   }
 
   .dashboard-list__table tr {
-    padding: 14px;
+    padding: var(--space-4);
     border-bottom: 1px solid var(--color-border);
   }
 
@@ -798,6 +1023,10 @@ onMounted(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .dashboard-list {
+    animation: none;
+  }
+
   .dashboard-list__skeleton {
     animation: none;
   }

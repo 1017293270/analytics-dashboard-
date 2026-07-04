@@ -8,6 +8,7 @@ import ImageRenderer from './renderers/ImageRenderer.vue'
 import MetricCardRenderer from './renderers/MetricCardRenderer.vue'
 import TableRenderer from './renderers/TableRenderer.vue'
 import TextRenderer from './renderers/TextRenderer.vue'
+import WebEmbedRenderer from './renderers/WebEmbedRenderer.vue'
 
 export type PropertyGroup = 'basic' | 'data' | 'style' | 'analysis'
 
@@ -166,6 +167,19 @@ export const componentRegistry: Record<ComponentType, ComponentDefinition> = {
     },
     propertyGroups: ['basic', 'style'],
     renderer: DecorationRenderer,
+  },
+  'web-embed': {
+    type: 'web-embed',
+    title: '第三方网页',
+    defaultLayout: { width: 720, height: 420 },
+    defaultProps: { title: '第三方数据看板', url: 'https://demo.school.local/alarm-bi' },
+    defaultStyle: {
+      backgroundColor: 'rgba(15, 23, 42, 0.86)',
+      fontColor: '#e2e8f0',
+      borderColor: 'rgba(56, 189, 248, 0.36)',
+    },
+    propertyGroups: ['basic', 'data', 'style'],
+    renderer: WebEmbedRenderer,
   },
 }
 
