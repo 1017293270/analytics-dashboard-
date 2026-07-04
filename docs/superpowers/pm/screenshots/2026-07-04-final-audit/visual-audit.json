@@ -1,0 +1,1145 @@
+{
+  "generatedAt": "2026-07-03T17:24:31.730Z",
+  "baseURL": "http://127.0.0.1:5174",
+  "viewport": [
+    1366,
+    768
+  ],
+  "errors": [],
+  "results": [
+    {
+      "name": "01-overview",
+      "screenshot": "01-overview.png",
+      "layout": {
+        "url": "/overview",
+        "title": "AI Data Big Screen Designer",
+        "viewport": [
+          1366,
+          768
+        ],
+        "documentSize": [
+          1366,
+          768
+        ],
+        "horizontalOverflow": 0,
+        "horizontalOffenders": [
+          {
+            "tag": "span",
+            "className": "app-shell__status-dot",
+            "text": "",
+            "overX": 5,
+            "client": [
+              7,
+              7
+            ],
+            "scroll": [
+              12,
+              12
+            ],
+            "rect": [
+              18,
+              745,
+              7,
+              7
+            ],
+            "visible": true
+          },
+          {
+            "tag": "div",
+            "className": "el-badge top-bar__badge",
+            "text": "3",
+            "overX": 11,
+            "client": [
+              38,
+              38
+            ],
+            "scroll": [
+              49,
+              38
+            ],
+            "rect": [
+              1155,
+              13,
+              38,
+              38
+            ],
+            "visible": true
+          },
+          {
+            "tag": "div",
+            "className": "el-table__header-wrapper",
+            "text": "级别设备发生位置责任人触发方式状态上报操作",
+            "overX": 82,
+            "client": [
+              690,
+              45
+            ],
+            "scroll": [
+              772,
+              45
+            ],
+            "rect": [
+              285,
+              409,
+              690,
+              45
+            ],
+            "visible": true
+          },
+          {
+            "tag": "div",
+            "className": "el-scrollbar__wrap el-scrollbar__wrap--hidden-default",
+            "text": "高HB-3F-021三楼智慧黑板教学楼 3 楼 302 教室周老师黑板心跳中断未处理10:28 查看 中DVR-1-201-01教学楼 1 栋 NVR弱电间王工录像服务异常处理中10:18 查看 低ACC-1-001-01南门门禁控制器南门出入口赵老师门禁认证失败已处理09:58",
+            "overX": 82,
+            "client": [
+              690,
+              183
+            ],
+            "scroll": [
+              772,
+              183
+            ],
+            "rect": [
+              285,
+              454,
+              690,
+              183
+            ],
+            "visible": true
+          },
+          {
+            "tag": "span",
+            "className": "overview__health-pulse overview__health-pulse--success",
+            "text": "",
+            "overX": 5,
+            "client": [
+              7,
+              7
+            ],
+            "scroll": [
+              12,
+              12
+            ],
+            "rect": [
+              1273,
+              363,
+              7,
+              7
+            ],
+            "visible": true
+          },
+          {
+            "tag": "div",
+            "className": "el-table__header-wrapper",
+            "text": "工作台角色状态更新",
+            "overX": 67,
+            "client": [
+              317,
+              45
+            ],
+            "scroll": [
+              384,
+              45
+            ],
+            "rect": [
+              648,
+              1169,
+              317,
+              45
+            ],
+            "visible": true
+          },
+          {
+            "tag": "div",
+            "className": "el-scrollbar__wrap el-scrollbar__wrap--hidden-default",
+            "text": "全员工作台全员已启用09:18电教主任工作台电教主任已启用08:42德育主任工作台德育主任已启用08:30教研主任工作台教研主任已启用08:20",
+            "overX": 67,
+            "client": [
+              317,
+              175
+            ],
+            "scroll": [
+              384,
+              175
+            ],
+            "rect": [
+              648,
+              1214,
+              317,
+              175
+            ],
+            "visible": true
+          }
+        ],
+        "forbidden": []
+      },
+      "textSample": "智慧教育集控平台 Smart Education Console 概览 首页总览 运营 工作台配置 数据看板 应用中心 告警管理 教学 智慧黑板 互动教学 系统 账号与角色 系统运行正常 未来实验学校 系统管理员 搜索设备、看板、应用… ⌘K 3 系 系统管理员 现场演示 数据已同步 09:46 首页总览 未来实验学校 · 系统管理员视角 · 统一查看设备、告警、应用与角色工作台运行状态。 刷新数据 进入演示模式 设备在线率 较昨日 +1.2% 98.6% 在线设备 642 / 651 未处理告警 高优先级 1 条 4 今日上报 8 条 角色工作台 覆盖 4 类角色 4 已启用 4 个 演示应用 网页端 5 / 移动端 3 8 已启用 6 个 告警优先级队列 按处置优先级展示当前需要关注的设备事件。 全部 未处理 处理中 级别 设备 发生位置 责任人 触发方式 状态 上报 操作 高 HB-3F-021 三楼智慧黑板 教学楼 3 楼 302 教室 周老师 黑板心跳中断 未处理 10:28 查看 中 DVR-1-201-01 教学楼 1 栋 NVR 弱电间 王工 录像服务异常 处理中 10"
+    },
+    {
+      "name": "02-accounts",
+      "screenshot": "02-accounts.png",
+      "layout": {
+        "url": "/accounts",
+        "title": "AI Data Big Screen Designer",
+        "viewport": [
+          1366,
+          768
+        ],
+        "documentSize": [
+          1366,
+          768
+        ],
+        "horizontalOverflow": 0,
+        "horizontalOffenders": [
+          {
+            "tag": "span",
+            "className": "app-shell__status-dot",
+            "text": "",
+            "overX": 6,
+            "client": [
+              7,
+              7
+            ],
+            "scroll": [
+              13,
+              13
+            ],
+            "rect": [
+              18,
+              745,
+              7,
+              7
+            ],
+            "visible": true
+          },
+          {
+            "tag": "div",
+            "className": "el-badge top-bar__badge",
+            "text": "3",
+            "overX": 11,
+            "client": [
+              38,
+              38
+            ],
+            "scroll": [
+              49,
+              38
+            ],
+            "rect": [
+              1155,
+              13,
+              38,
+              38
+            ],
+            "visible": true
+          },
+          {
+            "tag": "div",
+            "className": "el-card__body",
+            "text": "账号列表角色管理账号姓名手机号角色状态最近登录可见工作台操作adminuser-system-admin系统管理员13800000001系统管理员已启用2026-07-03 09:18全员工作台电教主任工作台德育主任工作台教研主任工作台 编辑 停用 重置密码 all_staffu",
+            "overX": 446,
+            "client": [
+              740,
+              468
+            ],
+            "scroll": [
+              1186,
+              468
+            ],
+            "rect": [
+              269,
+              270,
+              740,
+              468
+            ],
+            "visible": true
+          },
+          {
+            "tag": "span",
+            "className": "",
+            "text": "user-system-admin",
+            "overX": 7,
+            "client": [
+              103,
+              18
+            ],
+            "scroll": [
+              110,
+              18
+            ],
+            "rect": [
+              318,
+              442,
+              103,
+              18
+            ],
+            "visible": true
+          },
+          {
+            "tag": "span",
+            "className": "",
+            "text": "user-electro-director",
+            "overX": 15,
+            "client": [
+              103,
+              18
+            ],
+            "scroll": [
+              118,
+              18
+            ],
+            "rect": [
+              318,
+              584,
+              103,
+              18
+            ],
+            "visible": true
+          },
+          {
+            "tag": "span",
+            "className": "",
+            "text": "user-moral-director",
+            "overX": 9,
+            "client": [
+              103,
+              18
+            ],
+            "scroll": [
+              112,
+              18
+            ],
+            "rect": [
+              318,
+              641,
+              103,
+              18
+            ],
+            "visible": true
+          },
+          {
+            "tag": "strong",
+            "className": "",
+            "text": "research_director",
+            "overX": 9,
+            "client": [
+              103,
+              20
+            ],
+            "scroll": [
+              112,
+              20
+            ],
+            "rect": [
+              318,
+              676,
+              103,
+              20
+            ],
+            "visible": true
+          },
+          {
+            "tag": "span",
+            "className": "",
+            "text": "user-research-director",
+            "overX": 24,
+            "client": [
+              103,
+              18
+            ],
+            "scroll": [
+              127,
+              18
+            ],
+            "rect": [
+              318,
+              697,
+              103,
+              18
+            ],
+            "visible": true
+          }
+        ],
+        "forbidden": []
+      },
+      "textSample": "智慧教育集控平台 Smart Education Console 概览 首页总览 运营 工作台配置 数据看板 应用中心 告警管理 教学 智慧黑板 互动教学 系统 账号与角色 系统运行正常 未来实验学校 系统管理员 搜索设备、看板、应用… ⌘K 3 系 系统管理员 账号与角色 角色可见范围 账号与角色 账号角色用于预览菜单与工作台可见范围，工作台发布策略在工作台配置页统一维护。 重置演示状态 新增账号 账号总数 5 启用账号 5 角色数量 5 已绑定工作台 4 账号列表 角色管理 账号 姓名 手机号 角色 状态 最近登录 可见工作台 操作 admin user-system-admin 系统管理员 13800000001 系统管理员 已启用 2026-07-03 09:18 全员工作台 电教主任工作台 德育主任工作台 教研主任工作台 编辑 停用 重置密码 all_staff user-all-staff 全员演示账号 13800000002 全员 已启用 2026-07-03 08:56 全员工作台 编辑 停用 重置密码 electro_director user-electro-dir"
+    },
+    {
+      "name": "03-workbenches",
+      "screenshot": "03-workbenches.png",
+      "layout": {
+        "url": "/workbenches",
+        "title": "AI Data Big Screen Designer",
+        "viewport": [
+          1366,
+          768
+        ],
+        "documentSize": [
+          1366,
+          768
+        ],
+        "horizontalOverflow": 0,
+        "horizontalOffenders": [
+          {
+            "tag": "span",
+            "className": "app-shell__status-dot",
+            "text": "",
+            "overX": 6,
+            "client": [
+              7,
+              7
+            ],
+            "scroll": [
+              13,
+              13
+            ],
+            "rect": [
+              18,
+              745,
+              7,
+              7
+            ],
+            "visible": true
+          },
+          {
+            "tag": "div",
+            "className": "el-badge top-bar__badge",
+            "text": "3",
+            "overX": 11,
+            "client": [
+              38,
+              38
+            ],
+            "scroll": [
+              49,
+              38
+            ],
+            "rect": [
+              1155,
+              13,
+              38,
+              38
+            ],
+            "visible": true
+          }
+        ],
+        "forbidden": []
+      },
+      "textSample": "智慧教育集控平台 Smart Education Console 概览 首页总览 运营 工作台配置 数据看板 应用中心 告警管理 教学 智慧黑板 互动教学 系统 账号与角色 系统运行正常 未来实验学校 系统管理员 搜索设备、看板、应用… ⌘K 3 系 系统管理员 大屏库 新建大屏 启停状态为本机演示保存，角色可见性用于现场演示。 名称 状态 使用角色 启用状态 更新时间 发布时间 操作 未命名大屏 草稿 全员 已启用 7月3日 21:00 未发布 编辑 运行态 复制 版本 分享 停用 归档 教研主任工作台 工作台配置演示态 草稿 教研主任 已启用 7月3日 20:52 未发布 编辑 运行态 复制 版本 分享 停用 归档 德育主任工作台 工作台配置演示态 草稿 德育主任 已启用 7月3日 20:52 未发布 编辑 运行态 复制 版本 分享 停用 归档 电教主任工作台 工作台配置演示态 草稿 电教主任 已启用 7月3日 20:52 未发布 编辑 运行态 复制 版本 分享 停用 归档 全员工作台 工作台配置演示态 草稿 全员 已启用 7月3日 20:52 未发布 编辑 运行态 复制 版本 分"
+    },
+    {
+      "name": "04-workbench-designer",
+      "screenshot": "04-workbench-designer.png",
+      "layout": {
+        "url": "/workbenches/dashboard-electro",
+        "title": "AI Data Big Screen Designer",
+        "viewport": [
+          1366,
+          768
+        ],
+        "documentSize": [
+          1366,
+          768
+        ],
+        "horizontalOverflow": 0,
+        "horizontalOffenders": [
+          {
+            "tag": "span",
+            "className": "app-shell__status-dot",
+            "text": "",
+            "overX": 6,
+            "client": [
+              7,
+              7
+            ],
+            "scroll": [
+              13,
+              13
+            ],
+            "rect": [
+              18,
+              745,
+              7,
+              7
+            ],
+            "visible": true
+          },
+          {
+            "tag": "div",
+            "className": "el-badge top-bar__badge",
+            "text": "3",
+            "overX": 11,
+            "client": [
+              38,
+              38
+            ],
+            "scroll": [
+              49,
+              38
+            ],
+            "rect": [
+              1155,
+              13,
+              38,
+              38
+            ],
+            "visible": true
+          },
+          {
+            "tag": "span",
+            "className": "designer-toolbar__sr-only",
+            "text": "大屏名称",
+            "overX": 63,
+            "client": [
+              1,
+              1
+            ],
+            "scroll": [
+              64,
+              21
+            ],
+            "rect": [
+              319,
+              76,
+              1,
+              1
+            ],
+            "visible": true
+          },
+          {
+            "tag": "div",
+            "className": "designer-canvas__viewport",
+            "text": "第三方数据看板第三方网页组件",
+            "overX": 1438,
+            "client": [
+              538,
+              602
+            ],
+            "scroll": [
+              1976,
+              1136
+            ],
+            "rect": [
+              508,
+              166,
+              538,
+              602
+            ],
+            "visible": true
+          },
+          {
+            "tag": "div",
+            "className": "designer-canvas__component-frame is-selected",
+            "text": "第三方数据看板第三方网页组件",
+            "overX": 6,
+            "client": [
+              718,
+              418
+            ],
+            "scroll": [
+              724,
+              424
+            ],
+            "rect": [
+              600,
+              258,
+              720,
+              420
+            ],
+            "visible": true
+          },
+          {
+            "tag": "input",
+            "className": "",
+            "text": "",
+            "overX": 17,
+            "client": [
+              267,
+              32
+            ],
+            "scroll": [
+              284,
+              32
+            ],
+            "rect": [
+              1072,
+              397,
+              269,
+              34
+            ],
+            "visible": true
+          },
+          {
+            "tag": "input",
+            "className": "color-field__input",
+            "text": "",
+            "overX": 35,
+            "client": [
+              143,
+              32
+            ],
+            "scroll": [
+              178,
+              32
+            ],
+            "rect": [
+              1196,
+              961,
+              145,
+              34
+            ],
+            "visible": true
+          },
+          {
+            "tag": "input",
+            "className": "color-field__input",
+            "text": "",
+            "overX": 53,
+            "client": [
+              143,
+              32
+            ],
+            "scroll": [
+              196,
+              32
+            ],
+            "rect": [
+              1196,
+              1093,
+              145,
+              34
+            ],
+            "visible": true
+          }
+        ],
+        "forbidden": []
+      },
+      "textSample": "智慧教育集控平台 Smart Education Console 概览 首页总览 运营 工作台配置 数据看板 应用中心 告警管理 教学 智慧黑板 互动教学 系统 账号与角色 系统运行正常 未来实验学校 系统管理员 搜索设备、看板、应用… ⌘K 3 系 系统管理员 大屏名称 草稿 有未保存改动 撤销 重做 模板 AI 运营指挥 经营 KPI 指挥 客服体验分析 数据质量健康 - 25% 50% 75% 100% 125% 150% 200% + 预览 保存 发布 组件 构建模块 今 今日告警 数据指标 · 告警数量指标 设 设备在线率 数据指标 · 在线率百分比 教 教师发展指数 数据指标 · 教研成长指标 学 学生成长指数 数据指标 · 学生成长指标 启 启用应用数 数据指标 · 应用启用统计 趋 趋势折线图 图表组件 · 时间趋势分析 面 面积趋势图 图表组件 · 趋势面积分析 分 分类柱状图 图表组件 · 分类对比分析 横 横向排行图 图表组件 · 排行对比分析 环 环形占比图 图表组件 · 占比结构分析 玫 玫瑰占比图 图表组件 · 重点占比展示 雷 雷达能力图 图表组件 · 多"
+    },
+    {
+      "name": "05-data-dashboards",
+      "screenshot": "05-data-dashboards.png",
+      "layout": {
+        "url": "/data-dashboards",
+        "title": "AI Data Big Screen Designer",
+        "viewport": [
+          1366,
+          768
+        ],
+        "documentSize": [
+          1366,
+          768
+        ],
+        "horizontalOverflow": 0,
+        "horizontalOffenders": [
+          {
+            "tag": "span",
+            "className": "app-shell__status-dot",
+            "text": "",
+            "overX": 4,
+            "client": [
+              7,
+              7
+            ],
+            "scroll": [
+              11,
+              11
+            ],
+            "rect": [
+              18,
+              745,
+              7,
+              7
+            ],
+            "visible": true
+          },
+          {
+            "tag": "div",
+            "className": "el-badge top-bar__badge",
+            "text": "3",
+            "overX": 11,
+            "client": [
+              38,
+              38
+            ],
+            "scroll": [
+              49,
+              38
+            ],
+            "rect": [
+              1155,
+              13,
+              38,
+              38
+            ],
+            "visible": true
+          },
+          {
+            "tag": "span",
+            "className": "data-dashboards__single-line",
+            "text": "https://demo.school.local/alarm-bi",
+            "overX": 153,
+            "client": [
+              63,
+              20
+            ],
+            "scroll": [
+              216,
+              20
+            ],
+            "rect": [
+              822,
+              647,
+              63,
+              20
+            ],
+            "visible": true
+          },
+          {
+            "tag": "span",
+            "className": "data-dashboards__single-line",
+            "text": "https://demo.school.local/app-usage",
+            "overX": 167,
+            "client": [
+              63,
+              20
+            ],
+            "scroll": [
+              230,
+              20
+            ],
+            "rect": [
+              822,
+              703,
+              63,
+              20
+            ],
+            "visible": true
+          }
+        ],
+        "forbidden": []
+      },
+      "textSample": "智慧教育集控平台 Smart Education Console 概览 首页总览 运营 工作台配置 数据看板 应用中心 告警管理 教学 智慧黑板 互动教学 系统 账号与角色 系统运行正常 未来实验学校 系统管理员 搜索设备、看板、应用… ⌘K 3 系 系统管理员 集控控制管理系统 数据中心 数据看板 统一管理校级数据看板、角色可见范围和第三方看板嵌入。 配置第三方看板 看板总数 6 已启用 5 默认看板 3 第三方嵌入 2 看板名称 看板类型 全部 使用角色 全部 状态 全部 来源类型 全部 操作 重置 查询 看板名称 看板类型 使用角色 来源 状态 更新时间 操作 教育治理 默认 治理分析 全员 电教主任 内置看板 已启用 2026-07-09 10:10 预览 配置 停用 教师发展 默认 教师发展 教研主任 内置看板 已启用 2026-07-09 09:42 预览 配置 停用 学生成长 默认 学生成长 德育主任 内置看板 已启用 2026-07-09 09:20 预览 配置 停用 设备运维 设备运维 电教主任 内置看板 已启用 2026-07-09 09:05 预览 配置 停用 告"
+    },
+    {
+      "name": "06-applications",
+      "screenshot": "06-applications.png",
+      "layout": {
+        "url": "/applications",
+        "title": "AI Data Big Screen Designer",
+        "viewport": [
+          1366,
+          768
+        ],
+        "documentSize": [
+          1366,
+          768
+        ],
+        "horizontalOverflow": 0,
+        "horizontalOffenders": [
+          {
+            "tag": "span",
+            "className": "app-shell__status-dot",
+            "text": "",
+            "overX": 5,
+            "client": [
+              7,
+              7
+            ],
+            "scroll": [
+              12,
+              12
+            ],
+            "rect": [
+              18,
+              745,
+              7,
+              7
+            ],
+            "visible": true
+          },
+          {
+            "tag": "div",
+            "className": "el-badge top-bar__badge",
+            "text": "3",
+            "overX": 11,
+            "client": [
+              38,
+              38
+            ],
+            "scroll": [
+              49,
+              38
+            ],
+            "rect": [
+              1155,
+              13,
+              38,
+              38
+            ],
+            "visible": true
+          },
+          {
+            "tag": "div",
+            "className": "el-table__header-wrapper",
+            "text": "应用名称应用分类端类型访问地址 / 包标识可见范围状态操作",
+            "overX": 40,
+            "client": [
+              1048,
+              45
+            ],
+            "scroll": [
+              1088,
+              45
+            ],
+            "rect": [
+              283,
+              360,
+              1048,
+              45
+            ],
+            "visible": true
+          },
+          {
+            "tag": "div",
+            "className": "el-scrollbar__wrap el-scrollbar__wrap--hidden-default",
+            "text": "校园通知发布系统管理工具网页端https://demo.school.local/notice全员德育主任已启用 编辑 停用 卸载 打开 移动巡检管理工具移动端com.school.inspection电教主任已启用 编辑 停用 卸载 打开 学生请假审批移动服务网页端https:",
+            "overX": 40,
+            "client": [
+              1048,
+              330
+            ],
+            "scroll": [
+              1088,
+              330
+            ],
+            "rect": [
+              283,
+              405,
+              1048,
+              330
+            ],
+            "visible": true
+          },
+          {
+            "tag": "span",
+            "className": "application-center__single-line",
+            "text": "https://demo.school.local/notice",
+            "overX": 16,
+            "client": [
+              186,
+              20
+            ],
+            "scroll": [
+              202,
+              20
+            ],
+            "rect": [
+              661,
+              414,
+              186,
+              20
+            ],
+            "visible": true
+          },
+          {
+            "tag": "span",
+            "className": "application-center__single-line",
+            "text": "https://demo.school.local/leave",
+            "overX": 10,
+            "client": [
+              186,
+              20
+            ],
+            "scroll": [
+              196,
+              20
+            ],
+            "rect": [
+              661,
+              491,
+              186,
+              20
+            ],
+            "visible": true
+          },
+          {
+            "tag": "span",
+            "className": "application-center__single-line",
+            "text": "https://demo.school.local/energy",
+            "overX": 20,
+            "client": [
+              186,
+              20
+            ],
+            "scroll": [
+              206,
+              20
+            ],
+            "rect": [
+              661,
+              529,
+              186,
+              20
+            ],
+            "visible": true
+          },
+          {
+            "tag": "span",
+            "className": "application-center__single-line",
+            "text": "https://demo.school.local/resources",
+            "overX": 37,
+            "client": [
+              186,
+              20
+            ],
+            "scroll": [
+              223,
+              20
+            ],
+            "rect": [
+              661,
+              606,
+              186,
+              20
+            ],
+            "visible": true
+          },
+          {
+            "tag": "span",
+            "className": "application-center__single-line",
+            "text": "https://demo.school.local/governance",
+            "overX": 50,
+            "client": [
+              186,
+              20
+            ],
+            "scroll": [
+              236,
+              20
+            ],
+            "rect": [
+              661,
+              656,
+              186,
+              20
+            ],
+            "visible": true
+          }
+        ],
+        "forbidden": []
+      },
+      "textSample": "智慧教育集控平台 Smart Education Console 概览 首页总览 运营 工作台配置 数据看板 应用中心 告警管理 教学 智慧黑板 互动教学 系统 账号与角色 系统运行正常 未来实验学校 系统管理员 搜索设备、看板、应用… ⌘K 3 系 系统管理员 应用中心 网页端 / 移动端 应用中心 统一管理网页端与移动端应用，配置分类、可见范围与启停状态。 添加应用 应用总数 8 网页端 5 移动端 3 已启用 6 应用名称 应用分类 全部 端类型 全部 状态 全部 可见范围 全部 操作 重置 查询 应用名称 应用分类 端类型 访问地址 / 包标识 可见范围 状态 操作 校园通知发布系统 管理工具 网页端 https://demo.school.local/notice 全员 德育主任 已启用 编辑 停用 卸载 打开 移动巡检 管理工具 移动端 com.school.inspection 电教主任 已启用 编辑 停用 卸载 打开 学生请假审批 移动服务 网页端 https://demo.school.local/leave 全员 德育主任 已启用 编辑 停用 卸载 打开 能耗管理平"
+    },
+    {
+      "name": "07-alarms",
+      "screenshot": "07-alarms.png",
+      "layout": {
+        "url": "/alarms",
+        "title": "AI Data Big Screen Designer",
+        "viewport": [
+          1366,
+          768
+        ],
+        "documentSize": [
+          1366,
+          768
+        ],
+        "horizontalOverflow": 0,
+        "horizontalOffenders": [
+          {
+            "tag": "span",
+            "className": "app-shell__status-dot",
+            "text": "",
+            "overX": 4,
+            "client": [
+              7,
+              7
+            ],
+            "scroll": [
+              11,
+              11
+            ],
+            "rect": [
+              18,
+              745,
+              7,
+              7
+            ],
+            "visible": true
+          },
+          {
+            "tag": "div",
+            "className": "el-badge top-bar__badge",
+            "text": "3",
+            "overX": 11,
+            "client": [
+              38,
+              38
+            ],
+            "scroll": [
+              49,
+              38
+            ],
+            "rect": [
+              1155,
+              13,
+              38,
+              38
+            ],
+            "visible": true
+          }
+        ],
+        "forbidden": []
+      },
+      "textSample": "智慧教育集控平台 Smart Education Console 概览 首页总览 运营 工作台配置 数据看板 应用中心 告警管理 教学 智慧黑板 互动教学 系统 账号与角色 系统运行正常 未来实验学校 系统管理员 搜索设备、看板、应用… ⌘K 3 系 系统管理员 集控控制管理系统 现场演示 告警管理 按设备、位置、状态和触发方式筛选学校设备事件，并完成处置演示。 刷新列表 告警总数 8 未处理 4 处理中 2 已处理 2 时间范围 至 设备编号/名称/位置 事件状态 全部 触发方式 全部 操作 重置 查询 设备标识符 设备名称 发生位置 通知人/责任人 触发方式 事件状态 上报时间 操作 HB-3F-021 三楼智慧黑板 教学楼 3 楼 302 教室 周老师 设备离线 未处理 2026-07-09 10:28:12 查看 告警详情 未处理 黑板心跳中断 设备标识符 HB-3F-021 设备名称 三楼智慧黑板 发生位置 教学楼 3 楼 302 教室 上报时间 2026-07-09 10:28:12 触发方式 设备离线 责任人 周老师 责任人电话 138 0000 1201 事件触发录音 "
+    },
+    {
+      "name": "08-teaching",
+      "screenshot": "08-teaching.png",
+      "layout": {
+        "url": "/teaching",
+        "title": "AI Data Big Screen Designer",
+        "viewport": [
+          1366,
+          768
+        ],
+        "documentSize": [
+          1366,
+          768
+        ],
+        "horizontalOverflow": 0,
+        "horizontalOffenders": [
+          {
+            "tag": "span",
+            "className": "app-shell__status-dot",
+            "text": "",
+            "overX": 6,
+            "client": [
+              7,
+              7
+            ],
+            "scroll": [
+              13,
+              13
+            ],
+            "rect": [
+              18,
+              745,
+              7,
+              7
+            ],
+            "visible": true
+          },
+          {
+            "tag": "div",
+            "className": "el-badge top-bar__badge",
+            "text": "3",
+            "overX": 11,
+            "client": [
+              38,
+              38
+            ],
+            "scroll": [
+              49,
+              38
+            ],
+            "rect": [
+              1155,
+              13,
+              38,
+              38
+            ],
+            "visible": true
+          }
+        ],
+        "forbidden": []
+      },
+      "textSample": "智慧教育集控平台 Smart Education Console 概览 首页总览 运营 工作台配置 数据看板 应用中心 告警管理 教学 智慧黑板 互动教学 系统 账号与角色 系统运行正常 未来实验学校 系统管理员 搜索设备、看板、应用… ⌘K 3 系 系统管理员 交互智能平板 ♦27 互动教学 现场演示用课堂协同模拟：角色切换、远程共享、截屏插入、答题器与布局控制。 可演示 课堂成员 6 人在线 林老师 在线 主讲人 设为授课老师 设为学生 周老师 静音 学生 设为授课老师 设为学生 陈同学 在线 授课老师 设为授课老师 设为学生 王同学 网络弱 学生 设为授课老师 设为学生 李同学 在线 学生 设为授课老师 设为学生 赵同学 在线 学生 设为授课老师 设为学生 课堂舞台 当前布局：白板优先 教师发言聚焦中 远程白板共享中 白板优先 电脑桌面共享中 教师发言放大显示 宫格 主讲 桌面优先 白板优先 演示控制 模拟课堂 共享远程白板 共享电脑桌面 截屏插入 答题器 教师发言时放大显示 截图记录 截图 1 桌面 答题器 这节课的关键词是什么？ 已作答 2 人：陈同学、王同学 分数 1 人 "
+    },
+    {
+      "name": "09-blackboard",
+      "screenshot": "09-blackboard.png",
+      "layout": {
+        "url": "/blackboard",
+        "title": "AI Data Big Screen Designer",
+        "viewport": [
+          1366,
+          768
+        ],
+        "documentSize": [
+          1366,
+          768
+        ],
+        "horizontalOverflow": 0,
+        "horizontalOffenders": [
+          {
+            "tag": "span",
+            "className": "app-shell__status-dot",
+            "text": "",
+            "overX": 6,
+            "client": [
+              7,
+              7
+            ],
+            "scroll": [
+              13,
+              13
+            ],
+            "rect": [
+              18,
+              745,
+              7,
+              7
+            ],
+            "visible": true
+          },
+          {
+            "tag": "div",
+            "className": "el-badge top-bar__badge",
+            "text": "3",
+            "overX": 11,
+            "client": [
+              38,
+              38
+            ],
+            "scroll": [
+              49,
+              38
+            ],
+            "rect": [
+              1155,
+              13,
+              38,
+              38
+            ],
+            "visible": true
+          },
+          {
+            "tag": "input",
+            "className": "el-input__inner",
+            "text": "",
+            "overX": 82,
+            "client": [
+              184,
+              30
+            ],
+            "scroll": [
+              266,
+              30
+            ],
+            "rect": [
+              708,
+              520,
+              184,
+              30
+            ],
+            "visible": true
+          }
+        ],
+        "forbidden": []
+      },
+      "textSample": "智慧教育集控平台 Smart Education Console 概览 首页总览 运营 工作台配置 数据看板 应用中心 告警管理 教学 智慧黑板 互动教学 系统 账号与角色 系统运行正常 未来实验学校 系统管理员 搜索设备、看板、应用… ⌘K 3 系 系统管理员 智慧黑板 课堂活动制作 输入课堂文本，一键生成选词填空、判断对错和趣味选择活动。 完成制作 来源内容 演示解析 文本输入 视频转写 视频声音转文字 演示环境展示转写结果，不接入真实视频处理。 转写结果预览 视频片段同步删除：暂未启用 删除语气词 一键解析 活动编辑 选词填空 选词填空 判断对错 趣味选择 题干 选项与正确答案 A 删除 B 删除 C 删除 添加选项 已识别显式答案：指南针 未识别到选项，已生成演示选项 黑板预览 课堂展示 选词填空 选词填空：____是中国古代四大发明之一。 A 指南针 正确答案 B 选词填空：指南针是中国古代四大发明之一 C 核心概念 未来实验学校 · 智慧黑板演示"
+    }
+  ]
+}
