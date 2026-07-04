@@ -52,4 +52,24 @@ describe('workbench metadata', () => {
     expect(() => updateWorkbenchVisibleRoles(workbench, [])).toThrow('至少选择一个可见角色')
     expect(updateWorkbenchVisibleRoles(workbench, ['全员', '教研主任']).visibleRoles).toEqual(['全员', '教研主任'])
   })
+
+  test('maps role codes and availability codes safely for API-backed settings', () => {
+    const workbench = createWorkbenchMetadata({
+      id: 'dashboard-electro',
+      name: '电教主任工作台',
+      visibleRoles: ['all-staff', 'teaching-research-director', 'unknown-role'],
+      availability: 'disabled' as never,
+    })
+
+    expect(workbench.visibleRoles).toEqual(['全员', '教研主任', 'unknown-role'])
+    expect((workbench as { visibleRoleCodes?: string[] }).visibleRoleCodes).toEqual([
+      'all-staff',
+      'teaching-research-director',
+      'unknown-role',
+    ])
+    expect(workbench.availability).toBe('已停用')
+    expect(createWorkbenchMetadata({ id: 'dashboard-1', name: 'Custom', availability: 'paused' as never }).availability).toBe(
+      '已启用',
+    )
+  })
 })

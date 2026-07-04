@@ -1,30 +1,23 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '../../auth/stores/useAuthStore'
 import { bigScreenApi, type DashboardListItem, type DashboardRecord, type DashboardVersion } from '../api/bigScreenApi'
 import { bigScreenText } from '../i18n/zh-CN'
 import {
   createWorkbenchMetadata,
-  defaultWorkbenchMetadata,
-  isWorkbenchAvailable,
   toggleWorkbenchAvailability,
-  type WorkbenchAvailability,
   type WorkbenchMetadata,
 } from '../workbenches/workbenchMetadata'
 
 type ListState = 'loading' | 'success' | 'error'
-type RowAction = 'copy' | 'archive' | 'share' | 'versions' | 'rollback'
+type RowAction = 'copy' | 'archive' | 'share' | 'versions' | 'rollback' | 'settings'
 type RowActionState = Partial<Record<RowAction, boolean>>
 type VersionState =
   | { status: 'loading'; versions: []; error: '' }
   | { status: 'success'; versions: DashboardVersion[]; error: '' }
   | { status: 'error'; versions: []; error: string }
 
-const workbenchAvailabilityStorageKey = 'analytics-dashboard.workbench-availability.v1'
-
 const router = useRouter()
-const auth = useAuthStore()
 const dashboards = ref<DashboardListItem[]>([])
 const listState = ref<ListState>('loading')
 const errorMessage = ref('')
@@ -32,14 +25,9 @@ const isCreating = ref(false)
 const activeRowActions = ref<Record<string, RowActionState>>({})
 const shareLinks = ref<Record<string, string>>({})
 const versionStates = ref<Record<string, VersionState>>({})
-const storedWorkbenchAvailability = ref(readStoredWorkbenchAvailability())
-const workbenchMetadata = ref<WorkbenchMetadata[]>(createInitialWorkbenchMetadata())
 
 const isLoading = computed(() => listState.value === 'loading')
-const currentUserRoleNames = computed(() => auth.user?.roles.map((role) => role.name) ?? [])
-const visibleDashboards = computed(() =>
-  dashboards.value.filter((dashboard) => isWorkbenchAvailable(getWorkbenchMetadata(dashboard), currentUserRoleNames.value)),
-)
+const visibleDashboards = computed(() => dashboards.value)
 const hasDashboards = computed(() => listState.value === 'success' && visibleDashboards.value.length > 0)
 const isEmpty = computed(() => listState.value === 'success' && visibleDashboards.value.length === 0)
 
@@ -78,95 +66,44 @@ function cloneWorkbenchMetadata(workbench: WorkbenchMetadata): WorkbenchMetadata
   return {
     ...workbench,
     visibleRoles: [...workbench.visibleRoles],
+    visibleRoleCodes: [...workbench.visibleRoleCodes],
   }
-}
-
-function isStoredWorkbenchAvailability(value: unknown): value is WorkbenchAvailability {
-  return value === '已启用' || value === '已停用'
-}
-
-function readStoredWorkbenchAvailability(): Record<string, WorkbenchAvailability> {
-  if (typeof window === 'undefined') return {}
-
-  try {
-    const raw =
-      window.localStorage?.getItem(workbenchAvailabilityStorageKey) ??
-      window.sessionStorage?.getItem(workbenchAvailabilityStorageKey)
-    if (!raw) return {}
-
-    const parsed = JSON.parse(raw) as Record<string, unknown>
-    return Object.fromEntries(
-      Object.entries(parsed).filter((entry): entry is [string, WorkbenchAvailability] =>
-        isStoredWorkbenchAvailability(entry[1]),
-      ),
-    )
-  } catch {
-    return {}
-  }
-}
-
-function persistWorkbenchAvailability(availabilityById: Record<string, WorkbenchAvailability>) {
-  if (typeof window === 'undefined') return
-
-  try {
-    window.localStorage?.setItem(workbenchAvailabilityStorageKey, JSON.stringify(availabilityById))
-  } catch {
-    try {
-      window.sessionStorage?.setItem(workbenchAvailabilityStorageKey, JSON.stringify(availabilityById))
-    } catch {
-      // Demo-only persistence should never block the workbench list.
-    }
-  }
-}
-
-function createInitialWorkbenchMetadata() {
-  return defaultWorkbenchMetadata.map((workbench) => ({
-    ...cloneWorkbenchMetadata(workbench),
-    availability: storedWorkbenchAvailability.value[workbench.id] ?? workbench.availability,
-  }))
-}
-
-function findWorkbenchMetadataIndex(dashboard: DashboardListItem) {
-  const idMatch = workbenchMetadata.value.findIndex((workbench) => workbench.id === dashboard.id)
-  if (idMatch >= 0) return idMatch
-
-  return workbenchMetadata.value.findIndex((workbench) => workbench.name === dashboard.name)
 }
 
 function createDashboardWorkbenchMetadata(dashboard: DashboardListItem) {
-  const workbench = createWorkbenchMetadata({ id: dashboard.id, name: dashboard.name })
-
-  return {
-    ...workbench,
-    availability: storedWorkbenchAvailability.value[workbench.id] ?? workbench.availability,
-  }
+  return createWorkbenchMetadata({
+    id: dashboard.id,
+    name: dashboard.name,
+    visibleRoles: dashboard.visibleRoles,
+    availability: dashboard.availability,
+  })
 }
 
 function getWorkbenchMetadata(dashboard: DashboardListItem) {
-  const index = findWorkbenchMetadataIndex(dashboard)
-  if (index >= 0) return workbenchMetadata.value[index]
-
-  return createDashboardWorkbenchMetadata(dashboard)
+  return cloneWorkbenchMetadata(createDashboardWorkbenchMetadata(dashboard))
 }
 
-function toggleDashboardWorkbenchAvailability(dashboard: DashboardListItem) {
-  const index = findWorkbenchMetadataIndex(dashboard)
-  const current = index >= 0 ? workbenchMetadata.value[index] : createDashboardWorkbenchMetadata(dashboard)
+async function toggleDashboardWorkbenchAvailability(dashboard: DashboardListItem) {
+  const current = getWorkbenchMetadata(dashboard)
   const next = toggleWorkbenchAvailability(current)
+  setRowAction(dashboard.id, 'settings', true)
+  errorMessage.value = ''
 
-  const nextWorkbenchMetadata =
-    index >= 0
-      ? workbenchMetadata.value.map((workbench, candidateIndex) => (candidateIndex === index ? next : workbench))
-      : [...workbenchMetadata.value, next]
-
-  const nextStoredAvailability = {
-    ...storedWorkbenchAvailability.value,
-    [next.id]: next.availability,
+  try {
+    const updated = await bigScreenApi.updateWorkbenchSettings(dashboard.id, {
+      visibleRoles: current.visibleRoleCodes,
+      availability: next.availabilityCode,
+    })
+    dashboards.value = dashboards.value.map((item) =>
+      item.id === dashboard.id
+        ? { ...item, visibleRoles: updated.visibleRoles, availability: updated.availability }
+        : item,
+    )
+  } catch (error) {
+    errorMessage.value = getErrorMessage(error)
+  } finally {
+    setRowAction(dashboard.id, 'settings', false)
   }
-
-  workbenchMetadata.value = nextWorkbenchMetadata
-  storedWorkbenchAvailability.value = nextStoredAvailability
-  persistWorkbenchAvailability(nextStoredAvailability)
 }
 
 function isRowBusy(id: string, action?: RowAction) {
@@ -365,7 +302,7 @@ onMounted(() => {
 
     <section v-else-if="hasDashboards" class="dashboard-list__panel" :aria-label="bigScreenText.dashboardList.dashboardLibrary">
       <p v-if="errorMessage" class="dashboard-list__inline-error" role="status">{{ errorMessage }}</p>
-      <p class="dashboard-list__notice" role="note">{{ bigScreenText.dashboardList.workbenchDemoNotice }}</p>
+      <p class="dashboard-list__notice" role="note">启停状态由后台保存，角色可见性用于现场演示。</p>
       <table class="dashboard-list__table">
         <thead>
           <tr>
@@ -465,10 +402,11 @@ onMounted(() => {
                   </button>
                   <button
                     type="button"
+                    :disabled="isRowBusy(dashboard.id)"
                     :data-testid="`toggle-workbench-availability-${dashboard.id}`"
                     @click="toggleDashboardWorkbenchAvailability(dashboard)"
                   >
-                    {{ getWorkbenchMetadata(dashboard).availability === '已启用' ? '停用' : '启用' }}
+                    {{ isRowBusy(dashboard.id, 'settings') ? bigScreenText.common.actions.saving : getWorkbenchMetadata(dashboard).availability === '已启用' ? '停用' : '启用' }}
                   </button>
                   <button
                     class="dashboard-list__danger"

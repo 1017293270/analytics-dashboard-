@@ -46,6 +46,131 @@ describe('dashboard routes', () => {
     }
   })
 
+  test('admin list includes workbench visible roles and availability', async () => {
+    const app = createApp()
+    const admin = await loginAs(app)
+
+    const listed = await admin.get('/api/big-screens').expect(200)
+    const workbenches = new Map(
+      listed.body.data.map((dashboard: { id: string; visibleRoles?: string[]; availability?: string }) => [
+        dashboard.id,
+        dashboard,
+      ]),
+    )
+
+    expect(workbenches.get('dashboard-all')).toMatchObject({
+      visibleRoles: ['all-staff'],
+      availability: 'enabled',
+    })
+    expect(workbenches.get('dashboard-electro')).toMatchObject({
+      visibleRoles: ['electro-education-director'],
+      availability: 'enabled',
+    })
+    expect(workbenches.get('dashboard-moral')).toMatchObject({
+      visibleRoles: ['moral-education-director'],
+      availability: 'enabled',
+    })
+    expect(workbenches.get('dashboard-research')).toMatchObject({
+      visibleRoles: ['teaching-research-director'],
+      availability: 'enabled',
+    })
+  })
+
+  test('admin can update workbench settings and list returns persisted settings', async () => {
+    const app = createApp()
+    const admin = await loginAs(app)
+
+    const updated = await admin
+      .patch('/api/big-screens/dashboard-electro/workbench-settings')
+      .send({ visibleRoles: ['all-staff', 'electro-education-director'], availability: 'disabled' })
+      .expect(200)
+
+    expect(updated.body.data).toMatchObject({
+      dashboardId: 'dashboard-electro',
+      visibleRoles: ['all-staff', 'electro-education-director'],
+      availability: 'disabled',
+    })
+
+    const listed = await admin.get('/api/big-screens').expect(200)
+    const electro = listed.body.data.find((dashboard: { id: string }) => dashboard.id === 'dashboard-electro')
+
+    expect(electro).toMatchObject({
+      visibleRoles: ['all-staff', 'electro-education-director'],
+      availability: 'disabled',
+    })
+  })
+
+  test('non-admin cannot update workbench settings', async () => {
+    const app = createApp()
+    const allStaff = await loginAs(app, 'all_staff', 'Demo@123')
+
+    const response = await allStaff
+      .patch('/api/big-screens/dashboard-all/workbench-settings')
+      .send({ visibleRoles: ['all-staff'], availability: 'disabled' })
+      .expect(403)
+
+    expect(response.body.error.code).toBe('FORBIDDEN')
+  })
+
+  test('rejects invalid workbench settings updates', async () => {
+    const app = createApp()
+    const admin = await loginAs(app)
+
+    const emptyRoles = await admin
+      .patch('/api/big-screens/dashboard-all/workbench-settings')
+      .send({ visibleRoles: [], availability: 'enabled' })
+      .expect(400)
+    expect(emptyRoles.body.error.code).toBe('REQUEST_INVALID')
+
+    const invalidAvailability = await admin
+      .patch('/api/big-screens/dashboard-all/workbench-settings')
+      .send({ visibleRoles: ['all-staff'], availability: 'paused' })
+      .expect(400)
+    expect(invalidAvailability.body.error.code).toBe('REQUEST_INVALID')
+
+    const unknownRole = await admin
+      .patch('/api/big-screens/dashboard-all/workbench-settings')
+      .send({ visibleRoles: ['not-a-real-role'], availability: 'enabled' })
+      .expect(400)
+    expect(unknownRole.body.error.code).toBe('REQUEST_INVALID')
+  })
+
+  test('disabled workbench is hidden from non-admin list but visible to admin', async () => {
+    const app = createApp()
+    const admin = await loginAs(app)
+    const electroDirector = await loginAs(app, 'electro_director', 'Demo@123')
+
+    await admin
+      .patch('/api/big-screens/dashboard-electro/workbench-settings')
+      .send({ visibleRoles: ['electro-education-director'], availability: 'disabled' })
+      .expect(200)
+
+    const nonAdminList = await electroDirector.get('/api/big-screens').expect(200)
+    expect(nonAdminList.body.data.map((dashboard: { id: string }) => dashboard.id)).not.toContain('dashboard-electro')
+
+    const adminList = await admin.get('/api/big-screens').expect(200)
+    const electro = adminList.body.data.find((dashboard: { id: string }) => dashboard.id === 'dashboard-electro')
+    expect(electro).toMatchObject({ id: 'dashboard-electro', availability: 'disabled' })
+  })
+
+  test('updated visible roles change non-admin list', async () => {
+    const app = createApp()
+    const admin = await loginAs(app)
+    const allStaff = await loginAs(app, 'all_staff', 'Demo@123')
+
+    await admin
+      .patch('/api/big-screens/dashboard-electro/workbench-settings')
+      .send({ visibleRoles: ['all-staff'], availability: 'enabled' })
+      .expect(200)
+
+    const listed = await allStaff.get('/api/big-screens').expect(200)
+
+    expect(listed.body.data.map((dashboard: { id: string }) => dashboard.id)).toEqual(
+      expect.arrayContaining(['dashboard-all', 'dashboard-electro']),
+    )
+    expect(listed.body.data).toHaveLength(2)
+  })
+
   test('all staff sees only all-staff visible default workbenches', async () => {
     const app = createApp()
     const allStaff = await loginAs(app, 'all_staff', 'Demo@123')

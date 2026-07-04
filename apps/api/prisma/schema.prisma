@@ -23,6 +23,17 @@ model Dashboard {
   versions    DashboardVersion[]
   permissions DashboardPermission[]
   shareLinks  DashboardShareLink[]
+  workbenchSetting WorkbenchSetting?
+}
+
+model WorkbenchSetting {
+  dashboardId  String   @id
+  visibleRoles String
+  availability String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  dashboard Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
 }
 
 model DashboardVersion {

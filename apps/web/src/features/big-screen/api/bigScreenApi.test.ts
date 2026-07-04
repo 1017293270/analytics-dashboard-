@@ -126,4 +126,40 @@ describe('requestJson', () => {
     expect(requestInit?.method).toBe('POST')
     expect(requestInit?.body).toBe('{}')
   })
+
+  test('updates workbench settings with role codes and availability', async () => {
+    const fetchMock = mockFetch(
+      JSON.stringify({
+        success: true,
+        data: {
+          dashboardId: 'dashboard-electro',
+          visibleRoles: ['all-staff', 'electro-education-director'],
+          availability: 'disabled',
+        },
+        error: null,
+      }),
+    )
+    const api = bigScreenApi as typeof bigScreenApi & {
+      updateWorkbenchSettings: (
+        id: string,
+        input: { visibleRoles: string[]; availability: 'enabled' | 'disabled' },
+      ) => Promise<unknown>
+    }
+
+    await api.updateWorkbenchSettings('dashboard-electro', {
+      visibleRoles: ['all-staff', 'electro-education-director'],
+      availability: 'disabled',
+    })
+
+    const requestInit = fetchMock.mock.calls[0]?.[1]
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/big-screens/dashboard-electro/workbench-settings',
+      expect.any(Object),
+    )
+    expect(requestInit?.method).toBe('PATCH')
+    expect(JSON.parse(String(requestInit?.body))).toEqual({
+      visibleRoles: ['all-staff', 'electro-education-director'],
+      availability: 'disabled',
+    })
+  })
 })

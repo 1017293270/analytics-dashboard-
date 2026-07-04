@@ -1,34 +1,68 @@
 export type WorkbenchAvailability = '已启用' | '已停用'
+export type WorkbenchAvailabilityCode = 'enabled' | 'disabled'
 
 export type WorkbenchMetadata = {
   id: string
   name: string
   visibleRoles: string[]
+  visibleRoleCodes: string[]
   availability: WorkbenchAvailability
+  availabilityCode: WorkbenchAvailabilityCode
 }
 
 export type WorkbenchMetadataInput = {
   id: string
   name: string
   visibleRoles?: string[]
-  availability?: WorkbenchAvailability
+  availability?: WorkbenchAvailability | WorkbenchAvailabilityCode
 }
 
 const administratorRole = '系统管理员'
 
-const roleByWorkbenchName: Record<string, string> = {
-  全员工作台: '全员',
-  电教主任工作台: '电教主任',
-  德育主任工作台: '德育主任',
-  教研主任工作台: '教研主任',
+const roleNameByCode: Record<string, string> = {
+  'system-admin': '系统管理员',
+  'all-staff': '全员',
+  'electro-education-director': '电教主任',
+  'moral-education-director': '德育主任',
+  'teaching-research-director': '教研主任',
+}
+
+const roleCodeByName = Object.fromEntries(Object.entries(roleNameByCode).map(([code, name]) => [name, code]))
+
+const defaultRoleCodeByWorkbenchName: Record<string, string> = {
+  全员工作台: 'all-staff',
+  电教主任工作台: 'electro-education-director',
+  德育主任工作台: 'moral-education-director',
+  教研主任工作台: 'teaching-research-director',
+}
+
+export function getRoleName(roleCode: string) {
+  return roleNameByCode[roleCode] ?? roleCode
+}
+
+export function getRoleCode(roleNameOrCode: string) {
+  return roleCodeByName[roleNameOrCode] ?? roleNameOrCode
+}
+
+export function getAvailabilityLabel(availability?: WorkbenchAvailability | WorkbenchAvailabilityCode) {
+  return availability === 'disabled' || availability === '已停用' ? '已停用' : '已启用'
+}
+
+export function getAvailabilityCode(availability?: WorkbenchAvailability | WorkbenchAvailabilityCode): WorkbenchAvailabilityCode {
+  return availability === 'disabled' || availability === '已停用' ? 'disabled' : 'enabled'
 }
 
 export function createWorkbenchMetadata(input: WorkbenchMetadataInput): WorkbenchMetadata {
+  const visibleRoleValues = input.visibleRoles ?? [defaultRoleCodeByWorkbenchName[input.name] ?? 'all-staff']
+  const availability = getAvailabilityLabel(input.availability)
+
   return {
     id: input.id,
     name: input.name,
-    visibleRoles: input.visibleRoles ? [...input.visibleRoles] : [roleByWorkbenchName[input.name] ?? '全员'],
-    availability: input.availability ?? '已启用',
+    visibleRoles: visibleRoleValues.map(getRoleName),
+    visibleRoleCodes: visibleRoleValues.map(getRoleCode),
+    availability,
+    availabilityCode: getAvailabilityCode(availability),
   }
 }
 
@@ -51,9 +85,12 @@ export function getVisibleWorkbenches(workbenches: WorkbenchMetadata[], roles: s
 }
 
 export function toggleWorkbenchAvailability(workbench: WorkbenchMetadata): WorkbenchMetadata {
+  const nextAvailability = getAvailabilityCode(workbench.availability) === 'enabled' ? 'disabled' : 'enabled'
+
   return {
     ...workbench,
-    availability: workbench.availability === '已启用' ? '已停用' : '已启用',
+    availability: getAvailabilityLabel(nextAvailability),
+    availabilityCode: nextAvailability,
   }
 }
 
@@ -64,6 +101,7 @@ export function updateWorkbenchVisibleRoles(workbench: WorkbenchMetadata, visibl
 
   return {
     ...workbench,
-    visibleRoles: [...visibleRoles],
+    visibleRoles: visibleRoles.map(getRoleName),
+    visibleRoleCodes: visibleRoles.map(getRoleCode),
   }
 }

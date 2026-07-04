@@ -13,7 +13,18 @@ export type DashboardRecord = {
   publishedAt?: string | null
 }
 
-export type DashboardListItem = Omit<DashboardRecord, 'draftSchema' | 'publishedSchema'>
+export type WorkbenchAvailabilityCode = 'enabled' | 'disabled'
+
+export type WorkbenchSettings = {
+  dashboardId: string
+  visibleRoles: string[]
+  availability: WorkbenchAvailabilityCode
+}
+
+export type DashboardListItem = Omit<DashboardRecord, 'draftSchema' | 'publishedSchema'> & {
+  visibleRoles?: string[]
+  availability?: WorkbenchAvailabilityCode
+}
 
 export type DashboardRuntime = {
   id: string
@@ -171,6 +182,13 @@ export const bigScreenApi = {
       ...init,
       method: 'POST',
       body: JSON.stringify({}),
+    })
+  },
+  updateWorkbenchSettings(id: string, input: Omit<WorkbenchSettings, 'dashboardId'>, init?: RequestInit) {
+    return requestJson<WorkbenchSettings>(`/api/big-screens/${id}/workbench-settings`, {
+      ...init,
+      method: 'PATCH',
+      body: JSON.stringify(input),
     })
   },
   getRuntime(id: string, init?: RequestInit) {

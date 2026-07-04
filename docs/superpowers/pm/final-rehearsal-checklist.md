@@ -14,7 +14,7 @@ Minimum pass:
 - Sidebar contains only the eight demo routes.
 - `/accounts` shows the account-role demo page and role visibility preview.
 - `/overview` metrics match current seed data.
-- Browser localStorage key `analytics-dashboard.workbench-availability.v1` is cleared or reset before the run.
+- Workbench visibility settings are backend-seeded before the run, with the four default workbenches enabled.
 - `/workbenches` shows four role workbenches and the designer can open.
 - Workbench palette shows at least 30 component templates and includes `第三方网页`.
 - `/data-dashboards` shows six dashboards and `告警态势` third-party preview metrics.
@@ -32,7 +32,7 @@ Minimum pass:
 | Browser | Desktop width, 1280px+, 90%-100% zoom | |
 | Account | `admin / Admin@123` login succeeds | |
 | Visible seed date | Alarm and dashboard demo timestamps show `2026-07-09` | |
-| Browser storage | Clear/reset `analytics-dashboard.workbench-availability.v1` before the formal run | |
+| Workbench settings | Four default workbenches are backend-seeded with enabled availability | |
 | Console | No local application errors during scripted path | |
 | Automated gate | `npm run demo:rehearsal` passes on 1366x768 and 1920x1080 projects | |
 
@@ -49,7 +49,7 @@ Expected result:
 - `Desktop Chrome 1366x768` passes.
 - `Large Screen Chrome 1920x1080` passes.
 - The gate logs in with `admin / Admin@123`.
-- The gate clears `analytics-dashboard.workbench-availability.v1` before the run.
+- The gate uses API-backed workbench settings rather than browser-local availability state.
 - The gate covers overview, account-role management, workbenches, data dashboards, application center, alarms, teaching, blackboard, then returns to overview.
 - The gate fails on local page errors or local console errors, except the known third-party iframe storage-permission noise from `demo.school.local`.
 
@@ -108,7 +108,7 @@ Do not visit non-scripted routes during the formal run.
 | --- | --- |
 | Open `/workbenches` | Four default workbenches are visible |
 | Role chips | 全员、电教主任、德育主任、教研主任 are visible where expected |
-| Enable state | State is visible and framed as demo/local persistence |
+| Enable state | State is visible and backed by the workbench settings API |
 | Open `电教主任工作台` | Designer loads, not a failure page |
 | Palette | At least 30 component templates |
 | Third-party web | `第三方网页` can be added |

@@ -19,8 +19,10 @@ import {
   createDashboard,
   DEFAULT_WORKSPACE_ID,
   ensureDefaultWorkbenchDashboards,
+  getDefaultWorkbenchVisibleRoles,
   isDefaultWorkbenchDashboardId,
   parseSchema,
+  serializeWorkbenchSetting,
 } from './dashboard.repository.js'
 
 const createDashboardBody = z.object({
@@ -41,6 +43,11 @@ const updateMetadataBody = z.object({
 
 const publishBody = z.object({
   publishNote: z.string().trim().max(500).optional(),
+})
+
+const updateWorkbenchSettingsBody = z.object({
+  visibleRoles: z.array(z.string().trim().min(1)).min(1),
+  availability: z.enum(['enabled', 'disabled']),
 })
 
 const dashboardIdParams = z.object({
@@ -120,6 +127,41 @@ function sendDashboardConflict(res: Response) {
   return sendConflict(res, 'DASHBOARD_CONFLICT', 'Dashboard changed. Reload before saving.')
 }
 
+async function normalizeVisibleRoles(values: string[]) {
+  const roles = await prisma.role.findMany()
+  const rolesByCode = new Map(roles.map((role) => [role.code, role]))
+  const rolesByName = new Map(roles.map((role) => [role.name, role]))
+  const visibleRoles: string[] = []
+  const seenRoleCodes = new Set<string>()
+
+  for (const value of values) {
+    const role = rolesByCode.get(value) ?? rolesByName.get(value)
+    if (!role) return null
+    if (seenRoleCodes.has(role.code)) continue
+
+    visibleRoles.push(role.code)
+    seenRoleCodes.add(role.code)
+  }
+
+  return visibleRoles
+}
+
+async function syncRoleViewPermissions(tx: Prisma.TransactionClient, dashboardId: string, visibleRoles: string[]) {
+  await tx.dashboardPermission.deleteMany({
+    where: { dashboardId, subjectType: 'role' },
+  })
+
+  await tx.dashboardPermission.createMany({
+    data: visibleRoles.map((roleCode) => ({
+      id: `permission-${dashboardId}-role-${roleCode}`,
+      dashboardId,
+      subjectType: 'role',
+      subjectId: roleCode,
+      permission: 'view',
+    })),
+  })
+}
+
 async function sendExistingReservation(res: Response, dashboardId: string, actor: DashboardActor) {
   const dashboard = await prisma.dashboard.findUnique({ where: { id: dashboardId } })
   if (!dashboard) return null
@@ -180,23 +222,90 @@ dashboardRoutes.get('/big-screens', asyncHandler(async (req, res) => {
 
   const dashboards = await prisma.dashboard.findMany({
     where,
+    include: { workbenchSetting: true },
     orderBy: { updatedAt: 'desc' },
   })
 
   res.json(
     ok(
-      dashboards.map((dashboard) => ({
-        id: dashboard.id,
-        name: dashboard.name,
-        description: dashboard.description,
-        status: dashboard.status,
-        ownerId: dashboard.ownerId,
-        createdAt: dashboard.createdAt,
-        updatedAt: dashboard.updatedAt,
-        publishedAt: dashboard.publishedAt,
-      })),
+      dashboards
+        .filter((dashboard) => {
+          if (actor.isSystemAdmin) return true
+
+          const setting = serializeWorkbenchSetting(dashboard.workbenchSetting, {
+            dashboardId: dashboard.id,
+            visibleRoles: getDefaultWorkbenchVisibleRoles(dashboard.id),
+          })
+
+          return setting.availability === 'enabled'
+        })
+        .map((dashboard) => {
+          const setting = serializeWorkbenchSetting(dashboard.workbenchSetting, {
+            dashboardId: dashboard.id,
+            visibleRoles: getDefaultWorkbenchVisibleRoles(dashboard.id),
+          })
+
+          return {
+            id: dashboard.id,
+            name: dashboard.name,
+            description: dashboard.description,
+            status: dashboard.status,
+            ownerId: dashboard.ownerId,
+            createdAt: dashboard.createdAt,
+            updatedAt: dashboard.updatedAt,
+            publishedAt: dashboard.publishedAt,
+            visibleRoles: setting.visibleRoles,
+            availability: setting.availability,
+          }
+        }),
     ),
   )
+}))
+
+dashboardRoutes.patch('/big-screens/:id/workbench-settings', asyncHandler(async (req, res) => {
+  const actor = getRequestDashboardActor(req)
+  const params = dashboardIdParams.safeParse(req.params)
+  if (!params.success) return sendBadRequest(res, 'REQUEST_INVALID', 'Dashboard id is invalid')
+  if (!actor.isSystemAdmin) return sendForbidden(res)
+
+  const body = updateWorkbenchSettingsBody.safeParse(req.body)
+  if (!body.success) return sendBadRequest(res, 'REQUEST_INVALID', 'Workbench settings are invalid')
+
+  const dashboard = await findActiveDashboard(params.data.id)
+  if (!dashboard) return sendNotFound(res)
+
+  const visibleRoles = await normalizeVisibleRoles(body.data.visibleRoles)
+  if (!visibleRoles || visibleRoles.length === 0) {
+    return sendBadRequest(res, 'REQUEST_INVALID', 'Workbench settings are invalid')
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const setting = await tx.workbenchSetting.upsert({
+      where: { dashboardId: dashboard.id },
+      update: {
+        visibleRoles: JSON.stringify(visibleRoles),
+        availability: body.data.availability,
+      },
+      create: {
+        dashboardId: dashboard.id,
+        visibleRoles: JSON.stringify(visibleRoles),
+        availability: body.data.availability,
+      },
+    })
+
+    await syncRoleViewPermissions(tx, dashboard.id, visibleRoles)
+    await recordAudit(
+      'dashboard.workbench_settings.updated',
+      dashboard.id,
+      actor.actorId,
+      { visibleRoles, availability: body.data.availability },
+      tx,
+    )
+
+    return setting
+  })
+
+  res.json(ok(serializeWorkbenchSetting(updated, { dashboardId: dashboard.id })))
 }))
 
 dashboardRoutes.post('/big-screens', asyncHandler(async (req, res) => {

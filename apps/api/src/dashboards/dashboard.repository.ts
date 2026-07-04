@@ -28,6 +28,19 @@ export const defaultWorkbenchDashboards = [
 ] as const
 
 const defaultWorkbenchDashboardIds: ReadonlySet<string> = new Set(defaultWorkbenchDashboards.map((dashboard) => dashboard.id))
+const defaultWorkbenchVisibleRolesById: ReadonlyMap<string, string[]> = new Map(
+  defaultWorkbenchDashboards.map((dashboard) => [dashboard.id, [dashboard.roleCode]]),
+)
+
+export type WorkbenchAvailability = 'enabled' | 'disabled'
+
+export type SerializedWorkbenchSetting = {
+  dashboardId: string
+  visibleRoles: string[]
+  availability: WorkbenchAvailability
+  createdAt?: Date
+  updatedAt?: Date
+}
 
 export function createDefaultSchema(): DashboardSchema {
   return {
@@ -51,6 +64,44 @@ export function createDefaultSchema(): DashboardSchema {
 
 export function isDefaultWorkbenchDashboardId(id: string) {
   return defaultWorkbenchDashboardIds.has(id)
+}
+
+export function getDefaultWorkbenchVisibleRoles(id: string) {
+  return defaultWorkbenchVisibleRolesById.get(id) ?? []
+}
+
+export function parseWorkbenchVisibleRoles(value: string | null | undefined): string[] {
+  if (!value) return []
+
+  try {
+    const parsed: unknown = JSON.parse(value)
+    if (!Array.isArray(parsed)) return []
+
+    return parsed.filter((role): role is string => typeof role === 'string' && role.trim().length > 0)
+  } catch {
+    return []
+  }
+}
+
+export function serializeWorkbenchSetting(
+  setting: {
+    dashboardId: string
+    visibleRoles: string
+    availability: string
+    createdAt?: Date
+    updatedAt?: Date
+  } | null,
+  fallback: { dashboardId: string; visibleRoles?: string[] } = { dashboardId: '', visibleRoles: [] },
+): SerializedWorkbenchSetting {
+  const visibleRoles = parseWorkbenchVisibleRoles(setting?.visibleRoles)
+
+  return {
+    dashboardId: setting?.dashboardId ?? fallback.dashboardId,
+    visibleRoles: visibleRoles.length > 0 ? visibleRoles : [...(fallback.visibleRoles ?? [])],
+    availability: setting?.availability === 'disabled' ? 'disabled' : 'enabled',
+    createdAt: setting?.createdAt,
+    updatedAt: setting?.updatedAt,
+  }
 }
 
 export class StoredSchemaError extends Error {
@@ -141,6 +192,18 @@ async function ensureDefaultDashboardRolePermission(dashboardId: string, roleCod
   })
 }
 
+async function ensureDefaultWorkbenchSetting(dashboardId: string, roleCode: string) {
+  await prisma.workbenchSetting.upsert({
+    where: { dashboardId },
+    update: {},
+    create: {
+      dashboardId,
+      visibleRoles: JSON.stringify([roleCode]),
+      availability: 'enabled',
+    },
+  })
+}
+
 export async function ensureDefaultWorkbenchDashboards() {
   const existingDashboards = await prisma.dashboard.findMany({
     where: { id: { in: [...defaultWorkbenchDashboardIds] } },
@@ -182,6 +245,7 @@ export async function ensureDefaultWorkbenchDashboards() {
 
     await ensureDefaultDashboardPermission(preset.id)
     await ensureDefaultDashboardRolePermission(preset.id, preset.roleCode)
+    await ensureDefaultWorkbenchSetting(preset.id, preset.roleCode)
   }
 }
 

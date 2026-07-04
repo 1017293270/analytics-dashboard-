@@ -15,6 +15,7 @@ vi.mock('../api/bigScreenApi', () => ({
     createDashboard: vi.fn(),
     copyDashboard: vi.fn(),
     deleteDashboard: vi.fn(),
+    updateWorkbenchSettings: vi.fn(),
     createShareLink: vi.fn(),
     listVersions: vi.fn(),
     rollbackVersion: vi.fn(),
@@ -66,6 +67,8 @@ function createListItem(overrides: Partial<DashboardListItem> = {}): DashboardLi
     status: 'draft',
     createdAt: '2026-06-04T01:00:00.000Z',
     publishedAt: null,
+    visibleRoles: ['all-staff'],
+    availability: 'enabled',
     ...overrides,
     updatedAt,
   }
@@ -184,10 +187,20 @@ describe('DashboardList', () => {
     expect(runtimeLinks[1]?.attributes('href')).toBe('/runtime/dashboard-2')
   })
 
-  test('shows workbench role chips and availability status', async () => {
+  test('renders API-provided role chips and availability status', async () => {
     vi.mocked(bigScreenApi.listDashboards).mockResolvedValue([
-      createListItem({ id: 'dashboard-electro', name: '电教主任工作台' }),
-      createListItem({ id: 'dashboard-moral', name: '德育主任工作台' }),
+      createListItem({
+        id: 'dashboard-electro',
+        name: '电教主任工作台',
+        visibleRoles: ['all-staff', 'electro-education-director'],
+        availability: 'disabled',
+      }),
+      createListItem({
+        id: 'dashboard-moral',
+        name: '德育主任工作台',
+        visibleRoles: ['moral-education-director'],
+        availability: 'enabled',
+      }),
     ])
 
     const { wrapper } = await mountList()
@@ -196,8 +209,11 @@ describe('DashboardList', () => {
     const electroRow = findRow(wrapper, '电教主任工作台')
     const moralRow = findRow(wrapper, '德育主任工作台')
 
-    expect(electroRow.findAll('[data-testid="workbench-role-chip"]').map((chip) => chip.text())).toEqual(['电教主任'])
-    expect(electroRow.text()).toContain('已启用')
+    expect(electroRow.findAll('[data-testid="workbench-role-chip"]').map((chip) => chip.text())).toEqual([
+      '全员',
+      '电教主任',
+    ])
+    expect(electroRow.text()).toContain('已停用')
     expect(moralRow.findAll('[data-testid="workbench-role-chip"]').map((chip) => chip.text())).toEqual(['德育主任'])
     expect(moralRow.text()).toContain('已启用')
   })
@@ -240,7 +256,7 @@ describe('DashboardList', () => {
     expect(wrapper.text()).toContain(bigScreenText.dashboardList.createFirst)
   })
 
-  test('filters visible workbenches for a non-admin role', async () => {
+  test('renders API-returned workbenches for a non-admin role without client-side local filtering', async () => {
     vi.mocked(bigScreenApi.listDashboards).mockResolvedValue([
       createListItem({ id: 'dashboard-all', name: '全员工作台' }),
       createListItem({ id: 'dashboard-electro', name: '电教主任工作台' }),
@@ -251,52 +267,92 @@ describe('DashboardList', () => {
     const { wrapper } = await mountList(createUser('moral-education-director', '德育主任'))
     await flushPromises()
 
-    expect(wrapper.findAll('.dashboard-list__name-link').map((link) => link.text())).toEqual(['德育主任工作台'])
-    expect(wrapper.text()).not.toContain('全员工作台')
-    expect(wrapper.text()).not.toContain('电教主任工作台')
-    expect(wrapper.text()).not.toContain('教研主任工作台')
+    expect(wrapper.findAll('.dashboard-list__name-link').map((link) => link.text())).toEqual([
+      '全员工作台',
+      '电教主任工作台',
+      '德育主任工作台',
+      '教研主任工作台',
+    ])
   })
 
-  test('toggles workbench availability as local demo state', async () => {
+  test('toggles workbench availability through API and updates the row', async () => {
     vi.mocked(bigScreenApi.listDashboards).mockResolvedValue([
-      createListItem({ id: 'dashboard-electro', name: '电教主任工作台' }),
+      createListItem({
+        id: 'dashboard-electro',
+        name: '电教主任工作台',
+        visibleRoles: ['electro-education-director'],
+        availability: 'enabled',
+      }),
     ])
+    vi.mocked(bigScreenApi.updateWorkbenchSettings)
+      .mockResolvedValueOnce({
+        dashboardId: 'dashboard-electro',
+        visibleRoles: ['electro-education-director'],
+        availability: 'disabled',
+      })
+      .mockResolvedValueOnce({
+        dashboardId: 'dashboard-electro',
+        visibleRoles: ['electro-education-director'],
+        availability: 'enabled',
+      })
 
     const { wrapper } = await mountList()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('启停状态为本机演示保存')
+    expect(wrapper.text()).not.toContain('启停状态为本机演示保存')
 
     await wrapper.get('[data-testid="toggle-workbench-availability-dashboard-electro"]').trigger('click')
+    await flushPromises()
 
     const disabledRow = findRow(wrapper, '电教主任工作台')
     expect(disabledRow.text()).toContain('已停用')
     expect(disabledRow.get('[data-testid="toggle-workbench-availability-dashboard-electro"]').text()).toBe('启用')
+    expect(bigScreenApi.updateWorkbenchSettings).toHaveBeenCalledWith('dashboard-electro', {
+      visibleRoles: ['electro-education-director'],
+      availability: 'disabled',
+    })
 
     await disabledRow.get('[data-testid="toggle-workbench-availability-dashboard-electro"]').trigger('click')
+    await flushPromises()
 
     const enabledRow = findRow(wrapper, '电教主任工作台')
     expect(enabledRow.text()).toContain('已启用')
     expect(enabledRow.get('[data-testid="toggle-workbench-availability-dashboard-electro"]').text()).toBe('停用')
+    expect(bigScreenApi.updateWorkbenchSettings).toHaveBeenLastCalledWith('dashboard-electro', {
+      visibleRoles: ['electro-education-director'],
+      availability: 'enabled',
+    })
   })
 
-  test('keeps disabled workbench availability after remounting the list', async () => {
+  test('does not use localStorage for workbench availability', async () => {
     vi.mocked(bigScreenApi.listDashboards).mockResolvedValue([
-      createListItem({ id: 'dashboard-electro', name: '电教主任工作台' }),
+      createListItem({
+        id: 'dashboard-electro',
+        name: '电教主任工作台',
+        visibleRoles: ['electro-education-director'],
+        availability: 'enabled',
+      }),
     ])
+    vi.mocked(bigScreenApi.updateWorkbenchSettings).mockResolvedValue({
+      dashboardId: 'dashboard-electro',
+      visibleRoles: ['electro-education-director'],
+      availability: 'disabled',
+    })
 
-    const firstMount = await mountList()
+    const getItem = vi.mocked(window.localStorage.getItem)
+    const setItem = vi.mocked(window.localStorage.setItem)
+    const sessionGetItem = vi.mocked(window.sessionStorage.getItem)
+    const sessionSetItem = vi.mocked(window.sessionStorage.setItem)
+
+    const { wrapper } = await mountList()
     await flushPromises()
-    await firstMount.wrapper.get('[data-testid="toggle-workbench-availability-dashboard-electro"]').trigger('click')
-    expect(findRow(firstMount.wrapper, '电教主任工作台').text()).toContain('已停用')
-    firstMount.wrapper.unmount()
-
-    const secondMount = await mountList()
+    await wrapper.get('[data-testid="toggle-workbench-availability-dashboard-electro"]').trigger('click')
     await flushPromises()
 
-    const restoredRow = findRow(secondMount.wrapper, '电教主任工作台')
-    expect(restoredRow.text()).toContain('已停用')
-    expect(restoredRow.get('[data-testid="toggle-workbench-availability-dashboard-electro"]').text()).toBe('启用')
+    expect(getItem).not.toHaveBeenCalled()
+    expect(setItem).not.toHaveBeenCalled()
+    expect(sessionGetItem).not.toHaveBeenCalled()
+    expect(sessionSetItem).not.toHaveBeenCalled()
   })
 
   test('creates a dashboard and navigates to the designer', async () => {
