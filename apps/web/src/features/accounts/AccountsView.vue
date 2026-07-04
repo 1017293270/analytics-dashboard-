@@ -265,10 +265,24 @@ async function resetPassword(account: DemoAccount) {
 }
 
 async function resetDemoState() {
+  isLoading.value = true
+  pageError.value = ''
   selectedRoleCode.value = 'system-admin'
   drawerVisible.value = false
   roleDrawerVisible.value = false
-  await loadAccountState('演示状态已刷新')
+
+  try {
+    const [accountRows, roleRows] = await Promise.all([accountApi.resetDemoAccounts(), accountApi.listRoles()])
+    accounts.value = accountRowsToDemoAccounts(accountRows)
+    roles.value = roleRowsToDemoRoles(roleRows)
+    ElMessage.success('演示状态已重置')
+  } catch (error) {
+    const message = getErrorMessage(error, '演示状态重置失败')
+    pageError.value = message
+    ElMessage.error(message)
+  } finally {
+    isLoading.value = false
+  }
 }
 
 function openRoleDrawer(role: DemoRole) {

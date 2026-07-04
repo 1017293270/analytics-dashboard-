@@ -206,6 +206,55 @@ describe('account routes', () => {
     await request(app).post('/api/auth/login').send({ username: 'all_staff', password: 'Fresh@123' }).expect(200)
   })
 
+  test('demo reset restores seeded accounts and removes ad hoc accounts', async () => {
+    const cookie = await adminCookie()
+
+    await request(app)
+      .post('/api/accounts')
+      .set('Cookie', cookie)
+      .send({
+        username: 'temporary_demo',
+        displayName: '临时演示账号',
+        phone: '13800009998',
+        password: 'Temp@123',
+        roleCodes: ['all-staff'],
+      })
+      .expect(201)
+
+    await request(app)
+      .patch('/api/accounts/user-research-director')
+      .set('Cookie', cookie)
+      .send({
+        displayName: '被改动的教研主任',
+        status: 'disabled',
+        roleCodes: ['all-staff'],
+      })
+      .expect(200)
+
+    await request(app)
+      .post('/api/accounts/user-all-staff/reset-password')
+      .set('Cookie', cookie)
+      .send({ password: 'Fresh@123' })
+      .expect(200)
+
+    const response = await request(app).post('/api/accounts/demo-reset').set('Cookie', cookie).expect(200)
+
+    expect(response.body.data.map((account: { username: string }) => account.username)).toEqual([
+      'admin',
+      'all_staff',
+      'electro_director',
+      'moral_director',
+      'research_director',
+    ])
+    expect(response.body.data.find((account: { id: string }) => account.id === 'user-research-director')).toMatchObject({
+      displayName: '教研主任',
+      status: 'active',
+      roleCodes: ['teaching-research-director'],
+    })
+    await expect(prisma.user.findUnique({ where: { username: 'temporary_demo' } })).resolves.toBeNull()
+    await request(app).post('/api/auth/login').send({ username: 'all_staff', password: 'Demo@123' }).expect(200)
+  })
+
   test('successful login updates lastLoginAt visible in account list', async () => {
     const cookie = await adminCookie()
 

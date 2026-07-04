@@ -71,17 +71,24 @@ describe('accountApi', () => {
       roleCodes: ['all-staff'],
       status: 'disabled',
     }
-    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse(accountRow)))
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(accountRow))
+      .mockResolvedValueOnce(jsonResponse(accountRow))
+      .mockResolvedValueOnce(jsonResponse(accountRow))
+      .mockResolvedValueOnce(jsonResponse([accountRow]))
     vi.stubGlobal('fetch', fetchMock)
 
     await accountApi.createAccount(createInput)
     await accountApi.updateAccount('user-system-admin', updateInput)
     await accountApi.resetPassword('user-system-admin', { password: 'Demo@123' })
+    await accountApi.resetDemoAccounts()
 
     expect(fetchMock.mock.calls.map(([url, init]) => [url, (init as RequestInit).method])).toEqual([
       ['/api/accounts', 'POST'],
       ['/api/accounts/user-system-admin', 'PATCH'],
       ['/api/accounts/user-system-admin/reset-password', 'POST'],
+      ['/api/accounts/demo-reset', 'POST'],
     ])
     expect(fetchMock.mock.calls.every(([, init]) => (init as RequestInit).credentials === 'include')).toBe(true)
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toEqual(createInput)

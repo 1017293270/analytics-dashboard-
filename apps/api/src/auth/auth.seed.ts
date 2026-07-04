@@ -1,4 +1,5 @@
 import { prisma } from '../db.js'
+import type { PrismaClient } from '@prisma/client'
 import { hashPassword } from './password.js'
 
 type RoleCode =
@@ -23,6 +24,8 @@ type DemoUser = {
   password: string
   roleCodes: RoleCode[]
 }
+
+type DemoSeedClient = Pick<PrismaClient, 'role' | 'session' | 'user' | 'userRole'>
 
 export const demoRoles: DemoRole[] = [
   { id: 'role-system-admin', code: 'system-admin', name: '系统管理员', description: '平台配置与演示管理账号' },
@@ -90,14 +93,32 @@ export const demoUsers: DemoUser[] = [
   },
 ]
 
-export async function ensureDemoAuthSeed() {
+async function upsertDemoRoles(client: DemoSeedClient) {
   for (const role of demoRoles) {
-    await prisma.role.upsert({
+    await client.role.upsert({
       where: { code: role.code },
       update: { name: role.name, description: role.description },
       create: role,
     })
   }
+}
+
+async function bindDemoUserRoles(client: DemoSeedClient, userId: string, roleCodes: RoleCode[]) {
+  await client.userRole.deleteMany({ where: { userId } })
+  for (const roleCode of roleCodes) {
+    const role = await client.role.findUniqueOrThrow({ where: { code: roleCode } })
+    await client.userRole.create({
+      data: {
+        id: `user-role-${userId}-${role.id}`,
+        userId,
+        roleId: role.id,
+      },
+    })
+  }
+}
+
+export async function ensureDemoAuthSeed() {
+  await upsertDemoRoles(prisma)
 
   for (const user of demoUsers) {
     const seededUser = await prisma.user.upsert({
@@ -129,4 +150,48 @@ export async function ensureDemoAuthSeed() {
       })
     }
   }
+}
+
+export async function resetDemoAuthSeed() {
+  const demoUsernames = demoUsers.map((user) => user.username)
+
+  await prisma.$transaction(async (tx) => {
+    await upsertDemoRoles(tx)
+
+    const removableUsers = await tx.user.findMany({
+      where: { username: { notIn: demoUsernames } },
+      select: { id: true },
+    })
+    const removableUserIds = removableUsers.map((user) => user.id)
+
+    if (removableUserIds.length > 0) {
+      await tx.session.deleteMany({ where: { userId: { in: removableUserIds } } })
+      await tx.userRole.deleteMany({ where: { userId: { in: removableUserIds } } })
+      await tx.user.deleteMany({ where: { id: { in: removableUserIds } } })
+    }
+
+    for (const user of demoUsers) {
+      const seededUser = await tx.user.upsert({
+        where: { username: user.username },
+        update: {
+          displayName: user.displayName,
+          phone: user.phone,
+          passwordHash: hashPassword(user.password),
+          status: 'active',
+          lastLoginAt: null,
+        },
+        create: {
+          id: user.id,
+          username: user.username,
+          displayName: user.displayName,
+          phone: user.phone,
+          passwordHash: hashPassword(user.password),
+          status: 'active',
+          lastLoginAt: null,
+        },
+      })
+
+      await bindDemoUserRoles(tx, seededUser.id, user.roleCodes)
+    }
+  })
 }

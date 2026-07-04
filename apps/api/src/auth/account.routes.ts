@@ -11,7 +11,7 @@ import { nanoid } from 'nanoid'
 import { z } from 'zod'
 import { prisma } from '../db.js'
 import { asyncHandler, sendBadRequest, sendConflict, sendForbidden, sendNotFound } from '../errors.js'
-import { demoRoles, demoUsers, ensureDemoAuthSeed } from './auth.seed.js'
+import { demoRoles, demoUsers, ensureDemoAuthSeed, resetDemoAuthSeed } from './auth.seed.js'
 import { hashPassword } from './password.js'
 import { requireAuth } from './session.js'
 
@@ -143,6 +143,16 @@ accountRoutes.post('/accounts', asyncHandler(async (req, res) => {
     }
     throw error
   }
+}))
+
+accountRoutes.post('/accounts/demo-reset', asyncHandler(async (_req, res) => {
+  await resetDemoAuthSeed()
+
+  const accounts = await prisma.user.findMany({
+    include: { roles: { include: { role: true } } },
+  })
+
+  res.json(ok(sortAccounts(accounts).map(serializeAccount)))
 }))
 
 accountRoutes.patch('/accounts/:id', asyncHandler(async (req, res) => {

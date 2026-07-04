@@ -85,6 +85,7 @@ test('passes the July 9 smart education demo route gates', async ({ page }) => {
   await expect(page.getByText('第三方看板延迟')).toHaveCount(0)
 
   await gotoRoute(page, '/accounts', '账号与角色')
+  await page.getByTestId('accounts-reset-button').click()
   await expectMetricCard(page.locator('section[aria-label="账号统计"] .el-card').filter({ hasText: '账号总数' }), '5')
   await expectMetricCard(page.locator('section[aria-label="账号统计"] .el-card').filter({ hasText: '启用账号' }), '5')
   await expectMetricCard(page.locator('section[aria-label="账号统计"] .el-card').filter({ hasText: '角色数量' }), '5')

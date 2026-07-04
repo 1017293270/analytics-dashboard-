@@ -27,6 +27,7 @@ vi.mock('./accountApi', () => ({
     createAccount: vi.fn(),
     updateAccount: vi.fn(),
     resetPassword: vi.fn(),
+    resetDemoAccounts: vi.fn(),
   },
 }))
 
@@ -126,6 +127,7 @@ function mockApiData(accounts: AccountRow[] = accountRows, roles: AccountRoleRow
   vi.mocked(accountApi.createAccount).mockResolvedValue(accounts[0])
   vi.mocked(accountApi.updateAccount).mockResolvedValue(accounts[0])
   vi.mocked(accountApi.resetPassword).mockResolvedValue(accounts[0])
+  vi.mocked(accountApi.resetDemoAccounts).mockResolvedValue(accounts)
 }
 
 describe('AccountsView', () => {
@@ -135,6 +137,7 @@ describe('AccountsView', () => {
     vi.mocked(accountApi.createAccount).mockReset()
     vi.mocked(accountApi.updateAccount).mockReset()
     vi.mocked(accountApi.resetPassword).mockReset()
+    vi.mocked(accountApi.resetDemoAccounts).mockReset()
     mockApiData()
     vi.mocked(ElMessage.error).mockReset()
     vi.mocked(ElMessage.success).mockReset()
@@ -268,19 +271,18 @@ describe('AccountsView', () => {
     expect(ElMessage.success).toHaveBeenCalledWith('角色预览已更新')
   })
 
-  test('reset demo state reloads API data instead of recreating local seed rows', async () => {
-    vi.mocked(accountApi.listAccounts)
-      .mockResolvedValueOnce(accountRows)
-      .mockResolvedValueOnce([{ ...accountRows[2], status: 'disabled' }])
+  test('reset demo state restores the backend seed through the API', async () => {
+    vi.mocked(accountApi.resetDemoAccounts).mockResolvedValue([{ ...accountRows[2], status: 'disabled' }])
     const wrapper = await mountAccountsView()
 
     await wrapper.get('[data-testid="accounts-reset-button"]').trigger('click')
     await flushPromises()
 
-    expect(accountApi.listAccounts).toHaveBeenCalledTimes(2)
+    expect(accountApi.resetDemoAccounts).toHaveBeenCalledTimes(1)
+    expect(accountApi.listAccounts).toHaveBeenCalledTimes(1)
     expect(accountApi.listRoles).toHaveBeenCalledTimes(2)
     expect(wrapper.find('[data-testid="account-status-user-system-admin"]').exists()).toBe(false)
     expect(wrapper.get('[data-testid="account-status-user-research-director"]').text()).toContain('已停用')
-    expect(ElMessage.success).toHaveBeenCalledWith('演示状态已刷新')
+    expect(ElMessage.success).toHaveBeenCalledWith('演示状态已重置')
   })
 })

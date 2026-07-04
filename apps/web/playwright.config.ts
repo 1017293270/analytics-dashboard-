@@ -8,6 +8,7 @@ const localBrowserChannel = process.env.CI ? undefined : 'chrome'
 
 export default defineConfig({
   testDir: './e2e',
+  workers: 1,
   reporter: [['html', { open: 'never' }]],
   use: {
     baseURL: 'http://localhost:5174',

@@ -125,4 +125,12 @@ export const accountApi = {
       }),
     )
   },
+  async resetDemoAccounts(init?: RequestInit) {
+    return parseAccountList(
+      await requestAccountJson<unknown>('/api/accounts/demo-reset', {
+        ...init,
+        method: 'POST',
+      }),
+    )
+  },
 }
