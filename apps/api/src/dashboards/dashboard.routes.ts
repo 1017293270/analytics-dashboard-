@@ -192,7 +192,14 @@ dashboardRoutes.get('/public/big-screens/:shareToken', asyncHandler(async (req, 
   if (shareLink.accessScope !== 'public-runtime') return sendNotFound(res)
   if (shareLink.expiresAt && shareLink.expiresAt.getTime() <= Date.now()) return sendNotFound(res)
 
-  const dashboard = shareLink.dashboard
+  let dashboard = shareLink.dashboard
+  if (isDefaultWorkbenchDashboardId(dashboard.id)) {
+    await ensureDefaultWorkbenchDashboards()
+    const normalizedDashboard = await prisma.dashboard.findUnique({ where: { id: dashboard.id } })
+    if (!normalizedDashboard) return sendNotFound(res)
+    dashboard = normalizedDashboard
+  }
+
   if (!isActiveDashboard(dashboard) || dashboard.status !== 'published' || !dashboard.publishedSchema) {
     return sendNotFound(res)
   }

@@ -2,6 +2,7 @@ import request from 'supertest'
 import { describe, expect, test } from 'vitest'
 import { prisma } from '../src/db.js'
 import { createApp } from '../src/app.js'
+import { createEducationWorkbenchSchema } from '../src/dashboards/dashboard.repository.js'
 
 type TestApp = ReturnType<typeof createApp>
 type TestAgent = ReturnType<typeof request.agent>
@@ -137,6 +138,71 @@ describe('dashboard workflow routes', () => {
       where: { action: 'dashboard.share.created', resourceId: dashboard.id },
     })
     expect(audit).toBeTruthy()
+  })
+
+  test('public runtime normalizes legacy default workbench role badges before serving shared screens', async () => {
+    const app = createApp()
+    const admin = await loginAs(app)
+    await admin.get('/api/big-screens').expect(200)
+
+    const schema = createEducationWorkbenchSchema('dashboard-all')
+    const legacySchema = {
+      ...schema,
+      components: schema.components.map((component) =>
+        component.id === 'dashboard-all-role-chip'
+          ? {
+              ...component,
+              layout: { ...component.layout, x: 1510, y: 44, width: 300, height: 56 },
+              style: {
+                ...component.style,
+                backgroundColor: 'rgba(16, 185, 129, 0.16)',
+                borderColor: 'rgba(16, 185, 129, 0.38)',
+                fontColor: '#bbf7d0',
+                fontSize: 24,
+                fontWeight: 800,
+              },
+            }
+          : component,
+      ),
+    }
+
+    await prisma.dashboard.update({
+      where: { id: 'dashboard-all' },
+      data: {
+        status: 'published',
+        draftSchema: JSON.stringify(legacySchema),
+        publishedSchema: JSON.stringify(legacySchema),
+        publishedAt: new Date('2026-07-09T09:00:00.000Z'),
+      },
+    })
+    await prisma.dashboardShareLink.create({
+      data: {
+        id: 'share-legacy-default-workbench',
+        dashboardId: 'dashboard-all',
+        token: 'legacy-default-workbench-token',
+        accessScope: 'public-runtime',
+        expiresAt: null,
+        isEnabled: true,
+      },
+    })
+
+    const runtime = await request(app).get('/api/public/big-screens/legacy-default-workbench-token').expect(200)
+    const badge = runtime.body.data.schema.components.find(
+      (component: { id: string }) => component.id === 'dashboard-all-role-chip',
+    )
+    const stored = await prisma.dashboard.findUniqueOrThrow({ where: { id: 'dashboard-all' } })
+    const storedBadge = JSON.parse(stored.publishedSchema ?? '{}').components.find(
+      (component: { id: string }) => component.id === 'dashboard-all-role-chip',
+    )
+
+    expect(badge.layout).toMatchObject({ x: 1604, y: 46, width: 212, height: 42 })
+    expect(badge.style).toMatchObject({
+      backgroundColor: 'rgba(16, 185, 129, 0.08)',
+      borderColor: 'rgba(167, 243, 208, 0.26)',
+      fontSize: 20,
+      fontWeight: 700,
+    })
+    expect(storedBadge.layout).toMatchObject({ x: 1604, y: 46, width: 212, height: 42 })
   })
 
   test('non-public-runtime share scope cannot load public runtime', async () => {
