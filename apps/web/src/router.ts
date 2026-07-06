@@ -23,6 +23,11 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
     history,
     routes: [
       {
+        path: '/workbenches/:id/preview',
+        component: () => import('./features/big-screen/runtime/DraftPreviewScreen.vue'),
+        meta: { fullscreenPreview: true },
+      },
+      {
         path: '/',
         component: () => import('./features/shell/AppShell.vue'),
         children: shellChildren,

@@ -93,7 +93,7 @@ const roleWorkbenchCards = computed(() => {
       ...fallback,
       isAccessible,
       status,
-      path: `/workbenches/${fallback.id}`,
+      path: `/workbenches/${fallback.id}/preview`,
     }
   })
 })

@@ -31,6 +31,7 @@ API health: http://localhost:4000/api/health
 - Workbench configuration: `/workbenches`
 - New workbench draft: `/workbenches/new`
 - Existing workbench designer: `/workbenches/:id`
+- Full-screen workbench preview: `/workbenches/:id/preview`
 - Data dashboards: `/data-dashboards`
 - Application center: `/applications`
 - Alarm management: `/alarms`

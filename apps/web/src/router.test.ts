@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { createMemoryHistory } from 'vue-router'
 import { authApi } from './features/auth/api/authApi'
 import AccountsView from './features/accounts/AccountsView.vue'
+import DraftPreviewScreen from './features/big-screen/runtime/DraftPreviewScreen.vue'
 import InteractiveTeachingView from './features/interactive-teaching/InteractiveTeachingView.vue'
 import SmartBlackboardView from './features/smart-blackboard/SmartBlackboardView.vue'
 import { createAppRouter } from './router'
@@ -79,6 +80,20 @@ describe('router guard', () => {
     await router.push('/workbenches/dashboard-1')
 
     expect(router.currentRoute.value.meta.fullBleed).toBe(true)
+  })
+
+  test('routes workbench fullscreen preview as a protected top-level page', async () => {
+    vi.mocked(authApi.getCurrentUser).mockResolvedValue(adminUser)
+    const router = createTestRouter()
+
+    await router.push('/workbenches/dashboard-all/preview')
+
+    const matchedComponent = router.currentRoute.value.matched.at(-1)?.components?.default
+
+    expect(router.currentRoute.value.fullPath).toBe('/workbenches/dashboard-all/preview')
+    expect(router.currentRoute.value.matched).toHaveLength(1)
+    expect(router.currentRoute.value.meta.fullscreenPreview).toBe(true)
+    expect(matchedComponent).toBe(DraftPreviewScreen)
   })
 
   test('routes smart blackboard to the dedicated authoring page', async () => {

@@ -310,9 +310,12 @@ export const bigScreenText = {
     },
   },
   runtime: {
+    draftPreviewUnavailable: '大屏暂时无法预览',
+    draftPreviewUnavailableTitle: '大屏暂时无法预览',
     emptyDescription: '这个运行态大屏没有可见模块。',
     emptyTitle: '暂无可见组件',
     label: '大屏运行态',
+    missingDraftPreview: '缺少大屏预览标识',
     missingRuntime: '未找到运行态大屏',
     unavailable: '运行态大屏暂不可用',
     unavailableTitle: '运行态暂不可用',

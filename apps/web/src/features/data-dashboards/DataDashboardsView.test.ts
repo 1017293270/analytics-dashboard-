@@ -277,6 +277,7 @@ async function mountDashboardView(fetchMock = createDashboardFetchMock()) {
     routes: [
       { path: '/data-dashboards', component: DataDashboardsView },
       { path: '/workbenches/:id', component: { template: '<main />' } },
+      { path: '/workbenches/:id/preview', component: { template: '<main />' } },
     ],
   })
   await router.push('/data-dashboards')
@@ -342,12 +343,13 @@ describe('DataDashboardsView', () => {
       .findAll('[data-testid^="data-center-workbench-"]')
       .map((link) => link.attributes('href'))
     expect(workbenchHrefs).toEqual([
-      '/workbenches/dashboard-all',
-      '/workbenches/dashboard-electro',
-      '/workbenches/dashboard-moral',
-      '/workbenches/dashboard-research',
+      '/workbenches/dashboard-all/preview',
+      '/workbenches/dashboard-electro/preview',
+      '/workbenches/dashboard-moral/preview',
+      '/workbenches/dashboard-research/preview',
     ])
     expect(workbenchHrefs.every((href) => href && !href.startsWith('/runtime/'))).toBe(true)
+    expect(workbenchHrefs.every((href) => href?.endsWith('/preview'))).toBe(true)
     expect(wrapper.findAll('[data-testid^="data-center-dashboard-"]')).toHaveLength(5)
   })
 
@@ -356,7 +358,7 @@ describe('DataDashboardsView', () => {
     const { wrapper } = await mountDashboardView(createDashboardFetchMock(demoDashboardRows, partialWorkbenchRows))
 
     expect(wrapper.get('[data-testid="data-center-workbench-dashboard-all"]').attributes('href')).toBe(
-      '/workbenches/dashboard-all',
+      '/workbenches/dashboard-all/preview',
     )
     expect(wrapper.find('[data-testid="data-center-workbench-dashboard-electro"]').exists()).toBe(false)
     expect(wrapper.get('[data-testid="data-center-workbench-unavailable-dashboard-electro"]').text()).toContain(
