@@ -35,12 +35,22 @@ export function normalizeFontWeight(value: unknown): CSSProperties['fontWeight']
 export function buildTextStyle(style: Record<string, unknown>): CSSProperties {
   const backgroundColor = typeof style.backgroundColor === 'string' ? style.backgroundColor : 'transparent'
   const color = typeof style.fontColor === 'string' ? style.fontColor : '#f8fafc'
+  const borderColor = typeof style.borderColor === 'string' ? style.borderColor : ''
 
-  return {
+  const textStyle: CSSProperties = {
     backgroundColor,
     color,
     fontSize: `${normalizeFontSize(style.fontSize)}px`,
     fontWeight: normalizeFontWeight(style.fontWeight),
     ...buildBackdropBlurStyle(style),
   }
+
+  if (borderColor) {
+    textStyle.borderColor = borderColor
+    textStyle.borderStyle = 'solid'
+    textStyle.borderWidth = '1px'
+    textStyle.borderRadius = '4px'
+  }
+
+  return textStyle
 }
