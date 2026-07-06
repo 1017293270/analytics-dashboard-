@@ -21,65 +21,43 @@ describe('education workbench schemas', () => {
     }
   })
 
-  test('uses a subtle right-aligned role badge instead of a heavy title block', () => {
+  test('omits role badges from default workbench screens', () => {
     const schema = createEducationWorkbenchSchema('dashboard-all')
-    const badge = schema.components.find((component) => component.id === 'dashboard-all-role-chip')
 
-    expect(badge).toBeDefined()
-    expect(badge?.layout).toMatchObject({
-      x: 1604,
-      y: 46,
-      width: 212,
-      height: 42,
-      locked: true,
-    })
-    expect(badge?.style).toMatchObject({
-      backgroundColor: 'rgba(16, 185, 129, 0.08)',
-      borderColor: 'rgba(167, 243, 208, 0.26)',
-      fontColor: '#d1fae5',
-      fontSize: 20,
-      fontWeight: 700,
-    })
+    expect(schema.components.some((component) => component.id === 'dashboard-all-role-chip')).toBe(false)
   })
 
-  test('normalizes stored legacy role badges without replacing the whole schema', () => {
+  test('normalizes stored legacy role badges by removing only the badge', () => {
     const schema = createEducationWorkbenchSchema('dashboard-all')
     const title = schema.components.find((component) => component.id === 'dashboard-all-title')
     const legacySchema = {
       ...schema,
-      components: schema.components.map((component) =>
-        component.id === 'dashboard-all-role-chip'
-          ? {
-              ...component,
-              layout: { ...component.layout, x: 1510, y: 44, width: 300, height: 56 },
-              style: {
-                ...component.style,
-                backgroundColor: 'rgba(16, 185, 129, 0.16)',
-                borderColor: 'rgba(16, 185, 129, 0.38)',
-                fontColor: '#bbf7d0',
-                fontSize: 24,
-                fontWeight: 800,
-              },
-            }
-          : component,
-      ),
+      components: [
+        ...schema.components,
+        {
+          id: 'dashboard-all-role-chip',
+          type: 'text' as const,
+          name: '角色标签',
+          layout: { x: 1510, y: 44, width: 300, height: 56, zIndex: 3, locked: true, visible: true },
+          props: { text: '全员工作台' },
+          style: {
+            backgroundColor: 'rgba(16, 185, 129, 0.16)',
+            borderColor: 'rgba(16, 185, 129, 0.38)',
+            fontColor: '#bbf7d0',
+            fontSize: 24,
+            fontWeight: 800,
+          },
+        },
+      ],
     }
 
     const normalized = normalizeDefaultWorkbenchRoleBadge(legacySchema, 'dashboard-all')
-    const normalizedBadge = normalized?.components.find((component) => component.id === 'dashboard-all-role-chip')
 
     expect(normalized).not.toBeNull()
     expect(normalized?.components.find((component) => component.id === 'dashboard-all-title')).toBe(title)
-    expect(normalizedBadge?.layout).toMatchObject({ x: 1604, y: 46, width: 212, height: 42 })
-    expect(normalizedBadge?.style).toMatchObject({
-      backgroundColor: 'rgba(16, 185, 129, 0.08)',
-      borderColor: 'rgba(167, 243, 208, 0.26)',
-      fontSize: 20,
-      fontWeight: 700,
-    })
+    expect(normalized?.components.some((component) => component.id === 'dashboard-all-role-chip')).toBe(false)
     expect(normalizeDefaultWorkbenchRoleBadge(schema, 'dashboard-all')).toBeNull()
   })
-
   test('upgrades only the exact legacy blank default schema', () => {
     expect(shouldUpgradeDefaultWorkbenchSchema(createDefaultSchema())).toBe(true)
     expect(shouldUpgradeDefaultWorkbenchSchema(createEducationWorkbenchSchema('dashboard-all'))).toBe(false)

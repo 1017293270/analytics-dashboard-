@@ -58,6 +58,17 @@ async function loadDraftPreview() {
   }
 }
 
+async function enterFullscreen() {
+  const element = document.documentElement
+  if (!element.requestFullscreen) return
+
+  try {
+    await element.requestFullscreen()
+  } catch {
+    // Browser fullscreen can be denied outside a direct user gesture.
+  }
+}
+
 watch(dashboardId, () => {
   void loadDraftPreview()
 }, { immediate: true })
@@ -65,6 +76,15 @@ watch(dashboardId, () => {
 
 <template>
   <main class="draft-preview-screen" data-testid="draft-preview-screen">
+    <button
+      class="draft-preview-screen__fullscreen"
+      type="button"
+      data-testid="draft-preview-fullscreen-button"
+      @click="enterFullscreen"
+    >
+      全屏
+    </button>
+
     <div v-if="isLoading" class="draft-preview-screen__state" aria-busy="true">
       <div class="draft-preview-screen__skeleton draft-preview-screen__skeleton--wide" />
       <div class="draft-preview-screen__skeleton" />
@@ -108,6 +128,35 @@ watch(dashboardId, () => {
   overflow: hidden;
   background: #030712;
   color: #e5e7eb;
+}
+
+.draft-preview-screen__fullscreen {
+  position: fixed;
+  top: 24px;
+  right: 28px;
+  z-index: 50;
+  min-width: 58px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid rgba(167, 243, 208, 0.24);
+  border-radius: 4px;
+  background: rgba(3, 7, 18, 0.36);
+  color: rgba(220, 252, 231, 0.9);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.draft-preview-screen__fullscreen:hover {
+  border-color: rgba(167, 243, 208, 0.42);
+  background: rgba(6, 95, 70, 0.22);
+  color: #f0fdf4;
+}
+
+.draft-preview-screen__fullscreen:focus-visible {
+  outline: 3px solid rgba(125, 211, 252, 0.4);
+  outline-offset: 2px;
 }
 
 .draft-preview-screen__state {

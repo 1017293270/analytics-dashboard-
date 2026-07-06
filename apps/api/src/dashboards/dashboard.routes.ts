@@ -21,6 +21,7 @@ import {
   ensureDefaultWorkbenchDashboards,
   getDefaultWorkbenchVisibleRoles,
   isDefaultWorkbenchDashboardId,
+  normalizeDefaultWorkbenchRoleBadge,
   parseSchema,
   serializeWorkbenchSetting,
 } from './dashboard.repository.js'
@@ -88,6 +89,10 @@ function serializeRuntime(dashboard: { id: string; name: string; publishedSchema
     schema: parseSchema(dashboard.publishedSchema),
     publishedAt: dashboard.publishedAt,
   }
+}
+
+function normalizeDefaultWorkbenchSchema(schema: ReturnType<typeof parseSchema>, dashboardId: string) {
+  return normalizeDefaultWorkbenchRoleBadge(schema, dashboardId) ?? schema
 }
 
 function isActiveDashboard<T extends { workspaceId: string; status: string }>(dashboard: T | null): dashboard is T {
@@ -466,7 +471,7 @@ dashboardRoutes.post('/big-screens/:id/versions/:version/rollback', asyncHandler
   })
   if (!version) return sendNotFound(res, 'Dashboard version not found')
 
-  const schema = parseSchema(version.schema)
+  const schema = normalizeDefaultWorkbenchSchema(parseSchema(version.schema), dashboard.id)
   const publishedAt = new Date()
   const updated = await prisma.$transaction(async (tx) => {
     const rolledBackDashboard = await tx.dashboard.update({
@@ -600,6 +605,9 @@ dashboardRoutes.patch('/big-screens/:id/draft', asyncHandler(async (req, res) =>
   const draftSchema = dashboardSchemaValidator.safeParse(body.data.draftSchema)
   if (!draftSchema.success) return sendBadRequest(res, 'SCHEMA_INVALID', 'Draft schema is invalid')
 
+  const nextDraftSchema = normalizeDefaultWorkbenchSchema(draftSchema.data, dashboard.id)
+  const serializedDraftSchema = JSON.stringify(nextDraftSchema)
+
   const updated = await prisma.$transaction(async (tx) => {
     const updateResult = await tx.dashboard.updateMany({
       where: {
@@ -608,7 +616,7 @@ dashboardRoutes.patch('/big-screens/:id/draft', asyncHandler(async (req, res) =>
         status: { not: 'archived' },
         updatedAt: expectedRevision,
       },
-      data: { draftSchema: JSON.stringify(draftSchema.data), status: 'draft' },
+      data: { draftSchema: serializedDraftSchema, status: 'draft' },
     })
     if (updateResult.count !== 1) return null
     const updatedDashboard = await tx.dashboard.findUniqueOrThrow({ where: { id: dashboard.id } })
@@ -620,7 +628,7 @@ dashboardRoutes.patch('/big-screens/:id/draft', asyncHandler(async (req, res) =>
   res.json(
     ok({
       ...updated,
-      draftSchema: draftSchema.data,
+      draftSchema: nextDraftSchema,
       publishedSchema: updated.publishedSchema ? parseSchema(updated.publishedSchema) : null,
     }),
   )
@@ -634,13 +642,14 @@ dashboardRoutes.post('/big-screens/:id/publish', asyncHandler(async (req, res) =
   const body = publishBody.safeParse(req.body)
   if (!body.success) return sendBadRequest(res, 'PUBLISH_INVALID', 'Publish request is invalid')
 
-  const dashboard = await prisma.dashboard.findUnique({ where: { id: params.data.id } })
-  if (!isActiveDashboard(dashboard)) return sendNotFound(res)
+  const dashboard = await findActiveDashboard(params.data.id)
+  if (!dashboard) return sendNotFound(res)
 
   const permission = await getDashboardPermission(dashboard.id, actor)
   if (!hasPublishPermission(permission)) return sendForbidden(res)
 
-  const draftSchema = parseSchema(dashboard.draftSchema)
+  const draftSchema = normalizeDefaultWorkbenchSchema(parseSchema(dashboard.draftSchema), dashboard.id)
+  const serializedDraftSchema = JSON.stringify(draftSchema)
   const publishedAt = new Date()
 
   let updated
@@ -655,7 +664,8 @@ dashboardRoutes.post('/big-screens/:id/publish', asyncHandler(async (req, res) =
         where: { id: dashboard.id },
         data: {
           status: 'published',
-          publishedSchema: JSON.stringify(draftSchema),
+          draftSchema: serializedDraftSchema,
+          publishedSchema: serializedDraftSchema,
           publishedAt,
         },
       })
@@ -664,7 +674,7 @@ dashboardRoutes.post('/big-screens/:id/publish', asyncHandler(async (req, res) =
           id: nanoid(),
           dashboardId: dashboard.id,
           version: nextVersion,
-          schema: JSON.stringify(draftSchema),
+          schema: serializedDraftSchema,
           publishNote: body.data.publishNote ?? null,
           createdBy: actor.actorId,
         },

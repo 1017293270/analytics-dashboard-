@@ -84,8 +84,24 @@ describe('DraftPreviewScreen', () => {
     expect(bigScreenApi.getDashboard).toHaveBeenCalledWith('dashboard-all')
     expect(wrapper.find('[data-testid="draft-preview-screen"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="draft-preview-component"]').text()).toContain('校级总览')
+    expect(wrapper.get('[data-testid="draft-preview-fullscreen-button"]').text()).toContain('全屏')
     expect(wrapper.text()).not.toContain('组件库')
     expect(wrapper.text()).not.toContain('属性配置')
+  })
+
+  test('requests browser fullscreen from the lightweight preview action', async () => {
+    const requestFullscreen = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(document.documentElement, 'requestFullscreen', {
+      configurable: true,
+      value: requestFullscreen,
+    })
+    vi.mocked(bigScreenApi.getDashboard).mockResolvedValue(createDashboardRecord())
+
+    const { wrapper } = await mountDraftPreview()
+
+    await wrapper.get('[data-testid="draft-preview-fullscreen-button"]').trigger('click')
+
+    expect(requestFullscreen).toHaveBeenCalledTimes(1)
   })
 
   test('shows an error state when draft preview loading fails', async () => {

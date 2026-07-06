@@ -1,5 +1,6 @@
 import request from 'supertest'
 import { describe, expect, test } from 'vitest'
+import type { DashboardSchema } from '@analytics/shared'
 import { prisma } from '../src/db.js'
 import { createApp } from '../src/app.js'
 import { createEducationWorkbenchSchema } from '../src/dashboards/dashboard.repository.js'
@@ -18,6 +19,34 @@ async function createPublishedDashboard(agent: TestAgent, name = 'Published Work
   const published = await agent.post(`/api/big-screens/${created.body.data.id}/publish`).send({}).expect(200)
 
   return published.body.data
+}
+
+function createLegacyDefaultWorkbenchSchema(dashboardId = 'dashboard-all'): DashboardSchema {
+  const schema = createEducationWorkbenchSchema(dashboardId)
+  return {
+    ...schema,
+    components: [
+      ...schema.components,
+      {
+        id: `${dashboardId}-role-chip`,
+        type: 'text',
+        name: '角色标签',
+        layout: { x: 1510, y: 44, width: 300, height: 56, zIndex: 3, locked: true, visible: true },
+        props: { text: '全员工作台' },
+        style: {
+          backgroundColor: 'rgba(16, 185, 129, 0.16)',
+          borderColor: 'rgba(16, 185, 129, 0.38)',
+          fontColor: '#bbf7d0',
+          fontSize: 24,
+          fontWeight: 800,
+        },
+      },
+    ],
+  }
+}
+
+function hasRoleChip(schema: DashboardSchema, dashboardId = 'dashboard-all') {
+  return schema.components.some((component) => component.id === `${dashboardId}-role-chip`)
 }
 
 describe('dashboard workflow routes', () => {
@@ -140,7 +169,7 @@ describe('dashboard workflow routes', () => {
     expect(audit).toBeTruthy()
   })
 
-  test('public runtime normalizes legacy default workbench role badges before serving shared screens', async () => {
+  test('public runtime removes legacy default workbench role badges before serving shared screens', async () => {
     const app = createApp()
     const admin = await loginAs(app)
     await admin.get('/api/big-screens').expect(200)
@@ -148,22 +177,23 @@ describe('dashboard workflow routes', () => {
     const schema = createEducationWorkbenchSchema('dashboard-all')
     const legacySchema = {
       ...schema,
-      components: schema.components.map((component) =>
-        component.id === 'dashboard-all-role-chip'
-          ? {
-              ...component,
-              layout: { ...component.layout, x: 1510, y: 44, width: 300, height: 56 },
-              style: {
-                ...component.style,
-                backgroundColor: 'rgba(16, 185, 129, 0.16)',
-                borderColor: 'rgba(16, 185, 129, 0.38)',
-                fontColor: '#bbf7d0',
-                fontSize: 24,
-                fontWeight: 800,
-              },
-            }
-          : component,
-      ),
+      components: [
+        ...schema.components,
+        {
+          id: 'dashboard-all-role-chip',
+          type: 'text',
+          name: '角色标签',
+          layout: { x: 1510, y: 44, width: 300, height: 56, zIndex: 3, locked: true, visible: true },
+          props: { text: '全员工作台' },
+          style: {
+            backgroundColor: 'rgba(16, 185, 129, 0.16)',
+            borderColor: 'rgba(16, 185, 129, 0.38)',
+            fontColor: '#bbf7d0',
+            fontSize: 24,
+            fontWeight: 800,
+          },
+        },
+      ],
     }
 
     await prisma.dashboard.update({
@@ -195,14 +225,92 @@ describe('dashboard workflow routes', () => {
       (component: { id: string }) => component.id === 'dashboard-all-role-chip',
     )
 
-    expect(badge.layout).toMatchObject({ x: 1604, y: 46, width: 212, height: 42 })
-    expect(badge.style).toMatchObject({
-      backgroundColor: 'rgba(16, 185, 129, 0.08)',
-      borderColor: 'rgba(167, 243, 208, 0.26)',
-      fontSize: 20,
-      fontWeight: 700,
+    expect(badge).toBeUndefined()
+    expect(storedBadge).toBeUndefined()
+  })
+
+  test('publishing a legacy default workbench draft removes role badges from stored schemas and version', async () => {
+    const app = createApp()
+    const admin = await loginAs(app)
+    await admin.get('/api/big-screens').expect(200)
+
+    const legacySchema = createLegacyDefaultWorkbenchSchema()
+    await prisma.dashboard.update({
+      where: { id: 'dashboard-all' },
+      data: {
+        status: 'draft',
+        draftSchema: JSON.stringify(legacySchema),
+        publishedSchema: null,
+        publishedAt: null,
+      },
     })
-    expect(storedBadge.layout).toMatchObject({ x: 1604, y: 46, width: 212, height: 42 })
+
+    const published = await admin
+      .post('/api/big-screens/dashboard-all/publish')
+      .send({ publishNote: 'clean legacy badge' })
+      .expect(200)
+
+    const stored = await prisma.dashboard.findUniqueOrThrow({ where: { id: 'dashboard-all' } })
+    const version = await prisma.dashboardVersion.findFirstOrThrow({
+      where: { dashboardId: 'dashboard-all' },
+      orderBy: { version: 'desc' },
+    })
+
+    expect(hasRoleChip(published.body.data.draftSchema)).toBe(false)
+    expect(hasRoleChip(published.body.data.publishedSchema)).toBe(false)
+    expect(hasRoleChip(JSON.parse(stored.draftSchema))).toBe(false)
+    expect(hasRoleChip(JSON.parse(stored.publishedSchema ?? '{}'))).toBe(false)
+    expect(hasRoleChip(JSON.parse(version.schema))).toBe(false)
+  })
+
+  test('saving a legacy default workbench draft removes role badges before storage', async () => {
+    const app = createApp()
+    const admin = await loginAs(app)
+    await admin.get('/api/big-screens').expect(200)
+    const current = await admin.get('/api/big-screens/dashboard-all').expect(200)
+
+    const legacySchema = createLegacyDefaultWorkbenchSchema()
+    const updated = await admin
+      .patch('/api/big-screens/dashboard-all/draft')
+      .send({
+        draftSchema: legacySchema,
+        expectedUpdatedAt: current.body.data.updatedAt,
+      })
+      .expect(200)
+
+    const stored = await prisma.dashboard.findUniqueOrThrow({ where: { id: 'dashboard-all' } })
+
+    expect(hasRoleChip(updated.body.data.draftSchema)).toBe(false)
+    expect(hasRoleChip(JSON.parse(stored.draftSchema))).toBe(false)
+  })
+  test('rolling back a legacy default workbench version removes role badges from stored schemas', async () => {
+    const app = createApp()
+    const admin = await loginAs(app)
+    await admin.get('/api/big-screens').expect(200)
+
+    const legacySchema = createLegacyDefaultWorkbenchSchema()
+    await prisma.dashboardVersion.create({
+      data: {
+        id: 'version-legacy-default-workbench',
+        dashboardId: 'dashboard-all',
+        version: 1,
+        schema: JSON.stringify(legacySchema),
+        publishNote: 'legacy badge version',
+        createdBy: 'user-system-admin',
+      },
+    })
+
+    const rolledBack = await admin
+      .post('/api/big-screens/dashboard-all/versions/1/rollback')
+      .send({})
+      .expect(200)
+
+    const stored = await prisma.dashboard.findUniqueOrThrow({ where: { id: 'dashboard-all' } })
+
+    expect(hasRoleChip(rolledBack.body.data.draftSchema)).toBe(false)
+    expect(hasRoleChip(rolledBack.body.data.publishedSchema)).toBe(false)
+    expect(hasRoleChip(JSON.parse(stored.draftSchema))).toBe(false)
+    expect(hasRoleChip(JSON.parse(stored.publishedSchema ?? '{}'))).toBe(false)
   })
 
   test('non-public-runtime share scope cannot load public runtime', async () => {

@@ -81,14 +81,6 @@ function visibleLayout(layout: Omit<ComponentLayout, 'visible'>): ComponentLayou
   return { ...layout, visible: true }
 }
 
-const ROLE_BADGE_LAYOUT = visibleLayout({ x: 1604, y: 46, width: 212, height: 42, zIndex: 3, locked: true })
-const ROLE_BADGE_STYLE: ComponentStyle = {
-  backgroundColor: 'rgba(16, 185, 129, 0.08)',
-  borderColor: 'rgba(167, 243, 208, 0.26)',
-  fontColor: '#d1fae5',
-  fontSize: 20,
-  fontWeight: 700,
-}
 
 function mockBinding(id: string, query: DataBinding['query'], refreshSeconds = 30): DataBinding {
   return { id, sourceType: 'mock', query, refreshSeconds }
@@ -336,13 +328,7 @@ export function createEducationWorkbenchSchema(id: string): DashboardSchema {
       visibleLayout({ x: 52, y: 100, width: 1040, height: 40, zIndex: 2, locked: true }),
       { fontColor: '#a7f3d0', fontSize: 18, fontWeight: 600 },
     ),
-    textComponent(
-      `${id}-role-chip`,
-      '角色标签',
-      config.roleLabel,
-      ROLE_BADGE_LAYOUT,
-      ROLE_BADGE_STYLE,
-    ),
+
     ...config.metrics.map((metric, index) => metricComponent(metric, metricLayouts[index])),
     ...config.charts.map(chartComponent),
     tableComponent(config.table),
@@ -372,47 +358,12 @@ function isDefaultWorkbenchRoleBadge(component: DashboardComponent, dashboardId:
   return component.id === `${dashboardId}-role-chip` && component.type === 'text'
 }
 
-function roleBadgeNeedsNormalization(component: DashboardComponent) {
-  return (
-    component.layout.x !== ROLE_BADGE_LAYOUT.x ||
-    component.layout.y !== ROLE_BADGE_LAYOUT.y ||
-    component.layout.width !== ROLE_BADGE_LAYOUT.width ||
-    component.layout.height !== ROLE_BADGE_LAYOUT.height ||
-    component.layout.zIndex !== ROLE_BADGE_LAYOUT.zIndex ||
-    component.layout.locked !== ROLE_BADGE_LAYOUT.locked ||
-    component.style.backgroundColor !== ROLE_BADGE_STYLE.backgroundColor ||
-    component.style.borderColor !== ROLE_BADGE_STYLE.borderColor ||
-    component.style.fontColor !== ROLE_BADGE_STYLE.fontColor ||
-    component.style.fontSize !== ROLE_BADGE_STYLE.fontSize ||
-    component.style.fontWeight !== ROLE_BADGE_STYLE.fontWeight
-  )
-}
-
 export function normalizeDefaultWorkbenchRoleBadge(schema: DashboardSchema, dashboardId: string): DashboardSchema | null {
   if (!isDefaultWorkbenchDashboardId(dashboardId)) return null
 
-  let changed = false
-  const components = schema.components.map((component) => {
-    if (!isDefaultWorkbenchRoleBadge(component, dashboardId) || !roleBadgeNeedsNormalization(component)) {
-      return component
-    }
+  const components = schema.components.filter((component) => !isDefaultWorkbenchRoleBadge(component, dashboardId))
 
-    changed = true
-    return {
-      ...component,
-      layout: {
-        ...component.layout,
-        ...ROLE_BADGE_LAYOUT,
-        visible: component.layout.visible !== false,
-      },
-      style: {
-        ...component.style,
-        ...ROLE_BADGE_STYLE,
-      },
-    }
-  })
-
-  return changed ? { ...schema, components } : null
+  return components.length === schema.components.length ? null : { ...schema, components }
 }
 
 export function isDefaultWorkbenchDashboardId(id: string) {
