@@ -136,6 +136,28 @@ function createEducationWorkbenchSchema(): DashboardSchema {
   }
 }
 
+function withSeededEducationComponentIds(schema: DashboardSchema): DashboardSchema {
+  return {
+    ...schema,
+    components: schema.components.map((component) => {
+      if (component.type === 'metric-card') return { ...component, id: `${component.id}-card` }
+      if (
+        component.type === 'line-chart' ||
+        component.type === 'area-chart' ||
+        component.type === 'bar-chart' ||
+        component.type === 'pie-chart' ||
+        component.type === 'radar-chart' ||
+        component.type === 'funnel-chart'
+      ) {
+        return { ...component, id: `${component.id}-chart` }
+      }
+      if (component.type === 'table') return { ...component, id: `${component.id}-table` }
+
+      return component
+    }),
+  }
+}
+
 describe('useDashboardDesignerStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -237,6 +259,26 @@ describe('useDashboardDesignerStore', () => {
       x: 64,
       y: 1376,
       width: 2432,
+    })
+  })
+
+  test('applies 2K fitting to seeded education workbench component ids with type suffixes', () => {
+    const store = useDashboardDesignerStore()
+    store.replaceDashboardForLoad(createRecord(withSeededEducationComponentIds(createEducationWorkbenchSchema()), { id: 'dashboard-research' }))
+
+    store.resizeCanvas({ width: 2560, height: 1440, scaleComponents: true })
+
+    expect(store.schema.components.find((item) => item.id === 'research-app-launches-card')?.layout).toMatchObject({
+      x: 1888,
+      y: 220,
+      width: 560,
+      height: 190,
+    })
+    expect(store.schema.components.find((item) => item.id === 'research-task-table-table')?.layout).toMatchObject({
+      x: 880,
+      y: 940,
+      width: 1616,
+      height: 360,
     })
   })
 

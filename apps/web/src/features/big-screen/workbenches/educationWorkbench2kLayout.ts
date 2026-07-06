@@ -47,8 +47,20 @@ const CHART_LAYOUTS: Array<Partial<DashboardComponent['layout']>> = [
 
 const TABLE_LAYOUT: Partial<DashboardComponent['layout']> = { x: 880, y: 940, width: 1616, height: 360 }
 
+type SlotKind = 'metric' | 'chart' | 'table'
+
+const SLOT_SUFFIX_BY_KIND: Record<SlotKind, string> = {
+  metric: 'card',
+  chart: 'chart',
+  table: 'table',
+}
+
 function getDefaultWorkbenchId(dashboardId: string | null | undefined) {
   return DEFAULT_WORKBENCH_IDS.find((id) => id === dashboardId) ?? null
+}
+
+function matchesSlotId(componentId: string, slotId: string, kind: SlotKind) {
+  return componentId === slotId || componentId === `${slotId}-${SLOT_SUFFIX_BY_KIND[kind]}`
 }
 
 function withLayout(
@@ -87,17 +99,17 @@ export function applyEducationWorkbench2kLayout(
       return withLayout(component, { x: 64, y: 1376, width: 2432, height: 32 }, canvas)
     }
 
-    const metricIndex = componentSlots.metrics.indexOf(component.id)
+    const metricIndex = componentSlots.metrics.findIndex((slotId) => matchesSlotId(component.id, slotId, 'metric'))
     if (metricIndex >= 0 && metricIndex < METRIC_LAYOUTS.length) {
       return withLayout(component, METRIC_LAYOUTS[metricIndex], canvas)
     }
 
-    const chartIndex = componentSlots.charts.indexOf(component.id)
+    const chartIndex = componentSlots.charts.findIndex((slotId) => matchesSlotId(component.id, slotId, 'chart'))
     if (chartIndex >= 0 && chartIndex < CHART_LAYOUTS.length) {
       return withLayout(component, CHART_LAYOUTS[chartIndex], canvas)
     }
 
-    if (component.id === componentSlots.table) {
+    if (matchesSlotId(component.id, componentSlots.table, 'table')) {
       return withLayout(component, TABLE_LAYOUT, canvas)
     }
 
