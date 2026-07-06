@@ -1,7 +1,8 @@
-import type { DashboardComponent, DashboardSchema } from '@analytics/shared'
+﻿import type { DashboardComponent, DashboardSchema } from '@analytics/shared'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
 import { bigScreenApi, type DashboardRecord } from '../api/bigScreenApi'
+import { clampLayout } from '../designer/designerLayout'
 import { bigScreenText } from '../i18n/zh-CN'
 import { createDefaultDashboardSchema } from '../schema/defaults'
 import { useDashboardHistoryStore } from './useDashboardHistoryStore'
@@ -11,6 +12,12 @@ type ComponentPatch = Partial<Omit<DashboardComponent, 'layout' | 'props' | 'sty
 }
 
 type SaveIntent = 'draft' | 'publish'
+
+type ResizeCanvasInput = {
+  width: number
+  height: number
+  scaleComponents?: boolean
+}
 
 type DraftSaveResult = {
   saved: boolean
@@ -40,6 +47,10 @@ type DesignerState = {
 }
 
 const DEFAULT_DASHBOARD_NAME: string = bigScreenText.dashboardList.untitled
+const MIN_CANVAS_WIDTH = 320
+const MIN_CANVAS_HEIGHT = 240
+const MAX_CANVAS_WIDTH = 7680
+const MAX_CANVAS_HEIGHT = 4320
 const pendingDraftWritesByTarget = new Map<string, Promise<void>>()
 
 function createLocalDraftReservationId() {
@@ -108,6 +119,12 @@ function getComponent(schema: DashboardSchema, componentId: string | null) {
 
 function isComponentLocked(schema: DashboardSchema, componentId: string | null) {
   return getComponent(schema, componentId)?.layout.locked === true
+}
+
+function clampCanvasDimension(value: number, min: number, max: number) {
+  if (!Number.isFinite(value)) return min
+
+  return Math.min(Math.max(Math.round(value), min), max)
 }
 
 function isLockOnlyPatch(patch: ComponentPatch) {
@@ -273,6 +290,38 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
       this.schema = cloneSchema(schema)
       this.selectedComponentId = null
       this.error = null
+    },
+    resizeCanvas(input: ResizeCanvasInput) {
+      if (this.isLoading || this.isSaving) return
+
+      const width = clampCanvasDimension(input.width, MIN_CANVAS_WIDTH, MAX_CANVAS_WIDTH)
+      const height = clampCanvasDimension(input.height, MIN_CANVAS_HEIGHT, MAX_CANVAS_HEIGHT)
+
+      this.patchSchema((draft) => {
+        const previousCanvas = draft.canvas
+        const nextCanvas = { ...previousCanvas, width, height }
+        const xScale = previousCanvas.width > 0 ? width / previousCanvas.width : 1
+        const yScale = previousCanvas.height > 0 ? height / previousCanvas.height : 1
+        const sizeScale = Math.min(xScale, yScale)
+
+        draft.canvas = nextCanvas
+        draft.components = draft.components.map((component) => {
+          const scaledLayout = input.scaleComponents === false
+            ? component.layout
+            : {
+                ...component.layout,
+                x: component.layout.x * xScale,
+                y: component.layout.y * yScale,
+                width: component.layout.width * sizeScale,
+                height: component.layout.height * sizeScale,
+              }
+
+          return {
+            ...component,
+            layout: clampLayout(scaledLayout, nextCanvas),
+          }
+        })
+      })
     },
     addComponent(component: DashboardComponent) {
       if (this.isSaving) return

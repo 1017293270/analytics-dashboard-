@@ -1,4 +1,4 @@
-import type { DashboardComponent, DashboardSchema } from '@analytics/shared'
+﻿import type { DashboardComponent, DashboardSchema } from '@analytics/shared'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { bigScreenApi, type DashboardRecord } from '../api/bigScreenApi'
@@ -59,6 +59,71 @@ describe('useDashboardDesignerStore', () => {
     vi.restoreAllMocks()
   })
 
+  test('resizes the canvas and scales existing components proportionally', () => {
+    const store = useDashboardDesignerStore()
+    const history = useDashboardHistoryStore()
+    const positionedComponent: DashboardComponent = {
+      ...component,
+      layout: { x: 120, y: 90, width: 360, height: 180, zIndex: 1 },
+    }
+
+    store.addComponent(positionedComponent)
+    const initialHistoryLength = history.past.length
+
+    store.resizeCanvas({ width: 2560, height: 1440, scaleComponents: true })
+
+    expect(store.schema.canvas.width).toBe(2560)
+    expect(store.schema.canvas.height).toBe(1440)
+    expect(store.schema.components[0]?.layout).toMatchObject({
+      x: 160,
+      y: 120,
+      width: 480,
+      height: 240,
+    })
+    expect(history.past.length).toBe(initialHistoryLength + 1)
+  })
+
+  test('resizes the canvas without scaling components when requested', () => {
+    const store = useDashboardDesignerStore()
+    store.addComponent(component)
+
+    store.resizeCanvas({ width: 2560, height: 1440, scaleComponents: false })
+
+    expect(store.schema.canvas).toMatchObject({ width: 2560, height: 1440 })
+    expect(store.schema.components[0]?.layout).toMatchObject(component.layout)
+  })
+
+  test('preserves component aspect ratio for custom non-wide canvas scaling', () => {
+    const store = useDashboardDesignerStore()
+    const positionedComponent: DashboardComponent = {
+      ...component,
+      layout: { x: 120, y: 90, width: 360, height: 180, zIndex: 1 },
+    }
+
+    store.addComponent(positionedComponent)
+    store.resizeCanvas({ width: 3000, height: 1200, scaleComponents: true })
+
+    expect(store.schema.components[0]?.layout).toMatchObject({
+      x: 188,
+      y: 100,
+      width: 400,
+      height: 200,
+    })
+  })
+
+  test('clamps canvas dimensions and component layouts when resizing', () => {
+    const store = useDashboardDesignerStore()
+    const oversizedComponent: DashboardComponent = {
+      ...component,
+      layout: { x: 1800, y: 950, width: 320, height: 180, zIndex: 1 },
+    }
+
+    store.addComponent(oversizedComponent)
+    store.resizeCanvas({ width: 100, height: 100, scaleComponents: false })
+
+    expect(store.schema.canvas).toMatchObject({ width: 320, height: 240 })
+    expect(store.schema.components[0]?.layout).toMatchObject({ x: 0, y: 60, width: 320, height: 180 })
+  })
   test('saveDraft preserves selected component and history', async () => {
     const store = useDashboardDesignerStore()
     const history = useDashboardHistoryStore()

@@ -90,6 +90,33 @@ describe('DesignerToolbar', () => {
     expect(applyPreset).toHaveBeenCalledWith(bigScreenPresets[1]?.schema)
   })
 
+  test('resizes the dashboard canvas from the toolbar presets', async () => {
+    const { store, wrapper } = mountToolbar()
+    const resizeCanvas = vi.fn()
+    store.resizeCanvas = resizeCanvas
+
+    await wrapper.get('[data-testid="canvas-resolution-select"]').setValue('2560x1440')
+
+    expect(resizeCanvas).toHaveBeenCalledWith({ width: 2560, height: 1440, scaleComponents: true })
+
+    await wrapper.get('[data-testid="canvas-scale-toggle"]').setValue(false)
+    await wrapper.get('[data-testid="canvas-resolution-select"]').setValue('3840x2160')
+
+    expect(resizeCanvas).toHaveBeenLastCalledWith({ width: 3840, height: 2160, scaleComponents: false })
+  })
+
+  test('applies a custom dashboard canvas resolution from the toolbar', async () => {
+    const { store, wrapper } = mountToolbar()
+    const resizeCanvas = vi.fn()
+    store.resizeCanvas = resizeCanvas
+
+    await wrapper.get('[data-testid="canvas-resolution-select"]').setValue('custom')
+    await wrapper.get('[data-testid="custom-canvas-width-input"]').setValue('3000')
+    await wrapper.get('[data-testid="custom-canvas-height-input"]').setValue('1200')
+    await wrapper.get('[data-testid="apply-custom-resolution-button"]').trigger('click')
+
+    expect(resizeCanvas).toHaveBeenCalledWith({ width: 3000, height: 1200, scaleComponents: true })
+  })
   test('disables preset selection while saving', async () => {
     const { store, wrapper } = mountToolbar()
 

@@ -1,5 +1,5 @@
-<script setup lang="ts">
-import { computed } from 'vue'
+﻿<script setup lang="ts">
+import { computed, ref, watch } from 'vue'
 import { bigScreenText } from '../i18n/zh-CN'
 import { bigScreenPresets } from '../presets/presets'
 import { useDashboardHistoryStore } from '../stores/useDashboardHistoryStore'
@@ -8,14 +8,26 @@ import { clampZoom, formatZoomPercent, MAX_ZOOM, MIN_ZOOM, ZOOM_STEP } from './d
 
 const designer = useDashboardDesignerStore()
 const history = useDashboardHistoryStore()
+const scaleCanvasComponents = ref(true)
+const selectedCanvasResolution = ref('')
+const customCanvasWidth = ref(designer.schema.canvas.width)
+const customCanvasHeight = ref(designer.schema.canvas.height)
 
 const zoomOptions = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2]
+const CUSTOM_RESOLUTION_VALUE = 'custom'
+const canvasResolutionPresets = [
+  { label: '1080P', value: '1920x1080', width: 1920, height: 1080 },
+  { label: '2K', value: '2560x1440', width: 2560, height: 1440 },
+  { label: '4K', value: '3840x2160', width: 3840, height: 2160 },
+]
 
 const canUndo = computed(() => history.past.length > 0 && !designer.isLoading && !designer.isSaving)
 const canRedo = computed(() => history.future.length > 0 && !designer.isLoading && !designer.isSaving)
 const hasValidName = computed(() => designer.dashboardName.trim().length > 0)
 const canSave = computed(() => hasValidName.value && !designer.isLoading && !designer.isSaving)
 const canApplyPreset = computed(() => !designer.isLoading && !designer.isSaving)
+const canEditCanvasResolution = computed(() => !designer.isLoading && !designer.isSaving)
+const isCustomCanvasResolution = computed(() => selectedCanvasResolution.value === CUSTOM_RESOLUTION_VALUE)
 const canPreview = computed(
   () =>
     Boolean(designer.dashboardId) &&
@@ -42,6 +54,17 @@ const recordStatus = computed(() => {
 
   return status === 'published' ? labels.published : status === 'draft' ? labels.draft : labels.local
 })
+watch(
+  () => [designer.schema.canvas.width, designer.schema.canvas.height] as const,
+  ([width, height]) => {
+    const matchingPreset = canvasResolutionPresets.find((preset) => preset.width === width && preset.height === height)
+    selectedCanvasResolution.value = matchingPreset?.value ?? CUSTOM_RESOLUTION_VALUE
+    customCanvasWidth.value = width
+    customCanvasHeight.value = height
+  },
+  { immediate: true },
+)
+
 const saveState = computed(() => {
   if (designer.isSaving && designer.activeSaveIntent === 'publish') return bigScreenText.common.actions.publishing
   if (designer.isSaving) return bigScreenText.designer.toolbar.savingDraft
@@ -54,6 +77,42 @@ const saveState = computed(() => {
 function updateName(event: Event) {
   const input = event.target as HTMLInputElement
   designer.setDashboardName(input.value)
+}
+
+function applyCanvasResolution(width: number, height: number) {
+  designer.resizeCanvas({ width, height, scaleComponents: scaleCanvasComponents.value })
+}
+
+function updateCanvasResolutionFromSelect(event: Event) {
+  const input = event.target as HTMLSelectElement
+  selectedCanvasResolution.value = input.value
+
+  if (input.value === CUSTOM_RESOLUTION_VALUE) {
+    customCanvasWidth.value = designer.schema.canvas.width
+    customCanvasHeight.value = designer.schema.canvas.height
+    return
+  }
+
+  const preset = canvasResolutionPresets.find((candidate) => candidate.value === input.value)
+  if (preset) {
+    applyCanvasResolution(preset.width, preset.height)
+  }
+}
+
+function updateCanvasScaleToggle(event: Event) {
+  scaleCanvasComponents.value = (event.target as HTMLInputElement).checked
+}
+
+function updateCustomCanvasWidth(event: Event) {
+  customCanvasWidth.value = Number((event.target as HTMLInputElement).value)
+}
+
+function updateCustomCanvasHeight(event: Event) {
+  customCanvasHeight.value = Number((event.target as HTMLInputElement).value)
+}
+
+function applyCustomCanvasResolution() {
+  applyCanvasResolution(customCanvasWidth.value, customCanvasHeight.value)
 }
 
 function updateZoom(value: number) {
@@ -111,7 +170,7 @@ function applyPresetFromSelect(event: Event) {
       </span>
     </div>
 
-    <div class="designer-toolbar__cluster" :aria-label="bigScreenText.designer.toolbar.historyControls">
+    <div class="designer-toolbar__cluster designer-toolbar__cluster--history" :aria-label="bigScreenText.designer.toolbar.historyControls">
       <button class="designer-toolbar__button" type="button" :disabled="!canUndo" @click="designer.undo">
         {{ bigScreenText.designer.toolbar.undo }}
       </button>
@@ -131,6 +190,64 @@ function applyPresetFromSelect(event: Event) {
           {{ preset.title }}
         </option>
       </select>
+    </div>
+
+    <div class="designer-toolbar__cluster designer-toolbar__cluster--canvas" :aria-label="bigScreenText.designer.toolbar.canvasResolution">
+      <select
+        class="designer-toolbar__canvas-select"
+        data-testid="canvas-resolution-select"
+        :aria-label="bigScreenText.designer.toolbar.canvasResolution"
+        :value="selectedCanvasResolution"
+        :disabled="!canEditCanvasResolution"
+        @change="updateCanvasResolutionFromSelect"
+      >
+        <option v-for="preset in canvasResolutionPresets" :key="preset.value" :value="preset.value">
+          {{ preset.label }} · {{ preset.width }}×{{ preset.height }}
+        </option>
+        <option :value="CUSTOM_RESOLUTION_VALUE">{{ bigScreenText.designer.toolbar.customResolution }}</option>
+      </select>
+      <label class="designer-toolbar__scale-toggle" :title="bigScreenText.designer.toolbar.scaleCanvasComponents">
+        <input
+          data-testid="canvas-scale-toggle"
+          type="checkbox"
+          :checked="scaleCanvasComponents"
+          :disabled="!canEditCanvasResolution"
+          @change="updateCanvasScaleToggle"
+        />
+        <span>{{ bigScreenText.designer.toolbar.scaleCanvasComponents }}</span>
+      </label>
+      <template v-if="isCustomCanvasResolution">
+        <input
+          class="designer-toolbar__canvas-input"
+          data-testid="custom-canvas-width-input"
+          type="number"
+          min="320"
+          max="7680"
+          :value="customCanvasWidth"
+          :disabled="!canEditCanvasResolution"
+          @input="updateCustomCanvasWidth"
+        />
+        <span class="designer-toolbar__canvas-multiply">×</span>
+        <input
+          class="designer-toolbar__canvas-input"
+          data-testid="custom-canvas-height-input"
+          type="number"
+          min="240"
+          max="4320"
+          :value="customCanvasHeight"
+          :disabled="!canEditCanvasResolution"
+          @input="updateCustomCanvasHeight"
+        />
+        <button
+          class="designer-toolbar__button designer-toolbar__button--compact"
+          data-testid="apply-custom-resolution-button"
+          type="button"
+          :disabled="!canEditCanvasResolution"
+          @click="applyCustomCanvasResolution"
+        >
+          {{ bigScreenText.designer.toolbar.applyResolution }}
+        </button>
+      </template>
     </div>
 
     <div class="designer-toolbar__cluster designer-toolbar__cluster--zoom" :aria-label="bigScreenText.designer.toolbar.zoomControls">
@@ -208,16 +325,20 @@ function applyPresetFromSelect(event: Event) {
 .designer-toolbar {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) auto auto auto;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  grid-template-areas:
+    "identity zoom primary"
+    "history canvas primary";
   align-items: center;
-  gap: 14px;
-  min-height: 64px;
+  gap: 8px 14px;
+  min-height: 96px;
   padding: 10px 18px 10px 72px;
   border-bottom: 1px solid var(--color-border);
   background: color-mix(in srgb, var(--color-panel) 94%, #e0f2fe);
 }
 
 .designer-toolbar__identity {
+  grid-area: identity;
   display: grid;
   grid-template-columns: minmax(160px, 360px) auto;
   align-items: center;
@@ -244,6 +365,8 @@ function applyPresetFromSelect(event: Event) {
 
 .designer-toolbar__name-input,
 .designer-toolbar__preset-select,
+.designer-toolbar__canvas-select,
+.designer-toolbar__canvas-input,
 .designer-toolbar__zoom-select,
 .designer-toolbar__button,
 .designer-toolbar__icon-button {
@@ -309,8 +432,25 @@ function applyPresetFromSelect(event: Event) {
   gap: 6px;
 }
 
+.designer-toolbar__cluster--history {
+  grid-area: history;
+}
+
+.designer-toolbar__cluster--canvas {
+  grid-area: canvas;
+}
+
+.designer-toolbar__cluster--zoom {
+  grid-area: zoom;
+}
+
+.designer-toolbar__cluster--primary {
+  grid-area: primary;
+}
 .designer-toolbar__button,
 .designer-toolbar__preset-select,
+.designer-toolbar__canvas-select,
+.designer-toolbar__canvas-input,
 .designer-toolbar__icon-button,
 .designer-toolbar__zoom-select {
   height: 34px;
@@ -370,9 +510,57 @@ function applyPresetFromSelect(event: Event) {
   padding: 0 8px;
 }
 
+.designer-toolbar__cluster--canvas {
+  gap: 8px;
+}
+
+.designer-toolbar__canvas-select {
+  width: 164px;
+  padding: 0 8px;
+}
+
+.designer-toolbar__canvas-input {
+  width: 74px;
+  padding: 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.designer-toolbar__canvas-multiply {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.designer-toolbar__scale-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 48px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.designer-toolbar__scale-toggle input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--color-primary);
+}
+
+.designer-toolbar__button--compact {
+  min-width: 44px;
+  padding: 0 10px;
+}
+
 .designer-toolbar__button:hover:not(:disabled),
 .designer-toolbar__link-button:hover:not(.is-disabled),
 .designer-toolbar__preset-select:hover:not(:disabled),
+.designer-toolbar__canvas-select:hover:not(:disabled),
+.designer-toolbar__canvas-input:hover:not(:disabled),
 .designer-toolbar__icon-button:hover:not(:disabled),
 .designer-toolbar__zoom-select:hover:not(:disabled),
 .designer-toolbar__name-input:hover:not(:disabled) {
@@ -389,6 +577,8 @@ function applyPresetFromSelect(event: Event) {
 .designer-toolbar__button:disabled,
 .designer-toolbar__link-button.is-disabled,
 .designer-toolbar__preset-select:disabled,
+.designer-toolbar__canvas-select:disabled,
+.designer-toolbar__canvas-input:disabled,
 .designer-toolbar__icon-button:disabled,
 .designer-toolbar__zoom-select:disabled,
 .designer-toolbar__name-input:disabled {
@@ -406,6 +596,8 @@ function applyPresetFromSelect(event: Event) {
 
 .designer-toolbar__name-input:focus-visible,
 .designer-toolbar__preset-select:focus-visible,
+.designer-toolbar__canvas-select:focus-visible,
+.designer-toolbar__canvas-input:focus-visible,
 .designer-toolbar__zoom-select:focus-visible,
 .designer-toolbar__button:focus-visible,
 .designer-toolbar__icon-button:focus-visible,
@@ -416,12 +608,14 @@ function applyPresetFromSelect(event: Event) {
 
 @media (max-width: 1100px) {
   .designer-toolbar {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "identity"
+      "history"
+      "canvas"
+      "zoom"
+      "primary";
     align-items: start;
-  }
-
-  .designer-toolbar__identity {
-    grid-column: 1 / -1;
   }
 
   .designer-toolbar__cluster {
