@@ -32,6 +32,76 @@ function createPreviewSchema(): DashboardSchema {
   }
 }
 
+function createTwoKWorkbenchSchema(): DashboardSchema {
+  return {
+    ...createDefaultDashboardSchema(),
+    canvas: { width: 2560, height: 1440, background: { type: 'color', value: '#021b12' }, scaleMode: 'fit-screen' },
+    components: [
+      {
+        id: 'dashboard-research-title',
+        type: 'text',
+        name: '教研主任教师发展工作台',
+        layout: { x: 64, y: 53, width: 1200, height: 85, zIndex: 1, visible: true },
+        props: {},
+        style: {},
+      },
+      ...[
+        'research-teacher-index',
+        'research-task-count',
+        'research-activity-count',
+        'research-app-launches',
+      ].map((id, index) => ({
+        id,
+        type: 'metric-card' as const,
+        name: `指标 ${index + 1}`,
+        layout: { x: 64 + index * 466, y: 240, width: 440, height: 227, zIndex: 2, visible: true },
+        props: {},
+        style: {},
+      })),
+      {
+        id: 'research-task-trend',
+        type: 'line-chart',
+        name: '教研任务趋势',
+        layout: { x: 64, y: 480, width: 1120, height: 480, zIndex: 3, visible: true },
+        props: {},
+        style: {},
+      },
+      {
+        id: 'research-capability',
+        type: 'radar-chart',
+        name: '教师能力画像',
+        layout: { x: 1237, y: 480, width: 573, height: 480, zIndex: 3, visible: true },
+        props: {},
+        style: {},
+      },
+      {
+        id: 'research-activity-mix',
+        type: 'pie-chart',
+        name: '课堂活动类型',
+        layout: { x: 64, y: 1000, width: 747, height: 347, zIndex: 3, visible: true },
+        props: {},
+        style: {},
+      },
+      {
+        id: 'research-task-table',
+        type: 'table',
+        name: '教研任务明细',
+        layout: { x: 864, y: 1000, width: 947, height: 347, zIndex: 3, visible: true },
+        props: {},
+        style: {},
+      },
+      {
+        id: 'dashboard-research-bottom-rule',
+        type: 'decoration',
+        name: '底部装饰',
+        layout: { x: 64, y: 1370, width: 2432, height: 32, zIndex: 0, visible: true },
+        props: {},
+        style: {},
+      },
+    ],
+  }
+}
+
 function createDashboardRecord(): DashboardRecord {
   return {
     id: 'dashboard-all',
@@ -61,7 +131,7 @@ async function mountDraftPreview(path = '/workbenches/dashboard-all/preview') {
         RuntimeScaler: { template: '<section data-testid="draft-preview-stage"><slot /></section>' },
         RuntimeComponent: {
           props: ['component', 'schema'],
-          template: '<span data-testid="draft-preview-component">{{ component.name }}</span>',
+          template: '<span data-testid="draft-preview-component">{{ component.name }}:{{ component.layout.x }}</span>',
         },
       },
     },
@@ -87,6 +157,18 @@ describe('DraftPreviewScreen', () => {
     expect(wrapper.get('[data-testid="draft-preview-fullscreen-button"]').text()).toContain('全屏')
     expect(wrapper.text()).not.toContain('组件库')
     expect(wrapper.text()).not.toContain('属性配置')
+  })
+
+  test('normalizes saved 2K education workbench drafts for fullscreen preview', async () => {
+    vi.mocked(bigScreenApi.getDashboard).mockResolvedValue({
+      ...createDashboardRecord(),
+      draftSchema: createTwoKWorkbenchSchema(),
+    })
+
+    const { wrapper } = await mountDraftPreview('/workbenches/dashboard-research/preview')
+    const table = wrapper.findAll('[data-testid="draft-preview-component"]').find((item) => item.text().includes('教研任务明细'))
+
+    expect(table?.text()).toContain('教研任务明细:880')
   })
 
   test('requests browser fullscreen from the lightweight preview action', async () => {

@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router'
 import { bigScreenApi } from '../api/bigScreenApi'
 import { getCanvasBackgroundStyle } from '../designer/designerLayout'
 import { bigScreenText } from '../i18n/zh-CN'
+import { normalizeEducationWorkbench2kSchema } from '../workbenches/educationWorkbench2kLayout'
 import RuntimeComponent from './RuntimeComponent.vue'
 import RuntimeScaler from './RuntimeScaler.vue'
 
@@ -21,7 +22,11 @@ const dashboardId = computed(() => {
   const value = route.params.id
   return Array.isArray(value) ? value[0] : value
 })
-const schema = computed(() => (loadState.value.status === 'success' ? loadState.value.schema : null))
+const schema = computed(() =>
+  loadState.value.status === 'success'
+    ? normalizeEducationWorkbench2kSchema(loadState.value.schema, dashboardId.value)
+    : null,
+)
 const visibleComponents = computed(() =>
   schema.value
     ? schema.value.components

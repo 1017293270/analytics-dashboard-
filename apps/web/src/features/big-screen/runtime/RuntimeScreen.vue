@@ -5,12 +5,13 @@ import { useRoute } from 'vue-router'
 import { bigScreenApi } from '../api/bigScreenApi'
 import { getCanvasBackgroundStyle } from '../designer/designerLayout'
 import { bigScreenText } from '../i18n/zh-CN'
+import { normalizeEducationWorkbench2kSchema } from '../workbenches/educationWorkbench2kLayout'
 import RuntimeComponent from './RuntimeComponent.vue'
 import RuntimeScaler from './RuntimeScaler.vue'
 
 type RuntimeLoadState =
   | { status: 'loading'; schema: null; error: null }
-  | { status: 'success'; schema: DashboardSchema; error: null }
+  | { status: 'success'; schema: DashboardSchema; dashboardId: string; error: null }
   | { status: 'error'; schema: null; error: string }
 
 const route = useRoute()
@@ -34,7 +35,11 @@ const runtimeSource = computed(() => {
 const runtimeSourceKey = computed(() =>
   runtimeSource.value ? `${runtimeSource.value.kind}:${runtimeSource.value.value}` : 'missing',
 )
-const schema = computed(() => (loadState.value.status === 'success' ? loadState.value.schema : null))
+const schema = computed(() =>
+  loadState.value.status === 'success'
+    ? normalizeEducationWorkbench2kSchema(loadState.value.schema, loadState.value.dashboardId)
+    : null,
+)
 const visibleComponents = computed(() =>
   schema.value
     ? schema.value.components
@@ -65,7 +70,7 @@ async function loadRuntime() {
         : await bigScreenApi.getRuntime(source.value)
     if (serial !== requestSerial || runtimeSourceKey.value !== sourceKey) return
 
-    loadState.value = { status: 'success', schema: runtime.schema, error: null }
+    loadState.value = { status: 'success', schema: runtime.schema, dashboardId: runtime.id, error: null }
   } catch (errorValue) {
     if (serial !== requestSerial || runtimeSourceKey.value !== sourceKey) return
 

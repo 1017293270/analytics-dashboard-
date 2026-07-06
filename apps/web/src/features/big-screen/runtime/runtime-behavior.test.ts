@@ -57,6 +57,31 @@ function createSchema(binding?: DashboardSchema['dataBindings'][string]): Dashbo
   }
 }
 
+function createTwoKResearchWorkbenchSchema(): DashboardSchema {
+  return {
+    ...createDefaultDashboardSchema(),
+    canvas: { width: 2560, height: 1440, background: { type: 'color', value: '#021b12' }, scaleMode: 'fit-screen' },
+    components: [
+      {
+        id: 'dashboard-research-title',
+        type: 'text',
+        name: '教研主任教师发展工作台',
+        layout: { x: 64, y: 53, width: 1200, height: 85, zIndex: 1, visible: true },
+        props: {},
+        style: {},
+      },
+      {
+        id: 'research-task-table',
+        type: 'table',
+        name: '教研任务明细',
+        layout: { x: 864, y: 1000, width: 947, height: 347, zIndex: 3, visible: true },
+        props: {},
+        style: {},
+      },
+    ],
+  }
+}
+
 function createMockBinding(overrides: Partial<DashboardSchema['dataBindings'][string]> = {}) {
   return {
     id: 'binding-1',
@@ -207,5 +232,67 @@ describe('RuntimeScreen loading', () => {
 
     expect(wrapper.text()).toContain(bigScreenText.runtime.emptyTitle)
     expect(wrapper.text()).not.toContain(bigScreenText.runtime.missingRuntime)
+  })
+
+  test('normalizes default 2K workbench layouts on published runtime screens', async () => {
+    vi.mocked(bigScreenApi.getRuntime).mockResolvedValue({
+      id: 'dashboard-research',
+      name: 'Research',
+      schema: createTwoKResearchWorkbenchSchema(),
+      publishedAt: null,
+    })
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/runtime/:id', component: RuntimeScreen }],
+    })
+
+    await router.push('/runtime/dashboard-research')
+    await router.isReady()
+    const wrapper = mount(RuntimeScreen, {
+      global: {
+        plugins: [router],
+        stubs: {
+          RuntimeComponent: {
+            props: ['component'],
+            template: '<span data-testid="runtime-component">{{ component.name }}:{{ component.layout.x }}</span>',
+          },
+          RuntimeScaler: { template: '<section><slot /></section>' },
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('教研任务明细:880')
+  })
+
+  test('normalizes default 2K workbench layouts on shared runtime screens', async () => {
+    vi.mocked(bigScreenApi.getSharedRuntime).mockResolvedValue({
+      id: 'dashboard-research',
+      name: 'Research Share',
+      schema: createTwoKResearchWorkbenchSchema(),
+      publishedAt: null,
+    })
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/share/:token', component: RuntimeScreen }],
+    })
+
+    await router.push('/share/token-1')
+    await router.isReady()
+    const wrapper = mount(RuntimeScreen, {
+      global: {
+        plugins: [router],
+        stubs: {
+          RuntimeComponent: {
+            props: ['component'],
+            template: '<span data-testid="runtime-component">{{ component.name }}:{{ component.layout.x }}</span>',
+          },
+          RuntimeScaler: { template: '<section><slot /></section>' },
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('教研任务明细:880')
   })
 })

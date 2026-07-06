@@ -53,6 +53,89 @@ function withoutRevision(record: DashboardRecord): DashboardRecord {
   return recordWithoutRevision as DashboardRecord
 }
 
+function createEducationWorkbenchSchema(): DashboardSchema {
+  return {
+    ...createDefaultDashboardSchema(),
+    canvas: {
+      width: 1920,
+      height: 1080,
+      background: { type: 'color', value: '#021b12' },
+      scaleMode: 'fit-screen',
+    },
+    components: [
+      {
+        id: 'dashboard-research-title',
+        type: 'text',
+        name: 'Title',
+        layout: { x: 48, y: 40, width: 900, height: 64, zIndex: 1 },
+        props: { text: '教研主任教师发展工作台' },
+        style: {},
+      },
+      {
+        id: 'dashboard-research-subtitle',
+        type: 'text',
+        name: 'Subtitle',
+        layout: { x: 48, y: 110, width: 900, height: 34, zIndex: 1 },
+        props: { text: '教师发展、教研任务、课堂活动与资源建设。' },
+        style: {},
+      },
+      ...[
+        'research-teacher-index',
+        'research-task-count',
+        'research-activity-count',
+        'research-app-launches',
+      ].map((id, index) => ({
+        id,
+        type: 'metric-card' as const,
+        name: `Metric ${index + 1}`,
+        layout: { x: 48 + index * 350, y: 180, width: 330, height: 170, zIndex: 2 },
+        props: { title: `Metric ${index + 1}` },
+        style: {},
+      })),
+      {
+        id: 'research-task-trend',
+        type: 'line-chart',
+        name: 'Trend',
+        layout: { x: 48, y: 360, width: 840, height: 360, zIndex: 3 },
+        props: {},
+        style: {},
+      },
+      {
+        id: 'research-capability',
+        type: 'radar-chart',
+        name: 'Profile',
+        layout: { x: 928, y: 360, width: 430, height: 360, zIndex: 3 },
+        props: {},
+        style: {},
+      },
+      {
+        id: 'research-activity-mix',
+        type: 'pie-chart',
+        name: 'Activity Mix',
+        layout: { x: 48, y: 750, width: 560, height: 260, zIndex: 3 },
+        props: {},
+        style: {},
+      },
+      {
+        id: 'research-task-table',
+        type: 'table',
+        name: 'Task Table',
+        layout: { x: 648, y: 750, width: 710, height: 260, zIndex: 3 },
+        props: {},
+        style: {},
+      },
+      {
+        id: 'dashboard-research-bottom-rule',
+        type: 'decoration',
+        name: 'Bottom Rule',
+        layout: { x: 48, y: 1028, width: 1824, height: 24, zIndex: 0 },
+        props: {},
+        style: {},
+      },
+    ],
+  }
+}
+
 describe('useDashboardDesignerStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -123,6 +206,78 @@ describe('useDashboardDesignerStore', () => {
 
     expect(store.schema.canvas).toMatchObject({ width: 320, height: 240 })
     expect(store.schema.components[0]?.layout).toMatchObject({ x: 0, y: 60, width: 320, height: 180 })
+  })
+
+  test('applies a full-width 2K layout for default education workbenches', () => {
+    const store = useDashboardDesignerStore()
+    store.replaceDashboardForLoad(createRecord(createEducationWorkbenchSchema(), { id: 'dashboard-research' }))
+
+    store.resizeCanvas({ width: 2560, height: 1440, scaleComponents: true })
+
+    expect(store.schema.canvas).toMatchObject({ width: 2560, height: 1440 })
+    expect(store.schema.components.find((item) => item.id === 'research-app-launches')?.layout).toMatchObject({
+      x: 1888,
+      y: 220,
+      width: 560,
+      height: 190,
+    })
+    expect(store.schema.components.find((item) => item.id === 'research-task-table')?.layout).toMatchObject({
+      x: 880,
+      y: 940,
+      width: 1616,
+      height: 360,
+    })
+    expect(store.schema.components.find((item) => item.id === 'research-activity-mix')?.layout).toMatchObject({
+      x: 64,
+      y: 940,
+      width: 760,
+      height: 360,
+    })
+    expect(store.schema.components.find((item) => item.id === 'dashboard-research-bottom-rule')?.layout).toMatchObject({
+      x: 64,
+      y: 1376,
+      width: 2432,
+    })
+  })
+
+  test('keeps copied education workbench dashboards on generic proportional resize', () => {
+    const store = useDashboardDesignerStore()
+    store.replaceDashboardForLoad(createRecord(createEducationWorkbenchSchema(), { id: 'custom-copy' }))
+
+    store.resizeCanvas({ width: 2560, height: 1440, scaleComponents: true })
+
+    expect(store.schema.components.find((item) => item.id === 'research-app-launches')?.layout).toMatchObject({
+      x: 1464,
+      y: 240,
+      width: 440,
+      height: 227,
+    })
+    expect(store.schema.components.find((item) => item.id === 'research-task-table')?.layout.x).not.toBe(880)
+  })
+
+  test('does not move custom components added to a default education workbench during 2K fitting', () => {
+    const store = useDashboardDesignerStore()
+    const schema = createEducationWorkbenchSchema()
+    schema.components = [
+      {
+        ...component,
+        id: 'custom-leading-metric',
+        name: 'Custom Metric',
+        layout: { x: 0, y: 0, width: 120, height: 90, zIndex: 99 },
+      },
+      ...schema.components,
+    ]
+    store.replaceDashboardForLoad(createRecord(schema, { id: 'dashboard-research' }))
+
+    store.resizeCanvas({ width: 2560, height: 1440, scaleComponents: true })
+
+    expect(store.schema.components.find((item) => item.id === 'custom-leading-metric')?.layout).toMatchObject({
+      x: 0,
+      y: 0,
+      width: 160,
+      height: 120,
+    })
+    expect(store.schema.components.find((item) => item.id === 'research-app-launches')?.layout.x).toBe(1888)
   })
   test('saveDraft preserves selected component and history', async () => {
     const store = useDashboardDesignerStore()

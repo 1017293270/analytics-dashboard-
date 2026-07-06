@@ -5,6 +5,7 @@ import { bigScreenApi, type DashboardRecord } from '../api/bigScreenApi'
 import { clampLayout } from '../designer/designerLayout'
 import { bigScreenText } from '../i18n/zh-CN'
 import { createDefaultDashboardSchema } from '../schema/defaults'
+import { applyEducationWorkbench2kLayout } from '../workbenches/educationWorkbench2kLayout'
 import { useDashboardHistoryStore } from './useDashboardHistoryStore'
 
 type ComponentPatch = Partial<Omit<DashboardComponent, 'layout' | 'props' | 'style'>> & {
@@ -294,6 +295,7 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
     resizeCanvas(input: ResizeCanvasInput) {
       if (this.isLoading || this.isSaving) return
 
+      const dashboardId = this.dashboardId
       const width = clampCanvasDimension(input.width, MIN_CANVAS_WIDTH, MAX_CANVAS_WIDTH)
       const height = clampCanvasDimension(input.height, MIN_CANVAS_HEIGHT, MAX_CANVAS_HEIGHT)
 
@@ -304,9 +306,11 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
         const yScale = previousCanvas.height > 0 ? height / previousCanvas.height : 1
         const sizeScale = Math.min(xScale, yScale)
 
+        const shouldScaleComponents = input.scaleComponents !== false
+
         draft.canvas = nextCanvas
-        draft.components = draft.components.map((component) => {
-          const scaledLayout = input.scaleComponents === false
+        const resizedComponents = draft.components.map((component) => {
+          const scaledLayout = !shouldScaleComponents
             ? component.layout
             : {
                 ...component.layout,
@@ -321,6 +325,9 @@ export const useDashboardDesignerStore = defineStore('dashboard-designer', {
             layout: clampLayout(scaledLayout, nextCanvas),
           }
         })
+        draft.components = shouldScaleComponents
+          ? applyEducationWorkbench2kLayout(resizedComponents, nextCanvas, dashboardId) ?? resizedComponents
+          : resizedComponents
       })
     },
     addComponent(component: DashboardComponent) {
