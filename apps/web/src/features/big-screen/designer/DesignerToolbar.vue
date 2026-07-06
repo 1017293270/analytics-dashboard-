@@ -79,8 +79,15 @@ function updateName(event: Event) {
   designer.setDashboardName(input.value)
 }
 
+async function saveCanvasResolutionDraftIfNeeded() {
+  if (!designer.dashboardId || !designer.hasUnsavedChanges || designer.isSaving) return
+
+  await designer.saveDraft()
+}
+
 function applyCanvasResolution(width: number, height: number) {
   designer.resizeCanvas({ width, height, scaleComponents: scaleCanvasComponents.value })
+  void saveCanvasResolutionDraftIfNeeded()
 }
 
 function updateCanvasResolutionFromSelect(event: Event) {

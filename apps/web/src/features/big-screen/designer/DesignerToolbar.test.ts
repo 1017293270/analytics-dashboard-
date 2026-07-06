@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { bigScreenText } from '../i18n/zh-CN'
@@ -103,6 +103,19 @@ describe('DesignerToolbar', () => {
     await wrapper.get('[data-testid="canvas-resolution-select"]').setValue('3840x2160')
 
     expect(resizeCanvas).toHaveBeenLastCalledWith({ width: 3840, height: 2160, scaleComponents: false })
+  })
+
+  test('auto-saves an existing dashboard after changing canvas resolution for browse preview', async () => {
+    const { store, wrapper } = mountToolbar()
+    const saveDraft = vi.fn().mockResolvedValue(undefined)
+    store.dashboardId = 'dashboard-research'
+    store.saveDraft = saveDraft
+
+    await wrapper.get('[data-testid="canvas-resolution-select"]').setValue('2560x1440')
+    await flushPromises()
+
+    expect(store.schema.canvas).toMatchObject({ width: 2560, height: 1440 })
+    expect(saveDraft).toHaveBeenCalledOnce()
   })
 
   test('applies a custom dashboard canvas resolution from the toolbar', async () => {
