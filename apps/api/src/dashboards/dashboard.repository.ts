@@ -267,6 +267,7 @@ export type SerializedWorkbenchSetting = {
   dashboardId: string
   visibleRoles: string[]
   availability: WorkbenchAvailability
+  mappedDashboardId: string
   createdAt?: Date
   updatedAt?: Date
 }
@@ -392,6 +393,7 @@ export function serializeWorkbenchSetting(
     dashboardId: string
     visibleRoles: string
     availability: string
+    mappedDashboardId?: string | null
     createdAt?: Date
     updatedAt?: Date
   } | null,
@@ -403,6 +405,7 @@ export function serializeWorkbenchSetting(
     dashboardId: setting?.dashboardId ?? fallback.dashboardId,
     visibleRoles: visibleRoles.length > 0 ? visibleRoles : [...(fallback.visibleRoles ?? [])],
     availability: setting?.availability === 'disabled' ? 'disabled' : 'enabled',
+    mappedDashboardId: setting?.mappedDashboardId ?? fallback.dashboardId,
     createdAt: setting?.createdAt,
     updatedAt: setting?.updatedAt,
   }
@@ -504,6 +507,7 @@ async function ensureDefaultWorkbenchSetting(dashboardId: string, roleCode: stri
       dashboardId,
       visibleRoles: JSON.stringify([roleCode]),
       availability: 'enabled',
+      mappedDashboardId: dashboardId,
     },
   })
 }

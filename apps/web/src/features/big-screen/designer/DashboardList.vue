@@ -96,7 +96,7 @@ async function toggleDashboardWorkbenchAvailability(dashboard: DashboardListItem
     })
     dashboards.value = dashboards.value.map((item) =>
       item.id === dashboard.id
-        ? { ...item, visibleRoles: updated.visibleRoles, availability: updated.availability }
+        ? { ...item, visibleRoles: updated.visibleRoles, availability: updated.availability, mappedDashboardId: updated.mappedDashboardId }
         : item,
     )
   } catch (error) {

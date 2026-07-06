@@ -27,11 +27,12 @@ model Dashboard {
 }
 
 model WorkbenchSetting {
-  dashboardId  String   @id
-  visibleRoles String
-  availability String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  dashboardId        String   @id
+  visibleRoles       String
+  availability       String
+  mappedDashboardId  String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   dashboard Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
 }

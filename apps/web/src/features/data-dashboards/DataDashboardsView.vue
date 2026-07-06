@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { DataAnalysis, Edit, Link, Plus, Refresh, Search, View } from '@element-plus/icons-vue'
+import { Check, DataAnalysis, Edit, Link, Plus, Refresh, Search, View } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { bigScreenApi, type DashboardListItem } from '../big-screen/api/bigScreenApi'
@@ -39,6 +39,8 @@ const draft = reactive<DashboardDraft>(createDashboardDraft())
 const previewMetrics = ref<ManagedDashboard['metrics']>([])
 const roleWorkbenches = ref<DashboardListItem[]>([])
 const workbenchLoadWarning = ref('')
+const workbenchMappingDrafts = ref<Record<string, string>>({})
+const savingWorkbenchMappingId = ref<string | null>(null)
 const isLoading = ref(false)
 const isSaving = ref(false)
 const fieldErrors = reactive({
@@ -55,27 +57,37 @@ const roleWorkbenchFallbacks = [
     id: 'dashboard-all',
     name: '未来实验学校数据总览',
     role: '全员',
+    roleCode: 'all-staff',
     description: '校级治理、设备运维、教师发展和学生成长统一浏览',
   },
   {
     id: 'dashboard-electro',
     name: '电教主任设备运维工作台',
     role: '电教主任',
+    roleCode: 'electro-education-director',
     description: '设备在线、告警闭环、应用使用和一体机巡检态势',
   },
   {
     id: 'dashboard-moral',
     name: '德育主任学生成长工作台',
     role: '德育主任',
+    roleCode: 'moral-education-director',
     description: '学生成长档案、德育活动、预警跟进和班级表现',
   },
   {
     id: 'dashboard-research',
     name: '教研主任教师发展工作台',
     role: '教研主任',
+    roleCode: 'teaching-research-director',
     description: '教研活动、教师培训、资源共建和课堂质量指标',
   },
 ] as const
+
+const workbenchOptions = computed(() => roleWorkbenches.value.map((workbench) => ({
+  id: workbench.id,
+  name: workbench.name,
+  disabled: workbench.availability === 'disabled',
+})))
 
 const roleWorkbenchCards = computed(() => {
   const workbenchesById = new Map(roleWorkbenches.value.map((workbench) => [workbench.id, workbench]))
@@ -88,12 +100,22 @@ const roleWorkbenchCards = computed(() => {
       : isAccessible
         ? '可浏览'
         : '当前角色不可浏览'
+    const persistedMappedDashboardId = workbench?.mappedDashboardId ?? fallback.id
+    const selectedMappedDashboardId = workbenchMappingDrafts.value[fallback.id] ?? persistedMappedDashboardId
+    const mappedDashboard = workbenchesById.get(selectedMappedDashboardId)
 
     return {
       ...fallback,
+      availability: workbench?.availability ?? 'enabled',
+      visibleRoles: workbench?.visibleRoles?.length ? workbench.visibleRoles : [fallback.roleCode],
+      persistedMappedDashboardId,
+      selectedMappedDashboardId,
+      mappedDashboardName: mappedDashboard?.name ?? selectedMappedDashboardId,
+      isMappingDirty: selectedMappedDashboardId !== persistedMappedDashboardId,
+      isSavingMapping: savingWorkbenchMappingId.value === fallback.id,
       isAccessible,
       status,
-      path: `/workbenches/${fallback.id}/preview`,
+      path: `/workbenches/${persistedMappedDashboardId}/preview`,
     }
   })
 })
@@ -142,6 +164,57 @@ function replaceDashboard(row: Parameters<typeof mapDataDashboardRow>[0]) {
 
   updateSummaryFromDashboards()
 }
+function syncWorkbenchMappingDrafts() {
+  const workbenchesById = new Map(roleWorkbenches.value.map((workbench) => [workbench.id, workbench]))
+  const nextDrafts: Record<string, string> = {}
+
+  for (const fallback of roleWorkbenchFallbacks) {
+    const workbench = workbenchesById.get(fallback.id)
+    nextDrafts[fallback.id] = workbench?.mappedDashboardId ?? fallback.id
+  }
+
+  workbenchMappingDrafts.value = nextDrafts
+}
+
+async function saveWorkbenchMapping(workbench: (typeof roleWorkbenchCards.value)[number]) {
+  if (!workbench.isAccessible || savingWorkbenchMappingId.value) return
+
+  savingWorkbenchMappingId.value = workbench.id
+
+  try {
+    const updated = await bigScreenApi.updateWorkbenchSettings(
+      workbench.id,
+      {
+        visibleRoles: workbench.visibleRoles,
+        availability: workbench.availability,
+        mappedDashboardId: workbench.selectedMappedDashboardId,
+      },
+      { credentials: 'include' },
+    )
+
+    roleWorkbenches.value = roleWorkbenches.value.map((item) => item.id === workbench.id
+      ? {
+          ...item,
+          visibleRoles: updated.visibleRoles,
+          availability: updated.availability,
+          mappedDashboardId: updated.mappedDashboardId,
+        }
+      : item)
+    workbenchMappingDrafts.value = {
+      ...workbenchMappingDrafts.value,
+      [workbench.id]: updated.mappedDashboardId,
+    }
+    ElMessage.success('已更新工作台映射')
+  } catch (error) {
+    workbenchMappingDrafts.value = {
+      ...workbenchMappingDrafts.value,
+      [workbench.id]: workbench.persistedMappedDashboardId,
+    }
+    ElMessage.error(errorMessage(error, '工作台映射保存失败'))
+  } finally {
+    savingWorkbenchMappingId.value = null
+  }
+}
 
 async function loadDashboards() {
   isLoading.value = true
@@ -160,8 +233,10 @@ async function loadWorkbenches() {
 
   try {
     roleWorkbenches.value = await bigScreenApi.listDashboards({ credentials: 'include' })
+    syncWorkbenchMappingDrafts()
   } catch {
     roleWorkbenches.value = []
+    syncWorkbenchMappingDrafts()
     workbenchLoadWarning.value = '角色工作台暂用演示兜底数据'
   }
 }
@@ -348,6 +423,36 @@ onMounted(() => {
               </div>
               <h4>{{ workbench.name }}</h4>
               <p>{{ workbench.description }}</p>
+              <div class="data-dashboards__mapping-control">
+                <span>当前映射：{{ workbench.mappedDashboardName }}</span>
+                <div class="data-dashboards__mapping-row">
+                  <ElSelect
+                    v-model="workbenchMappingDrafts[workbench.id]"
+                    size="small"
+                    :disabled="!workbench.isAccessible || workbench.isSavingMapping"
+                    :data-testid="`workbench-mapping-select-${workbench.id}`"
+                  >
+                    <ElOption
+                      v-for="option in workbenchOptions"
+                      :key="option.id"
+                      :label="option.name"
+                      :value="option.id"
+                      :disabled="option.disabled"
+                    />
+                  </ElSelect>
+                  <ElButton
+                    type="primary"
+                    size="small"
+                    :icon="Check"
+                    :loading="workbench.isSavingMapping"
+                    :disabled="!workbench.isAccessible || !workbench.isMappingDirty"
+                    :data-testid="`workbench-mapping-save-${workbench.id}`"
+                    @click="saveWorkbenchMapping(workbench)"
+                  >
+                    保存映射
+                  </ElButton>
+                </div>
+              </div>
               <RouterLink
                 v-if="workbench.isAccessible"
                 class="data-dashboards__card-action"
@@ -819,6 +924,30 @@ onMounted(() => {
   font-weight: var(--fw-black);
 }
 
+.data-dashboards__mapping-control {
+  display: grid;
+  gap: 6px;
+}
+
+.data-dashboards__mapping-control span {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--fs-label);
+  font-weight: var(--fw-bold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.data-dashboards__mapping-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.data-dashboards__mapping-row :deep(.el-select) {
+  width: 100%;
+}
 .data-dashboards__card-action {
   display: inline-flex;
   align-items: center;

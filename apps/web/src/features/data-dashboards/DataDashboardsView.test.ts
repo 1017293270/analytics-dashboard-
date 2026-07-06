@@ -8,8 +8,16 @@ import DataDashboardsView from './DataDashboardsView.vue'
 
 const elementStubs = {
   ElSelect: {
-    props: ['modelValue'],
-    template: '<select><slot /></select>',
+    props: ['modelValue', 'disabled'],
+    emits: ['update:modelValue', 'change'],
+    methods: {
+      handleChange(this: { $emit: (event: string, value: string) => void }, event: Event) {
+        const value = (event.target as HTMLSelectElement).value
+        this.$emit('update:modelValue', value)
+        this.$emit('change', value)
+      },
+    },
+    template: '<select :value="modelValue" :disabled="disabled" v-bind="$attrs" @change="handleChange"><slot /></select>',
   },
   ElOption: {
     props: ['label', 'value'],
@@ -194,7 +202,12 @@ function createDashboardFetchMock(
   workbenchRowsOrError: DashboardListItem[] | Error = demoWorkbenchRows,
 ) {
   let rows = cloneDashboardRows(initialRows)
-
+  let workbenchRows = workbenchRowsOrError instanceof Error
+    ? workbenchRowsOrError
+    : workbenchRowsOrError.map((row) => ({
+        ...row,
+        visibleRoles: row.visibleRoles ? [...row.visibleRoles] : undefined,
+      }))
   return vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
     const requestUrl = String(url)
     const parsedUrl = new URL(requestUrl, 'https://example.test')
@@ -220,11 +233,19 @@ function createDashboardFetchMock(
     }
 
     if (parsedUrl.pathname === '/api/big-screens' && method === 'GET') {
-      if (workbenchRowsOrError instanceof Error) {
-        throw workbenchRowsOrError
+      if (workbenchRows instanceof Error) {
+        throw workbenchRows
       }
 
-      return jsonResponse(workbenchRowsOrError)
+      return jsonResponse(workbenchRows)
+    }
+
+    if (parsedUrl.pathname.startsWith('/api/big-screens/') && parsedUrl.pathname.endsWith('/workbench-settings') && method === 'PATCH') {
+      if (workbenchRows instanceof Error) throw workbenchRows
+      const id = decodeURIComponent(parsedUrl.pathname.replace('/api/big-screens/', '').replace('/workbench-settings', ''))
+      const body = JSON.parse(String(init?.body)) as { visibleRoles: string[]; availability: 'enabled' | 'disabled'; mappedDashboardId?: string }
+      workbenchRows = workbenchRows.map((row) => (row.id === id ? { ...row, ...body } : row))
+      return jsonResponse({ dashboardId: id, ...body })
     }
 
     if (parsedUrl.pathname === '/api/data-dashboards' && method === 'POST') {
@@ -377,6 +398,41 @@ describe('DataDashboardsView', () => {
     )
   })
 
+  test('configures role workbench mapping and updates the browse target', async () => {
+    const mappedWorkbenches = demoWorkbenchRows.map((row) =>
+      row.id === 'dashboard-electro' ? { ...row, mappedDashboardId: 'dashboard-electro' } : row,
+    ) as DashboardListItem[]
+    const { wrapper, fetchMock } = await mountDashboardView(createDashboardFetchMock(demoDashboardRows, mappedWorkbenches))
+
+    expect(wrapper.get('[data-testid="data-center-workbench-dashboard-electro"]').attributes('href')).toBe(
+      '/workbenches/dashboard-electro/preview',
+    )
+
+    await wrapper.get('[data-testid="workbench-mapping-select-dashboard-electro"]').setValue('dashboard-all')
+    expect(wrapper.get('[data-testid="data-center-workbench-dashboard-electro"]').attributes('href')).toBe(
+      '/workbenches/dashboard-electro/preview',
+    )
+
+    await wrapper.get('[data-testid="workbench-mapping-save-dashboard-electro"]').trigger('click')
+    await flushPromises()
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/big-screens/dashboard-electro/workbench-settings',
+      expect.objectContaining({
+        method: 'PATCH',
+        credentials: 'include',
+        body: JSON.stringify({
+          visibleRoles: ['electro-education-director'],
+          availability: 'enabled',
+          mappedDashboardId: 'dashboard-all',
+        }),
+      }),
+    )
+    expect(wrapper.get('[data-testid="data-center-workbench-dashboard-electro"]').attributes('href')).toBe(
+      '/workbenches/dashboard-all/preview',
+    )
+    expect(wrapper.text()).toContain('当前映射：全员工作台')
+  })
   test('opens built-in and embedded dashboard previews from overview cards', async () => {
     const { wrapper } = await mountDashboardView()
 

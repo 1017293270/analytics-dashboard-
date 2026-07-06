@@ -49,6 +49,7 @@ const publishBody = z.object({
 const updateWorkbenchSettingsBody = z.object({
   visibleRoles: z.array(z.string().trim().min(1)).min(1),
   availability: z.enum(['enabled', 'disabled']),
+  mappedDashboardId: z.string().trim().min(1).max(128).optional(),
 })
 
 const dashboardIdParams = z.object({
@@ -268,6 +269,7 @@ dashboardRoutes.get('/big-screens', asyncHandler(async (req, res) => {
             publishedAt: dashboard.publishedAt,
             visibleRoles: setting.visibleRoles,
             availability: setting.availability,
+            mappedDashboardId: setting.mappedDashboardId,
           }
         }),
     ),
@@ -291,17 +293,26 @@ dashboardRoutes.patch('/big-screens/:id/workbench-settings', asyncHandler(async 
     return sendBadRequest(res, 'REQUEST_INVALID', 'Workbench settings are invalid')
   }
 
+  const existingSetting = await prisma.workbenchSetting.findUnique({ where: { dashboardId: dashboard.id } })
+  const mappedDashboardId = body.data.mappedDashboardId ?? existingSetting?.mappedDashboardId ?? dashboard.id
+  const mappedDashboard = await findActiveDashboard(mappedDashboardId)
+  if (!mappedDashboard) {
+    return sendBadRequest(res, 'REQUEST_INVALID', 'Workbench mapping target is invalid')
+  }
+
   const updated = await prisma.$transaction(async (tx) => {
     const setting = await tx.workbenchSetting.upsert({
       where: { dashboardId: dashboard.id },
       update: {
         visibleRoles: JSON.stringify(visibleRoles),
         availability: body.data.availability,
+        mappedDashboardId,
       },
       create: {
         dashboardId: dashboard.id,
         visibleRoles: JSON.stringify(visibleRoles),
         availability: body.data.availability,
+        mappedDashboardId,
       },
     })
 
@@ -310,7 +321,7 @@ dashboardRoutes.patch('/big-screens/:id/workbench-settings', asyncHandler(async 
       'dashboard.workbench_settings.updated',
       dashboard.id,
       actor.actorId,
-      { visibleRoles, availability: body.data.availability },
+      { visibleRoles, availability: body.data.availability, mappedDashboardId },
       tx,
     )
 
@@ -396,6 +407,11 @@ dashboardRoutes.delete('/big-screens/:id', asyncHandler(async (req, res) => {
       data: { status: 'archived', publishedSchema: null, publishedAt: null },
     })
     await tx.dashboardShareLink.updateMany({ where: { dashboardId: dashboard.id }, data: { isEnabled: false } })
+    await tx.$executeRaw`
+      UPDATE "WorkbenchSetting"
+      SET "mappedDashboardId" = "dashboardId"
+      WHERE "mappedDashboardId" = ${dashboard.id}
+    `
     await recordAudit('dashboard.archived', dashboard.id, actor.actorId, { previousStatus: dashboard.status }, tx)
     return archivedDashboard
   })

@@ -99,6 +99,86 @@ describe('dashboard routes', () => {
       availability: 'disabled',
     })
   })
+  test('admin can update workbench mapped dashboard and list returns persisted mapping', async () => {
+    const app = createApp()
+    const admin = await loginAs(app)
+
+    const created = await admin
+      .post('/api/big-screens')
+      .send({ name: '校级态势大屏', description: '数据中心映射目标' })
+      .expect(201)
+
+    const updated = await admin
+      .patch('/api/big-screens/dashboard-electro/workbench-settings')
+      .send({
+        visibleRoles: ['electro-education-director'],
+        availability: 'enabled',
+        mappedDashboardId: created.body.data.id,
+      })
+      .expect(200)
+
+    expect(updated.body.data).toMatchObject({
+      dashboardId: 'dashboard-electro',
+      visibleRoles: ['electro-education-director'],
+      availability: 'enabled',
+      mappedDashboardId: created.body.data.id,
+    })
+
+    const listed = await admin.get('/api/big-screens').expect(200)
+    const electro = listed.body.data.find((dashboard: { id: string }) => dashboard.id === 'dashboard-electro')
+
+    expect(electro).toMatchObject({
+      id: 'dashboard-electro',
+      mappedDashboardId: created.body.data.id,
+    })
+  })
+
+  test('rejects workbench mapping to an unknown dashboard', async () => {
+    const app = createApp()
+    const admin = await loginAs(app)
+
+    const response = await admin
+      .patch('/api/big-screens/dashboard-electro/workbench-settings')
+      .send({
+        visibleRoles: ['electro-education-director'],
+        availability: 'enabled',
+        mappedDashboardId: 'missing-dashboard',
+      })
+      .expect(400)
+
+    expect(response.body.error.code).toBe('REQUEST_INVALID')
+  })
+  test('archives mapped dashboard targets without blocking later workbench setting updates', async () => {
+    const app = createApp()
+    const admin = await loginAs(app)
+
+    const created = await admin
+      .post('/api/big-screens')
+      .send({ name: '临时映射大屏', description: '稍后归档' })
+      .expect(201)
+
+    await admin
+      .patch('/api/big-screens/dashboard-electro/workbench-settings')
+      .send({
+        visibleRoles: ['electro-education-director'],
+        availability: 'enabled',
+        mappedDashboardId: created.body.data.id,
+      })
+      .expect(200)
+
+    await admin.delete(`/api/big-screens/${created.body.data.id}`).expect(200)
+
+    const updated = await admin
+      .patch('/api/big-screens/dashboard-electro/workbench-settings')
+      .send({ visibleRoles: ['electro-education-director'], availability: 'disabled' })
+      .expect(200)
+
+    expect(updated.body.data).toMatchObject({
+      dashboardId: 'dashboard-electro',
+      availability: 'disabled',
+      mappedDashboardId: 'dashboard-electro',
+    })
+  })
 
   test('non-admin cannot update workbench settings', async () => {
     const app = createApp()

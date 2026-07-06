@@ -194,12 +194,14 @@ describe('DashboardList', () => {
         name: '电教主任工作台',
         visibleRoles: ['all-staff', 'electro-education-director'],
         availability: 'disabled',
+        mappedDashboardId: 'dashboard-electro',
       }),
       createListItem({
         id: 'dashboard-moral',
         name: '德育主任工作台',
         visibleRoles: ['moral-education-director'],
         availability: 'enabled',
+        mappedDashboardId: 'dashboard-electro',
       }),
     ])
 
@@ -282,6 +284,7 @@ describe('DashboardList', () => {
         name: '电教主任工作台',
         visibleRoles: ['electro-education-director'],
         availability: 'enabled',
+        mappedDashboardId: 'dashboard-electro',
       }),
     ])
     vi.mocked(bigScreenApi.updateWorkbenchSettings)
@@ -289,11 +292,13 @@ describe('DashboardList', () => {
         dashboardId: 'dashboard-electro',
         visibleRoles: ['electro-education-director'],
         availability: 'disabled',
+        mappedDashboardId: 'dashboard-electro',
       })
       .mockResolvedValueOnce({
         dashboardId: 'dashboard-electro',
         visibleRoles: ['electro-education-director'],
         availability: 'enabled',
+        mappedDashboardId: 'dashboard-electro',
       })
 
     const { wrapper } = await mountList()
@@ -331,12 +336,14 @@ describe('DashboardList', () => {
         name: '电教主任工作台',
         visibleRoles: ['electro-education-director'],
         availability: 'enabled',
+        mappedDashboardId: 'dashboard-electro',
       }),
     ])
     vi.mocked(bigScreenApi.updateWorkbenchSettings).mockResolvedValue({
       dashboardId: 'dashboard-electro',
       visibleRoles: ['electro-education-director'],
       availability: 'disabled',
+      mappedDashboardId: 'dashboard-electro',
     })
 
     const getItem = vi.mocked(window.localStorage.getItem)
